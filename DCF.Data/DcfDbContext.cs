@@ -1,0 +1,42 @@
+using System.Text.Json;
+using DCF.Data.Entities;
+using DCF.ScoreScraper.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace DCF.Data;
+
+public class DcfDbContext(DbContextOptions<DcfDbContext> options) : DbContext(options)
+{
+    public DbSet<SeasonEntity> Seasons => Set<SeasonEntity>();
+    public DbSet<CorpsEntity> Corps => Set<CorpsEntity>();
+    public DbSet<SeasonCorpsEntity> SeasonCorps => Set<SeasonCorpsEntity>();
+    public DbSet<ShowEntity> Shows => Set<ShowEntity>();
+    public DbSet<ShowCorpsEntity> ShowCorps => Set<ShowCorpsEntity>();
+    public DbSet<ScoreEntity> Scores => Set<ScoreEntity>();
+    public DbSet<UserEntity> Users => Set<UserEntity>();
+    public DbSet<LeagueEntity> Leagues => Set<LeagueEntity>();
+    public DbSet<LeagueMemberEntity> LeagueMembers => Set<LeagueMemberEntity>();
+    public DbSet<DraftPickEntity> DraftPicks => Set<DraftPickEntity>();
+
+    protected override void OnModelCreating(ModelBuilder mb)
+    {
+        mb.Entity<SeasonCorpsEntity>().HasKey(e => new { e.SeasonId, e.CorpsId });
+        mb.Entity<ShowCorpsEntity>().HasKey(e => new { e.ShowId, e.CorpsId });
+        mb.Entity<LeagueMemberEntity>().HasKey(e => new { e.LeagueId, e.UserId });
+
+        mb.Entity<DraftPickEntity>()
+            .HasIndex(e => new { e.LeagueId, e.CorpsId, e.Caption })
+            .IsUnique();
+
+        mb.Entity<UserEntity>()
+            .HasIndex(e => e.Auth0Sub)
+            .IsUnique();
+
+        mb.Entity<LeagueEntity>()
+            .Property(e => e.DraftableCaptions)
+            .HasColumnType("jsonb")
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, JsonSerializerOptions.Default),
+                v => JsonSerializer.Deserialize<Caption[]>(v, JsonSerializerOptions.Default) ?? Array.Empty<Caption>());
+    }
+}
