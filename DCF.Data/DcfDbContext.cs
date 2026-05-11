@@ -28,9 +28,22 @@ public class DcfDbContext(DbContextOptions<DcfDbContext> options) : DbContext(op
             .HasIndex(e => new { e.LeagueId, e.CorpsId, e.Caption })
             .IsUnique();
 
+        mb.Entity<ScoreEntity>()
+            .HasIndex(e => new { e.CorpsId, e.ShowId, e.Caption })
+            .IsUnique();
+
         mb.Entity<UserEntity>()
             .HasIndex(e => e.Auth0Sub)
             .IsUnique();
+
+        mb.Entity<LeagueEntity>()
+            .HasIndex(e => e.InviteCode)
+            .IsUnique();
+
+        mb.Entity<ScoreEntity>().HasIndex(e => e.ShowId);
+        mb.Entity<DraftPickEntity>().HasIndex(e => new { e.UserId, e.LeagueId });
+        mb.Entity<SeasonEntity>().HasIndex(e => e.Year).IsUnique();
+        mb.Entity<CorpsEntity>().HasIndex(e => e.Name).IsUnique();
 
         mb.Entity<LeagueEntity>()
             .Property(e => e.DraftableCaptions)

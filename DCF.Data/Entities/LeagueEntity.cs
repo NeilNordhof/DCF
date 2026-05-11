@@ -2,8 +2,6 @@ using DCF.ScoreScraper.Models;
 
 namespace DCF.Data.Entities;
 
-public enum DraftStatus { NotStarted, Scheduled, InProgress, Completed }
-
 public class LeagueEntity
 {
     public Guid Id { get; set; }
