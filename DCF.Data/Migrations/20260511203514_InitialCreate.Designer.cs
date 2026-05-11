@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DCF.Data.Migrations
 {
     [DbContext(typeof(DcfDbContext))]
-    [Migration("20260511202443_InitialCreate")]
+    [Migration("20260511203514_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -85,9 +85,6 @@ namespace DCF.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("CommissionerId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid>("CommissionerUserId")
                         .HasColumnType("uuid");
 
@@ -127,7 +124,7 @@ namespace DCF.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CommissionerId");
+                    b.HasIndex("CommissionerUserId");
 
                     b.HasIndex("InviteCode")
                         .IsUnique();
@@ -338,7 +335,7 @@ namespace DCF.Data.Migrations
                 {
                     b.HasOne("DCF.Data.Entities.UserEntity", "Commissioner")
                         .WithMany("CommissionedLeagues")
-                        .HasForeignKey("CommissionerId")
+                        .HasForeignKey("CommissionerUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

@@ -40,6 +40,11 @@ public class DcfDbContext(DbContextOptions<DcfDbContext> options) : DbContext(op
             .HasIndex(e => e.InviteCode)
             .IsUnique();
 
+        mb.Entity<LeagueEntity>()
+            .HasOne(e => e.Commissioner)
+            .WithMany(u => u.CommissionedLeagues)
+            .HasForeignKey(e => e.CommissionerUserId);
+
         mb.Entity<ScoreEntity>().HasIndex(e => e.ShowId);
         mb.Entity<DraftPickEntity>().HasIndex(e => new { e.UserId, e.LeagueId });
         mb.Entity<SeasonEntity>().HasIndex(e => e.Year).IsUnique();

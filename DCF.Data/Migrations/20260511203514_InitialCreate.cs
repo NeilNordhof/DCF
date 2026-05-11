@@ -105,7 +105,6 @@ namespace DCF.Data.Migrations
                     Name = table.Column<string>(type: "text", nullable: false),
                     SeasonId = table.Column<Guid>(type: "uuid", nullable: false),
                     CommissionerUserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CommissionerId = table.Column<Guid>(type: "uuid", nullable: false),
                     IsPublic = table.Column<bool>(type: "boolean", nullable: false),
                     InviteCode = table.Column<string>(type: "text", nullable: false),
                     CorpsPerCaption = table.Column<int>(type: "integer", nullable: false),
@@ -125,8 +124,8 @@ namespace DCF.Data.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_Leagues_Users_CommissionerId",
-                        column: x => x.CommissionerId,
+                        name: "FK_Leagues_Users_CommissionerUserId",
+                        column: x => x.CommissionerUserId,
                         principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -276,9 +275,9 @@ namespace DCF.Data.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Leagues_CommissionerId",
+                name: "IX_Leagues_CommissionerUserId",
                 table: "Leagues",
-                column: "CommissionerId");
+                column: "CommissionerUserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Leagues_InviteCode",
