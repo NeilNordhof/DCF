@@ -1,17 +1,18 @@
-﻿using DCF.ScoreScraper.Services;
+using DCF.ScoreScraper.Models;
+using DCF.ScoreScraper.Services;
+using DCF.ScoreScraper.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Text;
 
-namespace DCF.ScoreScraper
+namespace DCF.ScoreScraper;
+
+public static class ServiceCollectionExtensions
 {
-    public static class ServiceCollectionExtensions
+    public static IServiceCollection AddScoreScraper(
+        this IServiceCollection services,
+        IEnumerable<Corps> corps)
     {
-        public static IServiceCollection AddServices(this IServiceCollection services)
-        {
-            return services.AddSingleton<ICorpsSevice, CorpsSevice>();
-        }
+        services.AddSingleton<ICorpsService>(new CorpsService(corps));
+        services.AddHttpClient<IRecapScraperTask, RecapScraperTask>();
+        return services;
     }
 }

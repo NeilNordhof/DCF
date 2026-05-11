@@ -13,6 +13,8 @@
         Brass,
         MusicAnalysis,
         Percussion,
-        Penalty
+        SubTotal,
+        Penalty,
+        Total
     }
 }
