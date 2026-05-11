@@ -45,6 +45,9 @@ public class RecapScraperTask : IRecapScraperTask
 
     public async Task<List<Result>> ScrapeAsync(Show show)
     {
+        if (!show.URL.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"Show URL must use HTTPS: {show.URL}");
+
         var html = await _httpClient.GetStringAsync(show.URL);
         var doc = new HtmlDocument();
         doc.LoadHtml(html);

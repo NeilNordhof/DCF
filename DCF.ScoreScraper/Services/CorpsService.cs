@@ -11,5 +11,5 @@ public class CorpsService : ICorpsService
         _corps = corps.ToDictionary(c => c.Name, c => c);
     }
 
-    public Dictionary<string, Corps> GetCorps() => _corps;
+    public IReadOnlyDictionary<string, Corps> GetCorps() => _corps;
 }

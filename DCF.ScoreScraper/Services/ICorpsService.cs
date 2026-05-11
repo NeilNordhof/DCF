@@ -4,5 +4,5 @@ namespace DCF.ScoreScraper.Services;
 
 public interface ICorpsService
 {
-    Dictionary<string, Corps> GetCorps();
+    IReadOnlyDictionary<string, Corps> GetCorps();
 }
