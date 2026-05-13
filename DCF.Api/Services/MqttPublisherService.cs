@@ -1,10 +1,57 @@
 using Microsoft.Extensions.Hosting;
+using MQTTnet;
+using MQTTnet.Client;
+using MQTTnet.Protocol;
+using System.Text.Json;
 
 namespace DCF.Api.Services;
 
-public class MqttPublisherService : IHostedService, IMqttPublisherService
+public class MqttPublisherService : IMqttPublisherService, IHostedService
 {
-    public Task PublishAsync(string topic, string payload) => Task.CompletedTask;
-    public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    private readonly IMqttClient _client;
+    private readonly string _host;
+    private readonly int _port;
+    private readonly ILogger<MqttPublisherService> _logger;
+
+    public MqttPublisherService(IConfiguration config, ILogger<MqttPublisherService> logger)
+    {
+        _host = config["Mqtt:Host"] ?? "localhost";
+        _port = int.Parse(config["Mqtt:Port"] ?? "1883");
+        _logger = logger;
+        _client = new MqttFactory().CreateMqttClient();
+    }
+
+    public async Task StartAsync(CancellationToken ct)
+    {
+        var options = new MqttClientOptionsBuilder()
+            .WithTcpServer(_host, _port)
+            .WithCleanStart()
+            .Build();
+        try
+        {
+            await _client.ConnectAsync(options, ct);
+            _logger.LogInformation("MQTT connected to {Host}:{Port}", _host, _port);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "MQTT connection failed — publishing will be silently skipped");
+        }
+    }
+
+    public async Task StopAsync(CancellationToken ct)
+    {
+        if (_client.IsConnected)
+            await _client.DisconnectAsync(cancellationToken: ct);
+    }
+
+    public async Task PublishAsync(string topic, object payload, CancellationToken ct = default)
+    {
+        if (!_client.IsConnected) return;
+        var message = new MqttApplicationMessageBuilder()
+            .WithTopic(topic)
+            .WithPayload(JsonSerializer.Serialize(payload))
+            .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+            .Build();
+        await _client.PublishAsync(message, ct);
+    }
 }

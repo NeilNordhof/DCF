@@ -1,4 +1,3 @@
-using System.Text.Json;
 using DCF.Api.Models;
 using DCF.Api.Services;
 using DCF.Data;
@@ -150,7 +149,7 @@ public class AdminController(
         var show = await db.Shows.Include(s => s.ShowCorps).FirstOrDefaultAsync(s => s.Id == id);
         if (show is null) return NotFound();
         await scrapeScheduler.ExecuteScrapeAsync(show);
-        await mqtt.PublishAsync("dcf/scores/updated", JsonSerializer.Serialize(new { ShowId = id }));
+        await mqtt.PublishAsync("dcf/scores/updated", new { ShowId = id });
         return Ok();
     }
 }
