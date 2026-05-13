@@ -1,4 +1,5 @@
-import mqtt, { MqttClient } from 'mqtt';
+import mqtt from 'mqtt';
+import type { MqttClient } from 'mqtt';
 import { useEffect, useRef, useState } from 'react';
 
 const MQTT_URL = import.meta.env.VITE_MQTT_URL as string;

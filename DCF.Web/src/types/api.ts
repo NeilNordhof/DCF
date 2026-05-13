@@ -64,4 +64,5 @@ export interface CreateLeagueRequest {
   isPublic: boolean;
   corpsPerCaption: number;
   draftableCaptions: string[];
+  draftStartTime?: string | null;
 }
