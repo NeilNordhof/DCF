@@ -26,8 +26,8 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
 
         var shuffled = league.Members
             .Select(m => m.UserId.ToString())
-            .OrderBy(_ => Guid.NewGuid())
             .ToArray();
+        Random.Shared.Shuffle(shuffled);
 
         league.DraftOrderJson = JsonSerializer.Serialize(shuffled);
         league.CurrentPickNumber = 0;
@@ -82,7 +82,9 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
 
     public async Task SkipCurrentPickAsync(Guid leagueId, Guid commissionerUserId)
     {
-        var league = await db.Leagues.FindAsync(leagueId)
+        var league = await db.Leagues
+            .Include(l => l.Members)
+            .FirstOrDefaultAsync(l => l.Id == leagueId)
             ?? throw new ArgumentException("League not found");
 
         if (league.CommissionerUserId != commissionerUserId)
@@ -91,7 +93,13 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
         if (league.DraftStatus != DraftStatus.InProgress)
             throw new InvalidOperationException("Draft is not in progress");
 
+        var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson)!;
+        int totalPicks = league.Members.Count * league.DraftableCaptions.Length * league.CorpsPerCaption;
+
         league.CurrentPickNumber++;
+        if (league.CurrentPickNumber >= totalPicks)
+            league.DraftStatus = DraftStatus.Completed;
+
         await db.SaveChangesAsync();
         await PublishDraftStateAsync(league);
     }
