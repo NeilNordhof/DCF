@@ -6,9 +6,13 @@ import type { UserProfile } from '../types/api';
 export function Profile() {
   const { logout } = useAuth0();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { api.upsertUser().then(setProfile); }, []);
+  useEffect(() => {
+    api.upsertUser().then(setProfile).catch(() => setError('Failed to load profile.'));
+  }, []);
 
+  if (error) return <div>{error}</div>;
   if (!profile) return <div>Loading...</div>;
 
   return (
