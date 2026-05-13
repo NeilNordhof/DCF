@@ -54,7 +54,7 @@ public class MqttPublisherService : IMqttPublisherService, IHostedService
             if (!_client.IsConnected) return;
             var message = new MqttApplicationMessageBuilder()
                 .WithTopic(topic)
-                .WithPayload(JsonSerializer.Serialize(payload))
+                .WithPayload(JsonSerializer.Serialize(payload, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }))
                 .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
                 .Build();
             await _client.PublishAsync(message, ct);

@@ -38,6 +38,7 @@ public class LeaguesController(
             .Select(l => new
             {
                 l.Id, l.Name, l.IsPublic, l.DraftStatus, l.DraftStartTime,
+                l.CommissionerUserId,
                 SeasonYear = l.Season.Year, IsMember = myLeagueIds.Contains(l.Id),
                 MemberCount = l.Members.Count
             })
@@ -134,6 +135,7 @@ public class LeaguesController(
         {
             league.Id, league.Name, league.IsPublic, league.InviteCode,
             league.DraftStatus, league.DraftStartTime, league.CorpsPerCaption,
+            league.CommissionerUserId,
             DraftableCaptions = league.DraftableCaptions.Select(c => c.ToString()),
             SeasonYear = league.Season.Year,
             Members = league.Members.Select(m => new { m.UserId, m.User.DisplayName }),
