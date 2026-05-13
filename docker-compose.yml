@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: dcf
       POSTGRES_USER: dcf
-      POSTGRES_PASSWORD: dcf_dev
+      POSTGRES_PASSWORD: dcf_dev_password
     ports:
       - "5432:5432"
     volumes:
@@ -24,16 +24,14 @@ services:
       dockerfile: DCF.Api/Dockerfile
     ports:
       - "5000:8080"
-    environment:
-      ConnectionStrings__Default: "Host=postgres;Database=dcf;Username=dcf;Password=dcf_dev"
-      Mqtt__Host: mosquitto
-      Mqtt__Port: "1883"
-      Auth0__Domain: "${AUTH0_DOMAIN}"
-      Auth0__Audience: "${AUTH0_AUDIENCE}"
-      Scraper__DelayMinutes: "5"
     depends_on:
       - postgres
       - mosquitto
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=dcf;Username=dcf;Password=dcf_dev_password
+      - Auth0__Domain=${AUTH0_DOMAIN:-your-tenant.auth0.com}
+      - Auth0__Audience=${AUTH0_AUDIENCE:-https://your-api-audience}
+      - Mqtt__Host=mosquitto
 
 volumes:
   postgres_data:
