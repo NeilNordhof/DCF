@@ -48,6 +48,7 @@ public class AdminController(
     public async Task<IActionResult> ActivateSeason(Guid id)
     {
         if (!await IsAdminAsync()) return Forbid();
+        if (!await db.Seasons.AnyAsync(s => s.Id == id)) return NotFound();
         await db.Seasons.ExecuteUpdateAsync(s => s.SetProperty(x => x.IsActive, false));
         await db.Seasons.Where(s => s.Id == id)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.IsActive, true));
@@ -78,6 +79,7 @@ public class AdminController(
     public async Task<IActionResult> SetSeasonCorps(Guid seasonId, SetSeasonCorpsRequest req)
     {
         if (!await IsAdminAsync()) return Forbid();
+        if (!await db.Seasons.AnyAsync(s => s.Id == seasonId)) return NotFound();
         var existing = await db.SeasonCorps.Where(sc => sc.SeasonId == seasonId).ToListAsync();
         db.SeasonCorps.RemoveRange(existing);
         db.SeasonCorps.AddRange(req.CorpsIds.Select(cId =>
@@ -134,7 +136,8 @@ public class AdminController(
         db.ShowCorps.AddRange(req.CorpsIds.Select(cId =>
             new ShowCorpsEntity { ShowId = id, CorpsId = cId }));
         await db.SaveChangesAsync();
-        scrapeScheduler.ScheduleScrape(show);
+        var updatedShow = await db.Shows.Include(s => s.ShowCorps).FirstAsync(s => s.Id == id);
+        scrapeScheduler.ScheduleScrape(updatedShow);
         return NoContent();
     }
 

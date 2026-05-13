@@ -7,7 +7,6 @@ public record CreateShowRequest(
     string Url,
     DateOnly Date,
     DateTimeOffset ScoresAnnouncedTime,
-    Guid SeasonId,
     List<Guid> CorpsIds);
 public record UpdateShowRequest(
     string Name,
