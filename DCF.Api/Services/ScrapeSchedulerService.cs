@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using DCF.Data;
 using DCF.Data.Entities;
 using DCF.ScoreScraper.Models;
@@ -14,7 +15,7 @@ public class ScrapeSchedulerService(
     IConfiguration config,
     ILogger<ScrapeSchedulerService> logger) : BackgroundService
 {
-    private readonly Dictionary<Guid, CancellationTokenSource> _scheduled = new();
+    private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _scheduled = new();
     private readonly int _delayMinutes = config.GetValue<int>("Scraper:DelayMinutes", 5);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -33,10 +34,10 @@ public class ScrapeSchedulerService(
 
     public void ScheduleScrape(ShowEntity show)
     {
-        if (_scheduled.TryGetValue(show.Id, out var existing))
+        if (_scheduled.TryRemove(show.Id, out var existing))
         {
             existing.Cancel();
-            _scheduled.Remove(show.Id);
+            existing.Dispose();
         }
 
         var cts = new CancellationTokenSource();
@@ -44,15 +45,23 @@ public class ScrapeSchedulerService(
 
         _ = Task.Run(async () =>
         {
-            var fireAt = show.ScoresAnnouncedTime.AddMinutes(_delayMinutes);
-            var delay = fireAt - DateTimeOffset.UtcNow;
-            if (delay > TimeSpan.Zero)
-                await Task.Delay(delay, cts.Token);
-            if (cts.Token.IsCancellationRequested) return;
+            try
+            {
+                var fireAt = show.ScoresAnnouncedTime.AddMinutes(_delayMinutes);
+                var delay = fireAt - DateTimeOffset.UtcNow;
+                if (delay > TimeSpan.Zero)
+                    await Task.Delay(delay, cts.Token);
+                if (cts.Token.IsCancellationRequested) return;
 
-            await ExecuteScrapeAsync(show);
-            await mqtt.PublishAsync("dcf/scores/updated", new { ShowId = show.Id });
-        }, cts.Token);
+                await ExecuteScrapeAsync(show);
+                await mqtt.PublishAsync("dcf/scores/updated", new { ShowId = show.Id });
+            }
+            catch (OperationCanceledException) { /* expected when rescheduled */ }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Scheduled scrape task failed for show {ShowId}", show.Id);
+            }
+        });
     }
 
     public async Task ExecuteScrapeAsync(ShowEntity show)
@@ -60,13 +69,21 @@ public class ScrapeSchedulerService(
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
 
-        var showCorpsIds = show.ShowCorps.Select(sc => sc.CorpsId).ToHashSet();
+        // Reload to ensure ShowCorps is populated regardless of caller context
+        var freshShow = await db.Shows.Include(s => s.ShowCorps).FirstOrDefaultAsync(s => s.Id == show.Id);
+        if (freshShow is null)
+        {
+            logger.LogWarning("Show {ShowId} not found during scrape", show.Id);
+            return;
+        }
+
+        var showCorpsIds = freshShow.ShowCorps.Select(sc => sc.CorpsId).ToHashSet();
         var corpsList = await db.Corps
             .Where(c => showCorpsIds.Contains(c.Id))
             .ToListAsync();
 
         var scraperCorps = corpsList.Select(c => new Corps(c.Id, c.Name));
-        var scraperShow = new Show(show.Id, show.Name, show.Url, show.Date);
+        var scraperShow = new Show(freshShow.Id, freshShow.Name, freshShow.Url, freshShow.Date);
 
         var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
         var scraper = new RecapScraperTask(
@@ -80,7 +97,7 @@ public class ScrapeSchedulerService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Scrape failed for show {ShowId}", show.Id);
+            logger.LogError(ex, "Scrape failed for show {ShowId}", freshShow.Id);
             return;
         }
 
