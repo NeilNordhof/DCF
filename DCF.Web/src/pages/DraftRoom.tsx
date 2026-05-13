@@ -13,16 +13,19 @@ export function DraftRoom() {
   const [selectedCorps, setSelectedCorps] = useState('');
   const [selectedCaption, setSelectedCaption] = useState('');
   const [myProfile, setMyProfile] = useState<{ id: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const draftState = useMqtt<DraftState>(`dcf/leagues/${id}/draft`);
 
   useEffect(() => {
     if (!id) return;
-    api.getLeague(id).then(setLeague);
-    api.adminGetCorps().then(setCorps);
-    api.upsertUser().then(p => setMyProfile(p));
+    api.getLeague(id).then(setLeague).catch(() => setError('Failed to load league.'));
+    api.adminGetCorps().then(setCorps).catch(() => {});
+    api.upsertUser().then(p => setMyProfile(p)).catch(() => {});
   }, [id]);
 
+  if (error) return <div>{error}</div>;
   if (!league) return <div>Loading...</div>;
 
   const isMyTurn = draftState?.status === 'InProgress' &&
@@ -40,14 +43,19 @@ export function DraftRoom() {
   );
 
   const submitPick = async () => {
-    if (!id || !selectedCorps || !selectedCaption) return;
-    await api.submitPick(id, selectedCorps, selectedCaption);
-    setSelectedCorps('');
-    setSelectedCaption('');
+    if (!id || !selectedCorps || !selectedCaption || submitting) return;
+    setSubmitting(true);
+    try {
+      await api.submitPick(id, selectedCorps, selectedCaption);
+      setSelectedCorps('');
+      setSelectedCaption('');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const skipPick = () => id && api.skipPick(id);
-  const startDraft = () => id && api.startDraft(id);
+  const skipPick = () => id && api.skipPick(id).catch(() => {});
+  const startDraft = () => id && api.startDraft(id).catch(() => {});
 
   // Lobby view
   if (!draftState || draftState.status === 'NotStarted' || draftState.status === 'Scheduled') {
@@ -112,7 +120,7 @@ export function DraftRoom() {
               .map(cap => <option key={cap} value={cap}>{cap}</option>)
             }
           </select>
-          <button onClick={submitPick} disabled={!selectedCorps || !selectedCaption}>
+          <button onClick={submitPick} disabled={!selectedCorps || !selectedCaption || submitting}>
             Submit Pick
           </button>
         </div>
