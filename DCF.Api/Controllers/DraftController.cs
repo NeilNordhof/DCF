@@ -27,7 +27,8 @@ public class DraftController(DcfDbContext db, DraftService draftService) : Contr
         var league = await db.Leagues.FindAsync(leagueId);
         if (league is null) return NotFound();
         if (league.CommissionerUserId != user.Id) return Forbid();
-        if (league.DraftStatus == DraftStatus.InProgress) return BadRequest("Draft already started");
+        if (league.DraftStatus != DraftStatus.NotStarted && league.DraftStatus != DraftStatus.Scheduled)
+            return BadRequest("Draft is already started or completed");
 
         await draftService.StartDraftAsync(leagueId);
         return Ok();

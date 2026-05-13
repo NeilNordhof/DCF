@@ -34,8 +34,6 @@ public class LeaguesController(
             .ToListAsync();
 
         var leagues = await db.Leagues
-            .Include(l => l.Season)
-            .Include(l => l.Members)
             .Where(l => l.IsPublic || myLeagueIds.Contains(l.Id))
             .Select(l => new
             {
@@ -91,7 +89,10 @@ public class LeaguesController(
 
         if (!league.IsPublic)
         {
-            if (req.InviteCode != league.InviteCode)
+            if (req.InviteCode is null ||
+                !CryptographicOperations.FixedTimeEquals(
+                    System.Text.Encoding.UTF8.GetBytes(req.InviteCode),
+                    System.Text.Encoding.UTF8.GetBytes(league.InviteCode)))
                 return BadRequest("Invalid invite code");
         }
 
