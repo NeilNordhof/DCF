@@ -12,11 +12,12 @@ public class MqttPublisherService : IMqttPublisherService, IHostedService
     private readonly string _host;
     private readonly int _port;
     private readonly ILogger<MqttPublisherService> _logger;
+    private readonly SemaphoreSlim _lock = new(1, 1);
 
     public MqttPublisherService(IConfiguration config, ILogger<MqttPublisherService> logger)
     {
         _host = config["Mqtt:Host"] ?? "localhost";
-        _port = int.Parse(config["Mqtt:Port"] ?? "1883");
+        _port = config.GetValue<int>("Mqtt:Port", 1883);
         _logger = logger;
         _client = new MqttFactory().CreateMqttClient();
     }
@@ -47,11 +48,24 @@ public class MqttPublisherService : IMqttPublisherService, IHostedService
     public async Task PublishAsync(string topic, object payload, CancellationToken ct = default)
     {
         if (!_client.IsConnected) return;
-        var message = new MqttApplicationMessageBuilder()
-            .WithTopic(topic)
-            .WithPayload(JsonSerializer.Serialize(payload))
-            .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-            .Build();
-        await _client.PublishAsync(message, ct);
+        await _lock.WaitAsync(ct);
+        try
+        {
+            if (!_client.IsConnected) return;
+            var message = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(JsonSerializer.Serialize(payload))
+                .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                .Build();
+            await _client.PublishAsync(message, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "MQTT publish failed for topic {Topic}", topic);
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 }
