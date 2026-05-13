@@ -26,6 +26,22 @@ public class AuthController(DcfDbContext db) : ControllerBase
         {
             user = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = sub, Email = email, DisplayName = name };
             db.Users.Add(user);
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                if (!await db.Users.AnyAsync(u => u.Auth0Sub == sub))
+                    throw;
+                db.ChangeTracker.Clear();
+                user = await db.Users.FirstAsync(u => u.Auth0Sub == sub);
+            }
+        }
+        else
+        {
+            user.Email = email;
+            user.DisplayName = name;
             await db.SaveChangesAsync();
         }
 
