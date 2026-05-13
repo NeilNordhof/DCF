@@ -19,6 +19,7 @@ export function useMqtt<T>(topic: string) {
         // ignore malformed messages
       }
     });
+    client.on('error', () => { /* ignore connection errors */ });
 
     return () => { client.end(); };
   }, [topic]);

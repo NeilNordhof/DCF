@@ -11,7 +11,9 @@ export function AdminRoute({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isAuthenticated) { setChecking(false); return; }
-    api.upsertUser().then(p => { setProfile(p); setChecking(false); });
+    api.upsertUser()
+      .then(p => { setProfile(p); setChecking(false); })
+      .catch(() => setChecking(false));
   }, [isAuthenticated]);
 
   if (isLoading || checking) return <div>Loading...</div>;

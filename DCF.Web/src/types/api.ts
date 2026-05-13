@@ -58,3 +58,10 @@ export interface UserProfile {
   displayName: string;
   isAdmin: boolean;
 }
+
+export interface CreateLeagueRequest {
+  name: string;
+  isPublic: boolean;
+  corpsPerCaption: number;
+  draftableCaptions: string[];
+}
