@@ -36,6 +36,8 @@ builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
      .AllowAnyMethod()
      .AllowAnyHeader()));
 
+builder.Services.AddHttpClient();
+
 var app = builder.Build();
 app.UseCors();
 app.UseAuthentication();
