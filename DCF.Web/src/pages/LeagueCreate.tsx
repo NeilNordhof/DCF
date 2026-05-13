@@ -13,6 +13,8 @@ export function LeagueCreate() {
   const [corpsPerCaption, setCorpsPerCaption] = useState(3);
   const [captions, setCaptions] = useState<string[]>(['GeneralEffect', 'Visual', 'ColorGuard', 'Brass', 'Percussion', 'Music']);
   const [draftStartTime, setDraftStartTime] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const toggle = (caption: string) =>
     setCaptions(prev =>
@@ -21,12 +23,19 @@ export function LeagueCreate() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const league = await api.createLeague({
-      name, isPublic, corpsPerCaption,
-      draftableCaptions: captions,
-      draftStartTime: draftStartTime || null,
-    });
-    navigate(`/leagues/${league.id}`);
+    setSubmitting(true);
+    setError(null);
+    try {
+      const league = await api.createLeague({
+        name, isPublic, corpsPerCaption,
+        draftableCaptions: captions,
+        draftStartTime: draftStartTime || null,
+      });
+      navigate(`/leagues/${league.id}`);
+    } catch {
+      setError('Failed to create league. Please try again.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -44,7 +53,8 @@ export function LeagueCreate() {
         ))}
       </fieldset>
       <label>Draft Start Time (optional): <input type="datetime-local" value={draftStartTime} onChange={e => setDraftStartTime(e.target.value)} /></label>
-      <button type="submit">Create</button>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <button type="submit" disabled={submitting}>Create</button>
     </form>
   );
 }

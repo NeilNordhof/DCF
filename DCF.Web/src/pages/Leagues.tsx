@@ -5,8 +5,13 @@ import type { League } from '../types/api';
 
 export function Leagues() {
   const [leagues, setLeagues] = useState<League[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { api.getLeagues().then(setLeagues); }, []);
+  useEffect(() => {
+    api.getLeagues().then(setLeagues).catch(() => setError('Failed to load leagues.'));
+  }, []);
+
+  if (error) return <div>{error}</div>;
 
   return (
     <div>

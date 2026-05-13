@@ -10,17 +10,19 @@ export function LeagueDetail() {
   const { user: _user } = useAuth0();
   const [league, setLeague] = useState<League | null>(null);
   const [standings, setStandings] = useState<Standing[]>([]);
+  const [error, setError] = useState<string | null>(null);
   useMqtt(`dcf/leagues/${id}/draft`);
   const scoresUpdated = useMqtt<{ showId: string }>('dcf/scores/updated');
 
   useEffect(() => {
-    if (id) api.getLeague(id).then(setLeague);
+    if (id) api.getLeague(id).then(setLeague).catch(() => setError('Failed to load league.'));
   }, [id]);
 
   useEffect(() => {
-    if (id) api.getStandings(id).then(setStandings);
+    if (id) api.getStandings(id).then(setStandings).catch(() => {});
   }, [id, scoresUpdated]);
 
+  if (error) return <div>{error}</div>;
   if (!league) return <div>Loading...</div>;
 
   const joinLeague = async () => {
