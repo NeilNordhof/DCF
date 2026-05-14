@@ -1,4 +1,4 @@
-using DCF.ScoreScraper.Models;
+using DCF.Data.Models;
 
 namespace DCF.Api.Models;
 

@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using DCF.Data;
-using DCF.Data.Entities;
+using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 

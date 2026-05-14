@@ -1,8 +1,6 @@
-using DCF.Data;
-using DCF.Data.Entities;
+using DCF.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace DCF.Api.Controllers;
@@ -10,7 +8,7 @@ namespace DCF.Api.Controllers;
 [ApiController]
 [Route("api/auth")]
 [Authorize]
-public class AuthController(DcfDbContext db) : ControllerBase
+public class AuthController(UserService userService) : ControllerBase
 {
     [HttpPost("me")]
     public async Task<IActionResult> UpsertUser()
@@ -21,30 +19,7 @@ public class AuthController(DcfDbContext db) : ControllerBase
         var email = User.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
         var name = User.FindFirstValue("name") ?? email;
 
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == sub);
-        if (user is null)
-        {
-            user = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = sub, Email = email, DisplayName = name };
-            db.Users.Add(user);
-            try
-            {
-                await db.SaveChangesAsync();
-            }
-            catch (DbUpdateException)
-            {
-                if (!await db.Users.AnyAsync(u => u.Auth0Sub == sub))
-                    throw;
-                db.ChangeTracker.Clear();
-                user = await db.Users.FirstAsync(u => u.Auth0Sub == sub);
-            }
-        }
-        else
-        {
-            user.Email = email;
-            user.DisplayName = name;
-            await db.SaveChangesAsync();
-        }
-
-        return Ok(new { user.Id, user.Email, user.DisplayName, user.IsAdmin });
+        var profile = await userService.UpsertAsync(sub, email, name);
+        return Ok(new { profile.Id, profile.Email, profile.DisplayName, profile.IsAdmin });
     }
 }

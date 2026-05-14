@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
+using DCF.Api.Scraping;
 using DCF.Data;
 using DCF.Data.Entities;
-using DCF.ScoreScraper.Models;
-using DCF.ScoreScraper.Tasks;
+using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 

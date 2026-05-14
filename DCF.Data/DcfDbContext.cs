@@ -1,6 +1,6 @@
 using System.Text.Json;
 using DCF.Data.Entities;
-using DCF.ScoreScraper.Models;
+using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace DCF.Data;

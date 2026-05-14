@@ -1,8 +1,8 @@
-using DCF.ScoreScraper.Models;
-using DCF.ScoreScraper.Services;
+using DCF.Api.Services;
+using DCF.Data.Models;
 using HtmlAgilityPack;
 
-namespace DCF.ScoreScraper.Tasks;
+namespace DCF.Api.Scraping;
 
 public class RecapScraperTask : IRecapScraperTask
 {
@@ -153,7 +153,6 @@ public class RecapScraperTask : IRecapScraperTask
         if (smallNode is not null)
         {
             var judgeText = HtmlEntity.DeEntitize(smallNode.InnerText.Trim());
-            // Remove the small node's text from the full inner text
             var captionText = HtmlEntity.DeEntitize(
                 cell.InnerText.Replace(smallNode.InnerText, "").Trim());
             return (captionText, judgeText);

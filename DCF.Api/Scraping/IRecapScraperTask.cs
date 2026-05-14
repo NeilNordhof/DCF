@@ -1,6 +1,6 @@
-using DCF.ScoreScraper.Models;
+using DCF.Data.Models;
 
-namespace DCF.ScoreScraper.Tasks;
+namespace DCF.Api.Scraping;
 
 public interface IRecapScraperTask
 {

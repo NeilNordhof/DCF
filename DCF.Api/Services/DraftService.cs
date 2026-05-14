@@ -1,6 +1,6 @@
 using DCF.Data;
 using DCF.Data.Entities;
-using DCF.ScoreScraper.Models;
+using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
@@ -17,6 +17,7 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
         return draftOrder[index];
     }
 
+    // Used by DraftSchedulerService — no commissioner check
     public async Task StartDraftAsync(Guid leagueId)
     {
         var league = await db.Leagues
@@ -24,6 +25,31 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
             .FirstOrDefaultAsync(l => l.Id == leagueId)
             ?? throw new ArgumentException("League not found");
 
+        await StartDraftCoreAsync(league);
+    }
+
+    // Used by DraftController — validates calling user is the commissioner
+    public async Task StartDraftAsync(Guid leagueId, string userSub)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub)
+            ?? throw new UnauthorizedAccessException("User not found");
+
+        var league = await db.Leagues
+            .Include(l => l.Members)
+            .FirstOrDefaultAsync(l => l.Id == leagueId)
+            ?? throw new ArgumentException("League not found");
+
+        if (league.CommissionerUserId != user.Id)
+            throw new UnauthorizedAccessException("Only the commissioner can start the draft");
+
+        if (league.DraftStatus != DraftStatus.NotStarted && league.DraftStatus != DraftStatus.Scheduled)
+            throw new InvalidOperationException("Draft is already started or completed");
+
+        await StartDraftCoreAsync(league);
+    }
+
+    private async Task StartDraftCoreAsync(LeagueEntity league)
+    {
         var shuffled = league.Members
             .Select(m => m.UserId.ToString())
             .ToArray();
@@ -37,9 +63,12 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
         await PublishDraftStateAsync(league);
     }
 
-    public async Task<DraftPickEntity> SubmitPickAsync(
-        Guid leagueId, Guid userId, Guid corpsId, Caption caption)
+    public async Task<(Guid Id, int PickNumber)> SubmitPickAsync(
+        Guid leagueId, string userSub, Guid corpsId, Caption caption)
     {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub)
+            ?? throw new UnauthorizedAccessException("User not found");
+
         var league = await db.Leagues
             .Include(l => l.Members)
             .Include(l => l.DraftPicks)
@@ -52,7 +81,7 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
         var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson)!;
         var currentDrafterId = GetCurrentDrafter(draftOrder, league.CurrentPickNumber);
 
-        if (currentDrafterId != userId.ToString())
+        if (currentDrafterId != user.Id.ToString())
             throw new InvalidOperationException("Not your turn");
 
         var alreadyPicked = await db.DraftPicks.AnyAsync(p =>
@@ -65,7 +94,7 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
         int round = league.CurrentPickNumber / draftOrder.Length;
         var pick = new DraftPickEntity
         {
-            Id = Guid.NewGuid(), LeagueId = leagueId, UserId = userId,
+            Id = Guid.NewGuid(), LeagueId = leagueId, UserId = user.Id,
             CorpsId = corpsId, Caption = caption,
             PickNumber = league.CurrentPickNumber, RoundNumber = round
         };
@@ -77,18 +106,21 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
 
         await db.SaveChangesAsync();
         await PublishDraftStateAsync(league);
-        return pick;
+        return (pick.Id, pick.PickNumber);
     }
 
-    public async Task SkipCurrentPickAsync(Guid leagueId, Guid commissionerUserId)
+    public async Task SkipCurrentPickAsync(Guid leagueId, string userSub)
     {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub)
+            ?? throw new UnauthorizedAccessException("User not found");
+
         var league = await db.Leagues
             .Include(l => l.Members)
             .FirstOrDefaultAsync(l => l.Id == leagueId)
             ?? throw new ArgumentException("League not found");
 
-        if (league.CommissionerUserId != commissionerUserId)
-            throw new InvalidOperationException("Only the commissioner can skip picks");
+        if (league.CommissionerUserId != user.Id)
+            throw new UnauthorizedAccessException("Only the commissioner can skip picks");
 
         if (league.DraftStatus != DraftStatus.InProgress)
             throw new InvalidOperationException("Draft is not in progress");

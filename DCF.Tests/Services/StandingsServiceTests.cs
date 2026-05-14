@@ -1,7 +1,7 @@
 using DCF.Api.Services;
 using DCF.Data;
 using DCF.Data.Entities;
-using DCF.ScoreScraper.Models;
+using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 

@@ -1,6 +1,6 @@
-using DCF.ScoreScraper.Models;
+using DCF.Data.Models;
 
-namespace DCF.ScoreScraper.Services;
+namespace DCF.Api.Services;
 
 public interface ICorpsService
 {

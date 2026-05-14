@@ -1,5 +1,4 @@
 <Solution>
-  <Project Path="DCF.ScoreScraper/DCF.ScoreScraper.csproj" />
   <Project Path="DCF.Data/DCF.Data.csproj" />
   <Project Path="DCF.Api/DCF.Api.csproj" />
   <Project Path="DCF.Tests/DCF.Tests.csproj" />
