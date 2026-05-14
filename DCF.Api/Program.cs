@@ -1,7 +1,6 @@
 using DCF.Api.Scraping;
 using DCF.Api.Services;
 using DCF.Data;
-using DCF.Data.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
@@ -24,14 +23,7 @@ builder.Services.AddControllers()
         opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 
-builder.Services.AddSingleton<ICorpsService>(sp =>
-    new CorpsService(async ct =>
-    {
-        using var scope = sp.GetRequiredService<IServiceScopeFactory>().CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
-        var corps = await db.Corps.ToListAsync(ct);
-        return corps.ToDictionary(c => c.Name, c => new Corps(c.Id, c.Name));
-    }));
+builder.Services.AddScoped<ICorpsService, CorpsService>();
 builder.Services.AddHttpClient<IRecapScraperTask, RecapScraperTask>();
 
 builder.Services.AddSingleton<IMqttPublisherService, MqttPublisherService>();
