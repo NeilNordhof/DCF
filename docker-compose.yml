@@ -22,6 +22,7 @@ services:
     build:
       context: .
       dockerfile: DCF.Api/Dockerfile
+    image: dcf-api
     ports:
       - "5000:8080"
     depends_on:
