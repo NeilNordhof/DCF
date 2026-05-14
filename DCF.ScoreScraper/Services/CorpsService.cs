@@ -2,14 +2,8 @@ using DCF.ScoreScraper.Models;
 
 namespace DCF.ScoreScraper.Services;
 
-public class CorpsService : ICorpsService
+public class CorpsService(Func<CancellationToken, Task<IReadOnlyDictionary<string, Corps>>> factory) : ICorpsService
 {
-    private readonly Dictionary<string, Corps> _corps;
-
-    public CorpsService(IEnumerable<Corps> corps)
-    {
-        _corps = corps.ToDictionary(c => c.Name, c => c);
-    }
-
-    public IReadOnlyDictionary<string, Corps> GetCorps() => _corps;
+    public Task<IReadOnlyDictionary<string, Corps>> GetCorpsAsync(CancellationToken ct = default)
+        => factory(ct);
 }

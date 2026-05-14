@@ -4,5 +4,5 @@ namespace DCF.ScoreScraper.Services;
 
 public interface ICorpsService
 {
-    IReadOnlyDictionary<string, Corps> GetCorps();
+    Task<IReadOnlyDictionary<string, Corps>> GetCorpsAsync(CancellationToken ct = default);
 }

@@ -1,5 +1,6 @@
 using DCF.Api.Services;
 using DCF.Data;
+using DCF.ScoreScraper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
@@ -21,6 +22,14 @@ builder.Services.AddControllers()
     .AddJsonOptions(opt =>
         opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddScoreScraper(async (sp, ct) =>
+{
+    using var scope = sp.GetRequiredService<IServiceScopeFactory>().CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
+    var corps = await db.Corps.ToListAsync(ct);
+    return corps.ToDictionary(c => c.Name, c => new DCF.ScoreScraper.Models.Corps(c.Id, c.Name));
+});
 
 builder.Services.AddSingleton<IMqttPublisherService, MqttPublisherService>();
 builder.Services.AddHostedService(sp => (MqttPublisherService)sp.GetRequiredService<IMqttPublisherService>());

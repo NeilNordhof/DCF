@@ -68,7 +68,7 @@ public class RecapScraperTask : IRecapScraperTask
         if (captionColumns.Count == 0)
             return [];
 
-        var allCorps = _corpsService.GetCorps();
+        var allCorps = await _corpsService.GetCorpsAsync();
         var results = new List<Result>();
         int resultId = 1;
 

@@ -9,9 +9,10 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddScoreScraper(
         this IServiceCollection services,
-        IEnumerable<Corps> corps)
+        Func<IServiceProvider, CancellationToken, Task<IReadOnlyDictionary<string, Corps>>> corpsFactory)
     {
-        services.AddSingleton<ICorpsService>(new CorpsService(corps));
+        services.AddSingleton<ICorpsService>(sp =>
+            new CorpsService(ct => corpsFactory(sp, ct)));
         services.AddHttpClient<IRecapScraperTask, RecapScraperTask>();
         return services;
     }

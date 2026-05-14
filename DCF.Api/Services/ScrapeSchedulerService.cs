@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using DCF.Data;
 using DCF.Data.Entities;
 using DCF.ScoreScraper.Models;
-using DCF.ScoreScraper.Services;
 using DCF.ScoreScraper.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
@@ -69,7 +68,6 @@ public class ScrapeSchedulerService(
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
 
-        // Reload to ensure ShowCorps is populated regardless of caller context
         var freshShow = await db.Shows.Include(s => s.ShowCorps).FirstOrDefaultAsync(s => s.Id == show.Id);
         if (freshShow is null)
         {
@@ -78,19 +76,11 @@ public class ScrapeSchedulerService(
         }
 
         var showCorpsIds = freshShow.ShowCorps.Select(sc => sc.CorpsId).ToHashSet();
-        var corpsList = await db.Corps
-            .Where(c => showCorpsIds.Contains(c.Id))
-            .ToListAsync();
-
-        var scraperCorps = corpsList.Select(c => new Corps(c.Id, c.Name));
         var scraperShow = new Show(freshShow.Id, freshShow.Name, freshShow.Url, freshShow.Date);
 
-        var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
-        var scraper = new RecapScraperTask(
-            new CorpsService(scraperCorps),
-            httpClientFactory.CreateClient());
+        var scraper = scope.ServiceProvider.GetRequiredService<IRecapScraperTask>();
 
-        List<DCF.ScoreScraper.Models.Result> results;
+        List<Result> results;
         try
         {
             results = await scraper.ScrapeAsync(scraperShow);
@@ -127,7 +117,7 @@ public class ScrapeSchedulerService(
         await db.SaveChangesAsync();
     }
 
-    private static IEnumerable<ScoreEntity> EnumerateScores(DCF.ScoreScraper.Models.Result r)
+    private static IEnumerable<ScoreEntity> EnumerateScores(Result r)
     {
         Score?[] scores =
         [
