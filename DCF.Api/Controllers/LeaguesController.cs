@@ -11,14 +11,17 @@ namespace DCF.Api.Controllers;
 [Authorize]
 public class LeaguesController(LeagueService leagueService, StandingsService standingsService) : ControllerBase
 {
-    private string GetSub() =>
-        User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")
-        ?? throw new InvalidOperationException("No sub claim");
+    private string GetSub()
+    {
+        return User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")
+            ?? throw new InvalidOperationException("No sub claim");
+    }
 
     [HttpGet]
     public async Task<IActionResult> Browse()
     {
         var leagues = await leagueService.BrowseAsync(GetSub());
+
         return Ok(leagues);
     }
 
@@ -31,7 +34,11 @@ public class LeaguesController(LeagueService leagueService, StandingsService sta
                 GetSub(), req.Name, req.IsPublic,
                 req.CorpsPerCaption, req.DraftableCaptions, req.DraftStartTime);
 
-            if (result is null) return Unauthorized();
+            if (result is null)
+            {
+                return Unauthorized();
+            }
+
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -44,6 +51,7 @@ public class LeaguesController(LeagueService leagueService, StandingsService sta
     public async Task<IActionResult> Join(Guid id, JoinLeagueRequest req)
     {
         var result = await leagueService.JoinAsync(id, GetSub(), req.InviteCode);
+
         return result switch
         {
             JoinResult.Ok => Ok(),
@@ -60,6 +68,7 @@ public class LeaguesController(LeagueService leagueService, StandingsService sta
         try
         {
             var standings = await standingsService.GetStandingsAsync(id);
+
             return Ok(standings);
         }
         catch (ArgumentException)
@@ -72,7 +81,12 @@ public class LeaguesController(LeagueService leagueService, StandingsService sta
     public async Task<IActionResult> Get(Guid id)
     {
         var league = await leagueService.GetAsync(id);
-        if (league is null) return NotFound();
+
+        if (league is null)
+        {
+            return NotFound();
+        }
+
         return Ok(league);
     }
 }

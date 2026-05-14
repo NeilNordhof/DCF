@@ -46,7 +46,9 @@ public class RecapScraperTask : IRecapScraperTask
     public async Task<List<Result>> ScrapeAsync(Show show)
     {
         if (!show.URL.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
             throw new ArgumentException($"Show URL must use HTTPS: {show.URL}");
+        }
 
         var html = await _httpClient.GetStringAsync(show.URL);
         var doc = new HtmlDocument();
@@ -57,26 +59,38 @@ public class RecapScraperTask : IRecapScraperTask
             ?.FirstOrDefault(n => n.InnerText.Trim().Equals("Corps", StringComparison.OrdinalIgnoreCase));
 
         if (corpsHeaderCell is null)
+        {
             return [];
+        }
 
         var headerRow = corpsHeaderCell.ParentNode;
         var table = FindTableAncestor(headerRow);
+
         if (table is null)
+        {
             return [];
+        }
 
         var captionColumns = BuildCaptionColumns(headerRow);
+
         if (captionColumns.Count == 0)
+        {
             return [];
+        }
 
         var allCorps = await _corpsService.GetCorpsAsync();
         var results = new List<Result>();
         int resultId = 1;
 
         var allRows = table.SelectNodes(".//tr");
+
         if (allRows is null)
+        {
             return [];
+        }
 
         bool pastHeader = false;
+
         foreach (var row in allRows)
         {
             if (row == headerRow)
@@ -86,18 +100,28 @@ public class RecapScraperTask : IRecapScraperTask
             }
 
             if (!pastHeader)
+            {
                 continue;
+            }
 
             var cells = row.SelectNodes("td");
+
             if (cells is null || cells.Count < 2)
+            {
                 continue;
+            }
 
             var corpsName = HtmlEntity.DeEntitize(cells[0].InnerText.Trim());
+
             if (string.IsNullOrWhiteSpace(corpsName))
+            {
                 continue;
+            }
 
             if (!allCorps.TryGetValue(corpsName, out var corpsObj))
+            {
                 corpsObj = new Corps(corpsName);
+            }
 
             var result = new Result
             {
@@ -107,14 +131,20 @@ public class RecapScraperTask : IRecapScraperTask
             };
 
             int cellIndex = 1;
+
             foreach (var col in captionColumns)
             {
                 if (cellIndex + 5 >= cells.Count)
+                {
                     break;
+                }
 
                 var score = ParseScore(cells, cellIndex, corpsObj, show, col.Caption, col.Judge);
+
                 if (score is not null)
+                {
                     col.Setter(result, score);
+                }
 
                 cellIndex += 6;
             }
@@ -129,17 +159,25 @@ public class RecapScraperTask : IRecapScraperTask
     {
         var columns = new List<CaptionColumn>();
         var cells = headerRow.SelectNodes("td");
+
         if (cells is null)
+        {
             return columns;
+        }
 
         foreach (var cell in cells.Skip(1))
         {
             var (captionText, judgeText) = ExtractCaptionAndJudge(cell);
+
             if (string.IsNullOrWhiteSpace(captionText))
+            {
                 continue;
+            }
 
             if (TryMapCaption(captionText, out var caption, out var setter))
+            {
                 columns.Add(new CaptionColumn(caption, judgeText, setter));
+            }
         }
 
         return columns;
@@ -150,29 +188,36 @@ public class RecapScraperTask : IRecapScraperTask
     private static (string CaptionText, string? JudgeText) ExtractCaptionAndJudge(HtmlNode cell)
     {
         var smallNode = cell.SelectSingleNode(".//small");
+
         if (smallNode is not null)
         {
             var judgeText = HtmlEntity.DeEntitize(smallNode.InnerText.Trim());
             var captionText = HtmlEntity.DeEntitize(
                 cell.InnerText.Replace(smallNode.InnerText, "").Trim());
+
             return (captionText, judgeText);
         }
 
         var fullText = HtmlEntity.DeEntitize(cell.InnerText.Trim());
 
         var parenStart = fullText.IndexOf('(');
+
         if (parenStart > 0)
         {
             var caption = fullText[..parenStart].Trim();
             var remainder = fullText[(parenStart + 1)..];
             var parenEnd = remainder.IndexOf(')');
             var judge = parenEnd >= 0 ? remainder[..parenEnd].Trim() : remainder.Trim();
+
             return (caption, judge);
         }
 
         var newline = fullText.IndexOfAny(['\n', '\r']);
+
         if (newline > 0)
+        {
             return (fullText[..newline].Trim(), fullText[(newline + 1)..].Trim());
+        }
 
         return (fullText, null);
     }
@@ -188,12 +233,14 @@ public class RecapScraperTask : IRecapScraperTask
             {
                 caption = cap;
                 setter = set;
+
                 return true;
             }
         }
 
         caption = default;
         setter = static (_, _) => { };
+
         return false;
     }
 
@@ -228,22 +275,31 @@ public class RecapScraperTask : IRecapScraperTask
         };
     }
 
-    private static bool TryParseDouble(string raw, out double value) =>
-        double.TryParse(raw.Trim(), System.Globalization.NumberStyles.Any,
+    private static bool TryParseDouble(string raw, out double value)
+    {
+        return double.TryParse(raw.Trim(), System.Globalization.NumberStyles.Any,
             System.Globalization.CultureInfo.InvariantCulture, out value);
+    }
 
-    private static bool TryParseInt(string raw, out int value) =>
-        int.TryParse(raw.Trim(), out value);
+    private static bool TryParseInt(string raw, out int value)
+    {
+        return int.TryParse(raw.Trim(), out value);
+    }
 
     private static HtmlNode? FindTableAncestor(HtmlNode node)
     {
         var current = node.ParentNode;
+
         while (current is not null)
         {
             if (current.Name.Equals("table", StringComparison.OrdinalIgnoreCase))
+            {
                 return current;
+            }
+
             current = current.ParentNode;
         }
+
         return null;
     }
 

@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Code Style
+
+### C#/.NET
+Curly Brackets should always start on a new line
+Don't use lambdas for methods, even if its a one line method
+Wrap code blocks with curly brackets, even if they are one line (if/foreach/using/etc)
+1 line of padding before return statements
+1 line of padding before and after code blocks (if/foreach/using/etc)
+1 line of padding before and after await statements
+never have more than 1 blank line in a row.
+
+### Javascript
+Nothing defined for now.
+
 ## Commands
 
 ### Backend (.NET 10)

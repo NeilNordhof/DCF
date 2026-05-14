@@ -16,6 +16,7 @@ public class DraftSchedulerService(
     {
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
+
         var leagues = await db.Leagues
             .Where(l => l.DraftStatus == DraftStatus.Scheduled &&
                         l.DraftStartTime != null &&
@@ -23,7 +24,9 @@ public class DraftSchedulerService(
             .ToListAsync(stoppingToken);
 
         foreach (var league in leagues)
+        {
             ScheduleDraftStart(league.Id, league.DraftStartTime!.Value);
+        }
     }
 
     public void ScheduleDraftStart(Guid leagueId, DateTimeOffset startTime)
@@ -42,15 +45,26 @@ public class DraftSchedulerService(
             try
             {
                 var delay = startTime - DateTimeOffset.UtcNow;
+
                 if (delay > TimeSpan.Zero)
+                {
                     await Task.Delay(delay, cts.Token);
-                if (cts.Token.IsCancellationRequested) return;
+                }
+
+                if (cts.Token.IsCancellationRequested)
+                {
+                    return;
+                }
 
                 using var scope = scopeFactory.CreateScope();
                 var draftService = scope.ServiceProvider.GetRequiredService<DraftService>();
+
                 await draftService.StartDraftAsync(leagueId);
             }
-            catch (OperationCanceledException) { /* expected when rescheduled */ }
+            catch (OperationCanceledException)
+            {
+                // expected when rescheduled
+            }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Auto-start draft failed for league {Id}", leagueId);

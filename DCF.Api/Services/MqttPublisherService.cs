@@ -28,9 +28,11 @@ public class MqttPublisherService : IMqttPublisherService, IHostedService
             .WithTcpServer(_host, _port)
             .WithCleanStart()
             .Build();
+
         try
         {
             await _client.ConnectAsync(options, ct);
+
             _logger.LogInformation("MQTT connected to {Host}:{Port}", _host, _port);
         }
         catch (Exception ex)
@@ -42,21 +44,33 @@ public class MqttPublisherService : IMqttPublisherService, IHostedService
     public async Task StopAsync(CancellationToken ct)
     {
         if (_client.IsConnected)
+        {
             await _client.DisconnectAsync(cancellationToken: ct);
+        }
     }
 
     public async Task PublishAsync(string topic, object payload, CancellationToken ct = default)
     {
-        if (!_client.IsConnected) return;
+        if (!_client.IsConnected)
+        {
+            return;
+        }
+
         await _lock.WaitAsync(ct);
+
         try
         {
-            if (!_client.IsConnected) return;
+            if (!_client.IsConnected)
+            {
+                return;
+            }
+
             var message = new MqttApplicationMessageBuilder()
                 .WithTopic(topic)
                 .WithPayload(JsonSerializer.Serialize(payload, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }))
                 .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
                 .Build();
+
             await _client.PublishAsync(message, ct);
         }
         catch (Exception ex)

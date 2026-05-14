@@ -20,6 +20,7 @@ public class AuthController(UserService userService) : ControllerBase
         var name = User.FindFirstValue("name") ?? email;
 
         var profile = await userService.UpsertAsync(sub, email, name);
+
         return Ok(new { profile.Id, profile.Email, profile.DisplayName, profile.IsAdmin });
     }
 }

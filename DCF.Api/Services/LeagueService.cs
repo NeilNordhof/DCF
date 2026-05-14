@@ -32,7 +32,11 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
     public async Task<IReadOnlyList<LeagueSummary>> BrowseAsync(string userSub)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub);
-        if (user is null) return [];
+
+        if (user is null)
+        {
+            return [];
+        }
 
         var myLeagueIds = await db.LeagueMembers
             .Where(m => m.UserId == user.Id)
@@ -52,10 +56,18 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
         int corpsPerCaption, Caption[] draftableCaptions, DateTimeOffset? draftStartTime)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub);
-        if (user is null) return null;
+
+        if (user is null)
+        {
+            return null;
+        }
 
         var activeSeason = await db.Seasons.FirstOrDefaultAsync(s => s.IsActive);
-        if (activeSeason is null) throw new InvalidOperationException("No active season");
+
+        if (activeSeason is null)
+        {
+            throw new InvalidOperationException("No active season");
+        }
 
         var league = new LeagueEntity
         {
@@ -72,10 +84,13 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
         };
         db.Leagues.Add(league);
         db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = user.Id });
+
         await db.SaveChangesAsync();
 
         if (draftStartTime.HasValue)
+        {
             draftScheduler.ScheduleDraftStart(league.Id, draftStartTime.Value);
+        }
 
         return new LeagueBrief(league.Id, league.Name, league.InviteCode);
     }
@@ -83,10 +98,18 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
     public async Task<JoinResult> JoinAsync(Guid leagueId, string userSub, string? inviteCode)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub);
-        if (user is null) return JoinResult.Unauthorized;
+
+        if (user is null)
+        {
+            return JoinResult.Unauthorized;
+        }
 
         var league = await db.Leagues.FindAsync(leagueId);
-        if (league is null) return JoinResult.NotFound;
+
+        if (league is null)
+        {
+            return JoinResult.NotFound;
+        }
 
         if (!league.IsPublic)
         {
@@ -94,13 +117,17 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
                 !CryptographicOperations.FixedTimeEquals(
                     System.Text.Encoding.UTF8.GetBytes(inviteCode),
                     System.Text.Encoding.UTF8.GetBytes(league.InviteCode)))
+            {
                 return JoinResult.BadInviteCode;
+            }
         }
 
         var already = await db.LeagueMembers.AnyAsync(m => m.LeagueId == leagueId && m.UserId == user.Id);
+
         if (!already)
         {
             db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = leagueId, UserId = user.Id });
+
             await db.SaveChangesAsync();
         }
 
@@ -115,7 +142,10 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             .Include(l => l.Season)
             .FirstOrDefaultAsync(l => l.Id == leagueId);
 
-        if (league is null) return null;
+        if (league is null)
+        {
+            return null;
+        }
 
         return new LeagueDetail(
             league.Id, league.Name, league.IsPublic, league.InviteCode,
@@ -132,6 +162,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
     private static string GenerateInviteCode()
     {
         var bytes = RandomNumberGenerator.GetBytes(6);
+
         return Convert.ToBase64String(bytes)
             .Replace("+", "A").Replace("/", "B").Replace("=", "")[..8]
             .ToUpper();

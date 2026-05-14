@@ -11,10 +11,12 @@ public class UserService(DcfDbContext db)
     public async Task<UserProfile> UpsertAsync(string sub, string email, string name)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == sub);
+
         if (user is null)
         {
             user = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = sub, Email = email, DisplayName = name };
             db.Users.Add(user);
+
             try
             {
                 await db.SaveChangesAsync();
@@ -22,8 +24,12 @@ public class UserService(DcfDbContext db)
             catch (DbUpdateException)
             {
                 if (!await db.Users.AnyAsync(u => u.Auth0Sub == sub))
+                {
                     throw;
+                }
+
                 db.ChangeTracker.Clear();
+
                 user = await db.Users.FirstAsync(u => u.Auth0Sub == sub);
             }
         }
@@ -31,6 +37,7 @@ public class UserService(DcfDbContext db)
         {
             user.Email = email;
             user.DisplayName = name;
+
             await db.SaveChangesAsync();
         }
 

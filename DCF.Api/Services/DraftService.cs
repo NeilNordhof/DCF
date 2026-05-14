@@ -14,6 +14,7 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
         int round = currentPickNumber / n;
         int positionInRound = currentPickNumber % n;
         int index = round % 2 == 0 ? positionInRound : n - 1 - positionInRound;
+
         return draftOrder[index];
     }
 
@@ -40,10 +41,14 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
             ?? throw new ArgumentException("League not found");
 
         if (league.CommissionerUserId != user.Id)
+        {
             throw new UnauthorizedAccessException("Only the commissioner can start the draft");
+        }
 
         if (league.DraftStatus != DraftStatus.NotStarted && league.DraftStatus != DraftStatus.Scheduled)
+        {
             throw new InvalidOperationException("Draft is already started or completed");
+        }
 
         await StartDraftCoreAsync(league);
     }
@@ -58,6 +63,7 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
         league.DraftOrderJson = JsonSerializer.Serialize(shuffled);
         league.CurrentPickNumber = 0;
         league.DraftStatus = DraftStatus.InProgress;
+
         await db.SaveChangesAsync();
 
         await PublishDraftStateAsync(league);
@@ -76,21 +82,27 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
             ?? throw new ArgumentException("League not found");
 
         if (league.DraftStatus != DraftStatus.InProgress)
+        {
             throw new InvalidOperationException("Draft is not in progress");
+        }
 
         var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson)!;
         var currentDrafterId = GetCurrentDrafter(draftOrder, league.CurrentPickNumber);
 
         if (currentDrafterId != user.Id.ToString())
+        {
             throw new InvalidOperationException("Not your turn");
+        }
 
         var alreadyPicked = await db.DraftPicks.AnyAsync(p =>
             p.LeagueId == leagueId && p.CorpsId == corpsId && p.Caption == caption);
+
         if (alreadyPicked)
+        {
             throw new InvalidOperationException("That corps+caption is already drafted in this league");
+        }
 
         int totalPicks = league.Members.Count * league.DraftableCaptions.Length * league.CorpsPerCaption;
-
         int round = league.CurrentPickNumber / draftOrder.Length;
         var pick = new DraftPickEntity
         {
@@ -101,11 +113,16 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
         db.DraftPicks.Add(pick);
 
         league.CurrentPickNumber++;
+
         if (league.CurrentPickNumber >= totalPicks)
+        {
             league.DraftStatus = DraftStatus.Completed;
+        }
 
         await db.SaveChangesAsync();
+
         await PublishDraftStateAsync(league);
+
         return (pick.Id, pick.PickNumber);
     }
 
@@ -120,25 +137,34 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt)
             ?? throw new ArgumentException("League not found");
 
         if (league.CommissionerUserId != user.Id)
+        {
             throw new UnauthorizedAccessException("Only the commissioner can skip picks");
+        }
 
         if (league.DraftStatus != DraftStatus.InProgress)
+        {
             throw new InvalidOperationException("Draft is not in progress");
+        }
 
         var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson)!;
         int totalPicks = league.Members.Count * league.DraftableCaptions.Length * league.CorpsPerCaption;
 
         league.CurrentPickNumber++;
+
         if (league.CurrentPickNumber >= totalPicks)
+        {
             league.DraftStatus = DraftStatus.Completed;
+        }
 
         await db.SaveChangesAsync();
+
         await PublishDraftStateAsync(league);
     }
 
     private async Task PublishDraftStateAsync(LeagueEntity league)
     {
         var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson) ?? [];
+
         var picks = await db.DraftPicks
             .Include(p => p.Corps)
             .Include(p => p.User)

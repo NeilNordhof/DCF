@@ -43,16 +43,21 @@ public class StandingsService(DcfDbContext db)
                         .FirstOrDefaultAsync();
 
                     if (latestScore.HasValue)
+                    {
                         captionScores.Add(latestScore.Value);
+                    }
                 }
 
                 if (captionScores.Count > 0)
+                {
                     totalScore += captionScores.Average();
+                }
             }
 
             standings.Add(new MemberStanding(member.UserId, member.User.DisplayName, totalScore));
         }
 
         return standings.OrderByDescending(s => s.Score).ToList();
+
     }
 }

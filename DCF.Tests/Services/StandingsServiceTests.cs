@@ -94,6 +94,7 @@ public class StandingsServiceTests
         await db.SaveChangesAsync();
 
         var service = new StandingsService(db);
+
         var standings = await service.GetStandingsAsync(league.Id);
 
         Assert.Single(standings);
@@ -161,6 +162,7 @@ public class StandingsServiceTests
         await db.SaveChangesAsync();
 
         var service = new StandingsService(db);
+
         var standings = await service.GetStandingsAsync(league.Id);
 
         Assert.Equal(88.5, standings[0].Score, precision: 5);

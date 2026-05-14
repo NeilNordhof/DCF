@@ -11,9 +11,11 @@ namespace DCF.Api.Controllers;
 [Authorize]
 public class DraftController(DraftService draftService) : ControllerBase
 {
-    private string GetSub() =>
-        User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")
-        ?? throw new InvalidOperationException("No sub claim");
+    private string GetSub()
+    {
+        return User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")
+            ?? throw new InvalidOperationException("No sub claim");
+    }
 
     [HttpPost("start")]
     public async Task<IActionResult> Start(Guid leagueId)
@@ -21,11 +23,21 @@ public class DraftController(DraftService draftService) : ControllerBase
         try
         {
             await draftService.StartDraftAsync(leagueId, GetSub());
+
             return Ok();
         }
-        catch (ArgumentException) { return NotFound(); }
-        catch (UnauthorizedAccessException) { return Forbid(); }
-        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        catch (ArgumentException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPost("pick")]
@@ -34,10 +46,17 @@ public class DraftController(DraftService draftService) : ControllerBase
         try
         {
             var (id, pickNumber) = await draftService.SubmitPickAsync(leagueId, GetSub(), req.CorpsId, req.Caption);
+
             return Ok(new { Id = id, PickNumber = pickNumber });
         }
-        catch (UnauthorizedAccessException) { return Unauthorized(); }
-        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPost("skip")]
@@ -46,9 +65,16 @@ public class DraftController(DraftService draftService) : ControllerBase
         try
         {
             await draftService.SkipCurrentPickAsync(leagueId, GetSub());
+
             return Ok();
         }
-        catch (UnauthorizedAccessException) { return Forbid(); }
-        catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 }
