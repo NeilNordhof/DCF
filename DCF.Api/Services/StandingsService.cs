@@ -5,7 +5,7 @@ namespace DCF.Api.Services;
 
 public record MemberStanding(Guid UserId, string DisplayName, double Score);
 
-public class StandingsService(DcfDbContext db)
+public class StandingsService(DcfDbContext db) : IStandingsService
 {
     public async Task<List<MemberStanding>> GetStandingsAsync(Guid leagueId)
     {

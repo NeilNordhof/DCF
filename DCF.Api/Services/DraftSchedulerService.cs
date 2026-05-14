@@ -57,7 +57,7 @@ public class DraftSchedulerService(
                 }
 
                 using var scope = scopeFactory.CreateScope();
-                var draftService = scope.ServiceProvider.GetRequiredService<DraftService>();
+                var draftService = scope.ServiceProvider.GetRequiredService<IDraftService>();
 
                 await draftService.StartDraftAsync(leagueId);
             }

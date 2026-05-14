@@ -6,7 +6,7 @@ namespace DCF.Api.Services;
 
 public record UserProfile(Guid Id, string Email, string DisplayName, bool IsAdmin);
 
-public class UserService(DcfDbContext db)
+public class UserService(DcfDbContext db) : IUserService
 {
     public async Task<UserProfile> UpsertAsync(string sub, string email, string name)
     {

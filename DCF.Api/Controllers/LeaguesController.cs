@@ -9,7 +9,7 @@ namespace DCF.Api.Controllers;
 [ApiController]
 [Route("api/leagues")]
 [Authorize]
-public class LeaguesController(LeagueService leagueService, StandingsService standingsService) : ControllerBase
+public class LeaguesController(ILeagueService leagueService, IStandingsService standingsService) : ControllerBase
 {
     private string GetSub()
     {

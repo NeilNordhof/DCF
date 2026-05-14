@@ -27,7 +27,7 @@ public record PickSummary(
 
 public record LeagueBrief(Guid Id, string Name, string InviteCode);
 
-public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler)
+public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler) : ILeagueService
 {
     public async Task<IReadOnlyList<LeagueSummary>> BrowseAsync(string userSub)
     {

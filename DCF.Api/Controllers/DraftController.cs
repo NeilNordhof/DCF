@@ -9,7 +9,7 @@ namespace DCF.Api.Controllers;
 [ApiController]
 [Route("api/leagues/{leagueId}/draft")]
 [Authorize]
-public class DraftController(DraftService draftService) : ControllerBase
+public class DraftController(IDraftService draftService) : ControllerBase
 {
     private string GetSub()
     {

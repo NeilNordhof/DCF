@@ -9,7 +9,7 @@ namespace DCF.Api.Controllers;
 [ApiController]
 [Route("api/admin")]
 [Authorize]
-public class AdminController(AdminService adminService) : ControllerBase
+public class AdminController(IAdminService adminService) : ControllerBase
 {
     private string GetSub()
     {

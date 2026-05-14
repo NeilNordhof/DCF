@@ -35,11 +35,11 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ScrapeSchedulerSer
 builder.Services.AddSingleton<DraftSchedulerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DraftSchedulerService>());
 
-builder.Services.AddScoped<UserService>();
-builder.Services.AddScoped<AdminService>();
-builder.Services.AddScoped<LeagueService>();
-builder.Services.AddScoped<StandingsService>();
-builder.Services.AddScoped<DraftService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<ILeagueService, LeagueService>();
+builder.Services.AddScoped<IStandingsService, StandingsService>();
+builder.Services.AddScoped<IDraftService, DraftService>();
 
 builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
     p.WithOrigins(builder.Configuration["AllowedOrigins"] ?? "http://localhost:5173")

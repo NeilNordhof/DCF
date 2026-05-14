@@ -8,7 +8,7 @@ namespace DCF.Api.Controllers;
 [ApiController]
 [Route("api/auth")]
 [Authorize]
-public class AuthController(UserService userService) : ControllerBase
+public class AuthController(IUserService userService) : ControllerBase
 {
     [HttpPost("me")]
     public async Task<IActionResult> UpsertUser()
