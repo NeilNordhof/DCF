@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "DCF.Api": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:61704;http://localhost:61705"
+    }
+  }
+}
