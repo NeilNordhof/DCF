@@ -23,11 +23,13 @@ const MUSIC_PRESETS: CaptionPreset[] = [
 
 function PresetGroup({
   legend,
+  name,
   presets,
   selected,
   onChange,
 }: {
   legend: string;
+  name: string;
   presets: CaptionPreset[];
   selected: number;
   onChange: (index: number) => void;
@@ -35,19 +37,25 @@ function PresetGroup({
   return (
     <fieldset>
       <legend>{legend}</legend>
-      {presets.map((preset, i) => (
-        <label key={i}>
-          <input
-            type="radio"
-            name={legend}
-            checked={selected === i}
-            onChange={() => onChange(i)}
-          />
-          <strong>{preset.label}</strong>
-          {' — '}
-          <span>{preset.description}</span>
-        </label>
-      ))}
+      {presets.map((preset, i) => {
+        const id = `${name}-${i}`;
+
+        return (
+          <label key={preset.label} htmlFor={id}>
+            <input
+              type="radio"
+              id={id}
+              name={name}
+              value={i}
+              checked={selected === i}
+              onChange={() => onChange(i)}
+            />
+            <strong>{preset.label}</strong>
+            {' — '}
+            <span>{preset.description}</span>
+          </label>
+        );
+      })}
     </fieldset>
   );
 }
@@ -95,9 +103,9 @@ export function LeagueCreate() {
       <label>Name: <input value={name} onChange={e => setName(e.target.value)} required /></label>
       <label>Public: <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} /></label>
       <label>Corps per caption: <input type="number" value={corpsPerCaption} min={1} max={10} onChange={e => setCorpsPerCaption(Number(e.target.value))} /></label>
-      <PresetGroup legend="General Effect" presets={GE_PRESETS} selected={gePreset} onChange={setGePreset} />
-      <PresetGroup legend="Visual" presets={VISUAL_PRESETS} selected={visualPreset} onChange={setVisualPreset} />
-      <PresetGroup legend="Music" presets={MUSIC_PRESETS} selected={musicPreset} onChange={setMusicPreset} />
+      <PresetGroup legend="General Effect" name="general-effect" presets={GE_PRESETS} selected={gePreset} onChange={setGePreset} />
+      <PresetGroup legend="Visual" name="visual" presets={VISUAL_PRESETS} selected={visualPreset} onChange={setVisualPreset} />
+      <PresetGroup legend="Music" name="music" presets={MUSIC_PRESETS} selected={musicPreset} onChange={setMusicPreset} />
       <label>Draft Start Time (optional): <input type="datetime-local" value={draftStartTime} onChange={e => setDraftStartTime(e.target.value)} /></label>
       {error && <p style={{ color: 'red' }}>{error}</p>}
       <button type="submit" disabled={submitting}>Create</button>
