@@ -43,4 +43,16 @@ public class UserService(DcfDbContext db) : IUserService
 
         return new UserProfile(user.Id, user.Email, user.DisplayName, user.IsAdmin);
     }
+
+    public async Task<UserProfile?> GetAsync(string sub)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == sub);
+
+        if (user is null)
+        {
+            return null;
+        }
+
+        return new UserProfile(user.Id, user.Email, user.DisplayName, user.IsAdmin);
+    }
 }
