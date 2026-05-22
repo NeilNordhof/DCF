@@ -19,7 +19,7 @@ public class UserService(DcfDbContext db) : IUserService
                 Id = Guid.NewGuid(),
                 Auth0Sub = sub,
                 Email = email,
-                DisplayName = displayName ?? name
+                DisplayName = !string.IsNullOrWhiteSpace(displayName) ? displayName : name
             };
             db.Users.Add(user);
 

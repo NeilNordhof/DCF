@@ -93,4 +93,15 @@ public class UserServiceTests
         Assert.Equal("OriginalName", result.DisplayName);
         Assert.Equal("updated@example.com", result.Email);
     }
+
+    [Fact]
+    public async Task UpsertAsync_NewUser_FallsBackToJwtName_WhenDisplayNameEmpty()
+    {
+        using var db = CreateDb("upsert_new_empty");
+
+        var svc = new UserService(db);
+        var result = await svc.UpsertAsync("auth0|new3", "new3@example.com", "Auth0 Name", "");
+
+        Assert.Equal("Auth0 Name", result.DisplayName);
+    }
 }
