@@ -8,13 +8,19 @@ public record UserProfile(Guid Id, string Email, string DisplayName, bool IsAdmi
 
 public class UserService(DcfDbContext db) : IUserService
 {
-    public async Task<UserProfile> UpsertAsync(string sub, string email, string name)
+    public async Task<UserProfile> UpsertAsync(string sub, string email, string name, string? displayName = null)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == sub);
 
         if (user is null)
         {
-            user = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = sub, Email = email, DisplayName = name };
+            user = new UserEntity
+            {
+                Id = Guid.NewGuid(),
+                Auth0Sub = sub,
+                Email = email,
+                DisplayName = displayName ?? name
+            };
             db.Users.Add(user);
 
             try
@@ -36,7 +42,6 @@ public class UserService(DcfDbContext db) : IUserService
         else
         {
             user.Email = email;
-            user.DisplayName = name;
 
             await db.SaveChangesAsync();
         }

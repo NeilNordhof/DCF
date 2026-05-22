@@ -51,4 +51,46 @@ public class UserServiceTests
 
         Assert.Null(result);
     }
+
+    [Fact]
+    public async Task UpsertAsync_NewUser_UsesProvidedDisplayName()
+    {
+        using var db = CreateDb("upsert_new_displayname");
+
+        var svc = new UserService(db);
+        var result = await svc.UpsertAsync("auth0|new", "new@example.com", "Auth0 Name", "ChosenName");
+
+        Assert.Equal("ChosenName", result.DisplayName);
+    }
+
+    [Fact]
+    public async Task UpsertAsync_NewUser_FallsBackToJwtName_WhenDisplayNameNull()
+    {
+        using var db = CreateDb("upsert_new_fallback");
+
+        var svc = new UserService(db);
+        var result = await svc.UpsertAsync("auth0|new2", "new2@example.com", "Auth0 Name", null);
+
+        Assert.Equal("Auth0 Name", result.DisplayName);
+    }
+
+    [Fact]
+    public async Task UpsertAsync_ExistingUser_DoesNotOverwriteDisplayName()
+    {
+        using var db = CreateDb("upsert_existing_no_overwrite");
+        db.Users.Add(new UserEntity
+        {
+            Id = Guid.NewGuid(),
+            Auth0Sub = "auth0|existing",
+            Email = "old@example.com",
+            DisplayName = "OriginalName"
+        });
+        await db.SaveChangesAsync();
+
+        var svc = new UserService(db);
+        var result = await svc.UpsertAsync("auth0|existing", "updated@example.com", "New JWT Name", "AttemptedOverwrite");
+
+        Assert.Equal("OriginalName", result.DisplayName);
+        Assert.Equal("updated@example.com", result.Email);
+    }
 }
