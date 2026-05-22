@@ -15,5 +15,6 @@ public enum Caption
     Percussion,
     SubTotal,
     Penalty,
-    Total
+    Total,
+    VisualPerformance,
 }
