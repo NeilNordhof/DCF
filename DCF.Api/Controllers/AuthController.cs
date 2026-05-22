@@ -1,3 +1,4 @@
+using DCF.Api.Models;
 using DCF.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,7 +29,7 @@ public class AuthController(IUserService userService) : ControllerBase
     }
 
     [HttpPost("me")]
-    public async Task<IActionResult> UpsertUser([FromBody] UpsertUserRequest request)
+    public async Task<IActionResult> UpsertUser([FromBody] UpsertUserRequest? request)
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
                   ?? User.FindFirstValue("sub")
@@ -36,10 +37,8 @@ public class AuthController(IUserService userService) : ControllerBase
         var email = User.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
         var name = User.FindFirstValue("name") ?? email;
 
-        var profile = await userService.UpsertAsync(sub, email, name, request.DisplayName);
+        var profile = await userService.UpsertAsync(sub, email, name, request?.DisplayName);
 
         return Ok(new { profile.Id, profile.Email, profile.DisplayName, profile.IsAdmin });
     }
 }
-
-public record UpsertUserRequest(string? DisplayName);
