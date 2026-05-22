@@ -2,35 +2,86 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 
-const ALL_CAPTIONS = [
-  'GeneralEffect', 'Visual', 'ColorGuard', 'Brass', 'Percussion', 'Music'
+type CaptionPreset = { label: string; description: string; captions: string[] };
+
+const GE_PRESETS: CaptionPreset[] = [
+  { label: 'Combined', description: 'General Effect (single score)',   captions: ['GeneralEffect'] },
+  { label: 'Split',    description: 'GE1 Music · GE2 Visual',         captions: ['GeneralEffectMusic', 'GeneralEffectVisual'] },
 ];
+
+const VISUAL_PRESETS: CaptionPreset[] = [
+  { label: 'Combined',               description: 'Visual (single score)',                    captions: ['Visual'] },
+  { label: 'Vis Perf + Color Guard', description: 'Visual Performance (VA+VP) · Color Guard', captions: ['VisualPerformance', 'ColorGuard'] },
+  { label: 'Split',                  description: 'Vis Analysis · Vis Prof · Color Guard',    captions: ['VisualAnalysis', 'VisualProficiency', 'ColorGuard'] },
+];
+
+const MUSIC_PRESETS: CaptionPreset[] = [
+  { label: 'Combined',           description: 'Music (single score)',                captions: ['Music'] },
+  { label: 'Brass + Percussion', description: 'Brass · Percussion',                 captions: ['Brass', 'Percussion'] },
+  { label: 'Split',              description: 'Brass · Music Analysis · Percussion', captions: ['Brass', 'MusicAnalysis', 'Percussion'] },
+];
+
+function PresetGroup({
+  legend,
+  presets,
+  selected,
+  onChange,
+}: {
+  legend: string;
+  presets: CaptionPreset[];
+  selected: number;
+  onChange: (index: number) => void;
+}) {
+  return (
+    <fieldset>
+      <legend>{legend}</legend>
+      {presets.map((preset, i) => (
+        <label key={i}>
+          <input
+            type="radio"
+            name={legend}
+            checked={selected === i}
+            onChange={() => onChange(i)}
+          />
+          <strong>{preset.label}</strong>
+          {' — '}
+          <span>{preset.description}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
 
 export function LeagueCreate() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [corpsPerCaption, setCorpsPerCaption] = useState(3);
-  const [captions, setCaptions] = useState<string[]>(['GeneralEffect', 'Visual', 'ColorGuard', 'Brass', 'Percussion', 'Music']);
+  const [gePreset, setGePreset] = useState(0);
+  const [visualPreset, setVisualPreset] = useState(0);
+  const [musicPreset, setMusicPreset] = useState(0);
   const [draftStartTime, setDraftStartTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const toggle = (caption: string) =>
-    setCaptions(prev =>
-      prev.includes(caption) ? prev.filter(c => c !== caption) : [...prev, caption]
-    );
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+
     try {
       const league = await api.createLeague({
-        name, isPublic, corpsPerCaption,
-        draftableCaptions: captions,
+        name,
+        isPublic,
+        corpsPerCaption,
+        draftableCaptions: [
+          ...GE_PRESETS[gePreset].captions,
+          ...VISUAL_PRESETS[visualPreset].captions,
+          ...MUSIC_PRESETS[musicPreset].captions,
+        ],
         draftStartTime: draftStartTime || null,
       });
+
       navigate(`/leagues/${league.id}`);
     } catch {
       setError('Failed to create league. Please try again.');
@@ -44,14 +95,9 @@ export function LeagueCreate() {
       <label>Name: <input value={name} onChange={e => setName(e.target.value)} required /></label>
       <label>Public: <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} /></label>
       <label>Corps per caption: <input type="number" value={corpsPerCaption} min={1} max={10} onChange={e => setCorpsPerCaption(Number(e.target.value))} /></label>
-      <fieldset>
-        <legend>Draftable Captions</legend>
-        {ALL_CAPTIONS.map(c => (
-          <label key={c}>
-            <input type="checkbox" checked={captions.includes(c)} onChange={() => toggle(c)} /> {c}
-          </label>
-        ))}
-      </fieldset>
+      <PresetGroup legend="General Effect" presets={GE_PRESETS} selected={gePreset} onChange={setGePreset} />
+      <PresetGroup legend="Visual" presets={VISUAL_PRESETS} selected={visualPreset} onChange={setVisualPreset} />
+      <PresetGroup legend="Music" presets={MUSIC_PRESETS} selected={musicPreset} onChange={setMusicPreset} />
       <label>Draft Start Time (optional): <input type="datetime-local" value={draftStartTime} onChange={e => setDraftStartTime(e.target.value)} /></label>
       {error && <p style={{ color: 'red' }}>{error}</p>}
       <button type="submit" disabled={submitting}>Create</button>
