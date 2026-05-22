@@ -20,9 +20,10 @@ public class UserServiceTests
     public async Task GetAsync_ExistingUser_ReturnsProfile()
     {
         using var db = CreateDb("get_existing");
+        var userId = Guid.NewGuid();
         db.Users.Add(new UserEntity
         {
-            Id = Guid.NewGuid(),
+            Id = userId,
             Auth0Sub = "auth0|123",
             Email = "test@example.com",
             DisplayName = "TestUser",
@@ -34,6 +35,7 @@ public class UserServiceTests
         var result = await svc.GetAsync("auth0|123");
 
         Assert.NotNull(result);
+        Assert.Equal(userId, result.Id);
         Assert.Equal("test@example.com", result.Email);
         Assert.Equal("TestUser", result.DisplayName);
         Assert.False(result.IsAdmin);
