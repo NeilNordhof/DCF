@@ -167,4 +167,67 @@ public class StandingsServiceTests
 
         Assert.Equal(88.5, standings[0].Score, precision: 5);
     }
+
+    [Fact]
+    public async Task GetStandings_SumsSubScoresForVisualPerformance()
+    {
+        using var db = CreateDb("standings_visual_perf");
+
+        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = 2025, IsActive = true };
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(), Name = "Finals", Url = "https://dci.org/scores/finals-vp",
+            Date = new DateOnly(2025, 8, 10), SeasonId = season.Id, Season = season
+        };
+        var user = new UserEntity
+        {
+            Id = Guid.NewGuid(), Auth0Sub = "sub|vp1", Email = "vp@test.com", DisplayName = "VP Tester"
+        };
+        var league = new LeagueEntity
+        {
+            Id = Guid.NewGuid(), Name = "VP League", SeasonId = season.Id, Season = season,
+            CommissionerUserId = user.Id, Commissioner = user,
+            InviteCode = "VPLEAGUE1", CorpsPerCaption = 1,
+            DraftableCaptions = [Caption.VisualPerformance],
+            DraftStatus = DraftStatus.Completed,
+            DraftOrderJson = $"[\"{user.Id}\"]"
+        };
+
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        db.Shows.Add(show);
+        db.Users.Add(user);
+        db.Leagues.Add(league);
+        db.LeagueMembers.Add(new LeagueMemberEntity
+        {
+            LeagueId = league.Id, UserId = user.Id, League = league, User = user
+        });
+        db.DraftPicks.Add(new DraftPickEntity
+        {
+            Id = Guid.NewGuid(), LeagueId = league.Id, UserId = user.Id,
+            CorpsId = corps.Id, Caption = Caption.VisualPerformance, PickNumber = 0, RoundNumber = 0,
+            League = league, User = user, Corps = corps
+        });
+        db.Scores.AddRange(
+            new ScoreEntity
+            {
+                Id = Guid.NewGuid(), CorpsId = corps.Id, ShowId = show.Id,
+                Caption = Caption.VisualAnalysis, TotalScore = 15.5, Corps = corps, Show = show
+            },
+            new ScoreEntity
+            {
+                Id = Guid.NewGuid(), CorpsId = corps.Id, ShowId = show.Id,
+                Caption = Caption.VisualProficiency, TotalScore = 14.0, Corps = corps, Show = show
+            }
+        );
+        await db.SaveChangesAsync();
+
+        var service = new StandingsService(db);
+
+        var standings = await service.GetStandingsAsync(league.Id);
+
+        Assert.Single(standings);
+        Assert.Equal(29.5, standings[0].Score, precision: 5);
+    }
 }

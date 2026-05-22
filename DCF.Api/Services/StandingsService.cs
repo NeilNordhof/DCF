@@ -1,4 +1,5 @@
 using DCF.Data;
+using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace DCF.Api.Services;
@@ -35,12 +36,7 @@ public class StandingsService(DcfDbContext db) : IStandingsService
 
                 foreach (var pick in picks)
                 {
-                    var latestScore = await db.Scores
-                        .Include(s => s.Show)
-                        .Where(s => s.CorpsId == pick.CorpsId && s.Caption == caption)
-                        .OrderByDescending(s => s.Show.Date)
-                        .Select(s => (double?)s.TotalScore)
-                        .FirstOrDefaultAsync();
+                    var latestScore = await GetEffectiveScoreAsync(pick.CorpsId, caption);
 
                     if (latestScore.HasValue)
                     {
@@ -58,6 +54,39 @@ public class StandingsService(DcfDbContext db) : IStandingsService
         }
 
         return standings.OrderByDescending(s => s.Score).ToList();
+    }
 
+    private async Task<double?> GetEffectiveScoreAsync(Guid corpsId, Caption caption)
+    {
+        if (caption == Caption.VisualPerformance)
+        {
+            var va = await db.Scores
+                .Include(s => s.Show)
+                .Where(s => s.CorpsId == corpsId && s.Caption == Caption.VisualAnalysis)
+                .OrderByDescending(s => s.Show.Date)
+                .Select(s => (double?)s.TotalScore)
+                .FirstOrDefaultAsync();
+
+            var vp = await db.Scores
+                .Include(s => s.Show)
+                .Where(s => s.CorpsId == corpsId && s.Caption == Caption.VisualProficiency)
+                .OrderByDescending(s => s.Show.Date)
+                .Select(s => (double?)s.TotalScore)
+                .FirstOrDefaultAsync();
+
+            if (va.HasValue && vp.HasValue)
+            {
+                return va.Value + vp.Value;
+            }
+
+            return null;
+        }
+
+        return await db.Scores
+            .Include(s => s.Show)
+            .Where(s => s.CorpsId == corpsId && s.Caption == caption)
+            .OrderByDescending(s => s.Show.Date)
+            .Select(s => (double?)s.TotalScore)
+            .FirstOrDefaultAsync();
     }
 }
