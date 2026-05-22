@@ -56,6 +56,12 @@ public class StandingsService(DcfDbContext db) : IStandingsService
         return standings.OrderByDescending(s => s.Score).ToList();
     }
 
+    /// <summary>
+    /// Returns the effective fantasy score for a corps in the given caption.
+    /// VisualPerformance is a virtual caption — no ScoreEntity rows are scraped for it;
+    /// its score is derived by summing the corps' latest VisualAnalysis and VisualProficiency
+    /// sub-scores from the same show.
+    /// </summary>
     private async Task<double?> GetEffectiveScoreAsync(Guid corpsId, Caption caption)
     {
         if (caption == Caption.VisualPerformance)
@@ -75,24 +81,18 @@ public class StandingsService(DcfDbContext db) : IStandingsService
                 return null;
             }
 
-            var va = await db.Scores
+            var subScores = await db.Scores
                 .Where(s => s.CorpsId == corpsId && s.ShowId == latestShowId.Value &&
-                            s.Caption == Caption.VisualAnalysis)
-                .Select(s => (double?)s.TotalScore)
-                .FirstOrDefaultAsync();
+                            (s.Caption == Caption.VisualAnalysis || s.Caption == Caption.VisualProficiency))
+                .Select(s => s.TotalScore)
+                .ToListAsync();
 
-            var vp = await db.Scores
-                .Where(s => s.CorpsId == corpsId && s.ShowId == latestShowId.Value &&
-                            s.Caption == Caption.VisualProficiency)
-                .Select(s => (double?)s.TotalScore)
-                .FirstOrDefaultAsync();
-
-            if (va.HasValue && vp.HasValue)
+            if (subScores.Count < 2)
             {
-                return va.Value + vp.Value;
+                return null;
             }
 
-            return null;
+            return subScores.Sum(x => (double)x);
         }
 
         return await db.Scores

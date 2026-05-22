@@ -46,7 +46,7 @@ function PresetGroup({
               type="radio"
               id={id}
               name={name}
-              value={i}
+              value={String(i)}
               checked={selected === i}
               onChange={() => onChange(i)}
             />
