@@ -12,6 +12,8 @@ public class SeasonStatusService(
 {
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _scheduled = new();
 
+    private static readonly TimeSpan _maxDelayChunk = TimeSpan.FromDays(20);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var scope = scopeFactory.CreateScope();
@@ -67,12 +69,8 @@ public class SeasonStatusService(
                 if (season.Status == SeasonStatus.Upcoming)
                 {
                     var activateAt = season.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-                    var activateDelay = activateAt - DateTime.UtcNow;
 
-                    if (activateDelay > TimeSpan.Zero)
-                    {
-                        await Task.Delay(activateDelay, cts.Token);
-                    }
+                    await DelayUntilAsync(activateAt, cts.Token);
 
                     if (cts.Token.IsCancellationRequested)
                     {
@@ -92,12 +90,8 @@ public class SeasonStatusService(
                 }
 
                 var completeAt = season.EndDate.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-                var completeDelay = completeAt - DateTime.UtcNow;
 
-                if (completeDelay > TimeSpan.Zero)
-                {
-                    await Task.Delay(completeDelay, cts.Token);
-                }
+                await DelayUntilAsync(completeAt, cts.Token);
 
                 if (cts.Token.IsCancellationRequested)
                 {
@@ -124,5 +118,22 @@ public class SeasonStatusService(
                 logger.LogError(ex, "SeasonStatusService task failed for season {SeasonId}", season.Id);
             }
         });
+    }
+
+    private static async Task DelayUntilAsync(DateTime target, CancellationToken ct)
+    {
+        while (true)
+        {
+            var remaining = target - DateTime.UtcNow;
+
+            if (remaining <= TimeSpan.Zero)
+            {
+                return;
+            }
+
+            var chunk = remaining < _maxDelayChunk ? remaining : _maxDelayChunk;
+
+            await Task.Delay(chunk, ct);
+        }
     }
 }
