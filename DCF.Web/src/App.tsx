@@ -6,6 +6,7 @@ import { AdminRoute } from './components/AdminRoute';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useUser } from './context/UserContext';
 import { Admin } from './pages/Admin';
+import { SeasonDetail } from './pages/SeasonDetail';
 import { DraftRoom } from './pages/DraftRoom';
 import { Home } from './pages/Home';
 import { LeagueCreate } from './pages/LeagueCreate';
@@ -50,6 +51,7 @@ export default function App() {
       <Route path="/leagues/:id" element={<ProtectedRoute><LeagueDetail /></ProtectedRoute>} />
       <Route path="/leagues/:id/draft" element={<ProtectedRoute><DraftRoom /></ProtectedRoute>} />
       <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+      <Route path="/admin/seasons/:id" element={<AdminRoute><SeasonDetail /></AdminRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     </Routes>
   );
