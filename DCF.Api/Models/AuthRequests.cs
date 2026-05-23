@@ -1,3 +1,3 @@
 namespace DCF.Api.Models;
 
-public record UpsertUserRequest(string? DisplayName);
+public record UpsertUserRequest(string? DisplayName, string? Email);

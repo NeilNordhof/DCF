@@ -35,8 +35,8 @@ export const api = {
     if (!res.ok) throw new Error(await res.text());
     return res.json() as Promise<UserProfile>;
   },
-  upsertUser: (displayName: string) =>
-    request<UserProfile>('/api/auth/me', { method: 'POST', body: JSON.stringify({ displayName }) }),
+  upsertUser: (displayName: string, email: string) =>
+    request<UserProfile>('/api/auth/me', { method: 'POST', body: JSON.stringify({ displayName, email }) }),
   getLeagues: () => request<League[]>('/api/leagues'),
   getLeague: (id: string) => request<League>(`/api/leagues/${id}`),
   createLeague: (body: CreateLeagueRequest) => request<{ id: string; name: string; inviteCode: string }>('/api/leagues', { method: 'POST', body: JSON.stringify(body) }),

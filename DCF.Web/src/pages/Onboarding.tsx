@@ -22,7 +22,7 @@ export function Onboarding() {
     setError(null);
 
     try {
-      const profile = await api.upsertUser(displayName);
+      const profile = await api.upsertUser(displayName, auth0User?.email ?? '');
       setUser(profile);
       setSubmitting(false);
       navigate('/');

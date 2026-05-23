@@ -34,8 +34,8 @@ public class AuthController(IUserService userService) : ControllerBase
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
                   ?? User.FindFirstValue("sub")
                   ?? throw new InvalidOperationException("No sub claim");
-        var email = User.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
-        var name = User.FindFirstValue("name") ?? email;
+        var email = request?.Email ?? string.Empty;
+        var name = request?.DisplayName ?? string.Empty;
 
         var profile = await userService.UpsertAsync(sub, email, name, request?.DisplayName);
 

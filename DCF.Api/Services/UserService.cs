@@ -41,7 +41,10 @@ public class UserService(DcfDbContext db) : IUserService
         }
         else
         {
-            user.Email = email;
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                user.Email = email;
+            }
 
             await db.SaveChangesAsync();
         }
