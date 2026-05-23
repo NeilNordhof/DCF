@@ -37,6 +37,8 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<DraftSchedulerServ
 
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+// TEMP: SeasonStatusService will be registered in Task 5 once implemented in Task 4
+builder.Services.AddScoped<ISeasonStatusService, NoOpSeasonStatusService>();
 builder.Services.AddScoped<ILeagueService, LeagueService>();
 builder.Services.AddScoped<IStandingsService, StandingsService>();
 builder.Services.AddScoped<IDraftService, DraftService>();

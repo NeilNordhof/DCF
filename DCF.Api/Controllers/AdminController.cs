@@ -38,7 +38,8 @@ public class AdminController(IAdminService adminService) : ControllerBase
             return Forbid();
         }
 
-        return Ok(await adminService.CreateSeasonAsync(req.Year));
+        // TEMP: startDate/endDate will come from request in Task 6
+        return Ok(await adminService.CreateSeasonAsync(req.Year, default, default));
     }
 
     [HttpPut("seasons/{id}/activate")]
@@ -49,7 +50,8 @@ public class AdminController(IAdminService adminService) : ControllerBase
             return Forbid();
         }
 
-        return await adminService.ActivateSeasonAsync(id) ? NoContent() : NotFound();
+        // TEMP: replaced with PublishSeasonAsync in Task 6
+        return await adminService.PublishSeasonAsync(id) ? NoContent() : NotFound();
     }
 
     // --- Corps ---

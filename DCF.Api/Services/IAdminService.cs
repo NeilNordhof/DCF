@@ -4,8 +4,9 @@ public interface IAdminService
 {
     Task<bool> IsAdminAsync(string sub);
     Task<IReadOnlyList<SeasonSummary>> GetSeasonsAsync();
-    Task<SeasonSummary> CreateSeasonAsync(int year);
-    Task<bool> ActivateSeasonAsync(Guid id);
+    Task<SeasonSummary> CreateSeasonAsync(int year, DateOnly startDate, DateOnly endDate);
+    Task<SeasonDetail?> GetSeasonDetailAsync(Guid id);
+    Task<bool> PublishSeasonAsync(Guid id);
     Task<IReadOnlyList<CorpsSummary>> GetCorpsAsync();
     Task<CorpsSummary> CreateCorpsAsync(string name);
     Task<bool> SetSeasonCorpsAsync(Guid seasonId, List<Guid> corpsIds);

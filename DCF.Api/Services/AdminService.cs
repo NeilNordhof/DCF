@@ -1,10 +1,12 @@
 using DCF.Data;
 using DCF.Data.Entities;
+using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace DCF.Api.Services;
 
-public record SeasonSummary(Guid Id, int Year, bool IsActive);
+public record SeasonSummary(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished);
+public record SeasonDetail(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished, IEnumerable<Guid> CorpsIds);
 public record CorpsSummary(Guid Id, string Name);
 public record ShowSummary(Guid Id, string Name, string Url, DateOnly Date, DateTimeOffset ScoresAnnouncedTime, IEnumerable<Guid> CorpsIds);
 public record ShowBrief(Guid Id, string Name);
@@ -12,7 +14,8 @@ public record ShowBrief(Guid Id, string Name);
 public class AdminService(
     DcfDbContext db,
     ScrapeSchedulerService scrapeScheduler,
-    IMqttPublisherService mqtt) : IAdminService
+    IMqttPublisherService mqtt,
+    ISeasonStatusService seasonStatus) : IAdminService
 {
     public async Task<bool> IsAdminAsync(string sub)
     {
@@ -21,32 +24,61 @@ public class AdminService(
 
     public async Task<IReadOnlyList<SeasonSummary>> GetSeasonsAsync()
     {
-        // TEMP: IsActive check removed - will be updated in task 3
         return await db.Seasons
             .OrderByDescending(s => s.Year)
-            .Select(s => new SeasonSummary(s.Id, s.Year, false))
+            .Select(s => new SeasonSummary(s.Id, s.Year, s.StartDate, s.EndDate, s.Status, s.IsPublished))
             .ToListAsync();
     }
 
-    public async Task<SeasonSummary> CreateSeasonAsync(int year)
+    public async Task<SeasonSummary> CreateSeasonAsync(int year, DateOnly startDate, DateOnly endDate)
     {
-        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = year };
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(),
+            Year = year,
+            StartDate = startDate,
+            EndDate = endDate
+        };
+
         db.Seasons.Add(season);
 
         await db.SaveChangesAsync();
 
-        // TEMP: IsActive check removed - will be updated in task 3
-        return new SeasonSummary(season.Id, season.Year, false);
+        seasonStatus.ScheduleSeason(season);
+
+        return new SeasonSummary(season.Id, season.Year, season.StartDate, season.EndDate, season.Status, season.IsPublished);
     }
 
-    public async Task<bool> ActivateSeasonAsync(Guid id)
+    public async Task<SeasonDetail?> GetSeasonDetailAsync(Guid id)
     {
-        if (!await db.Seasons.AnyAsync(s => s.Id == id))
+        var season = await db.Seasons
+            .Include(s => s.SeasonCorps)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (season is null)
+        {
+            return null;
+        }
+
+        return new SeasonDetail(
+            season.Id, season.Year, season.StartDate, season.EndDate,
+            season.Status, season.IsPublished,
+            season.SeasonCorps.Select(sc => sc.CorpsId));
+    }
+
+    public async Task<bool> PublishSeasonAsync(Guid id)
+    {
+        var season = await db.Seasons.FindAsync(id);
+
+        if (season is null)
         {
             return false;
         }
 
-        // TEMP: IsActive check removed - will be updated in task 3
+        season.IsPublished = true;
+
+        await db.SaveChangesAsync();
+
         return true;
     }
 
@@ -101,8 +133,12 @@ public class AdminService(
     {
         var show = new ShowEntity
         {
-            Id = Guid.NewGuid(), Name = name, Url = url,
-            Date = date, ScoresAnnouncedTime = scoresAnnouncedTime, SeasonId = seasonId
+            Id = Guid.NewGuid(),
+            Name = name,
+            Url = url,
+            Date = date,
+            ScoresAnnouncedTime = scoresAnnouncedTime,
+            SeasonId = seasonId
         };
         db.Shows.Add(show);
         db.ShowCorps.AddRange(corpsIds.Select(cId =>
