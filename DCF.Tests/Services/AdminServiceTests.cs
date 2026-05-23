@@ -20,7 +20,9 @@ public class AdminServiceTests
 
     private class NoOpSeasonStatus : ISeasonStatusService
     {
-        public void ScheduleSeason(SeasonEntity season) { }
+        public void ScheduleSeason(SeasonEntity season)
+        {
+        }
     }
 
     [Fact]
