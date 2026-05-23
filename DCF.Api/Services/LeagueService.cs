@@ -62,7 +62,8 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             return null;
         }
 
-        var activeSeason = await db.Seasons.FirstOrDefaultAsync(s => s.IsActive);
+        // TEMP: IsActive check removed - will be updated in task 5
+        var activeSeason = await db.Seasons.FirstOrDefaultAsync();
 
         if (activeSeason is null)
         {

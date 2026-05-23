@@ -22,7 +22,7 @@ public class StandingsServiceTests
     {
         using var db = CreateDb("standings_avg");
 
-        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = 2025, IsActive = true };
+        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = 2025, Status = SeasonStatus.Active };
         var corps1 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
         var corps2 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Bluecoats" };
         var corps3 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Cavaliers" };
@@ -106,7 +106,7 @@ public class StandingsServiceTests
     {
         using var db = CreateDb("standings_latest");
 
-        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = 2025, IsActive = true };
+        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = 2025, Status = SeasonStatus.Active };
         var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
         var show1 = new ShowEntity
         {
@@ -173,7 +173,7 @@ public class StandingsServiceTests
     {
         using var db = CreateDb("standings_visual_perf");
 
-        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = 2025, IsActive = true };
+        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = 2025, Status = SeasonStatus.Active };
         var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
         var show = new ShowEntity
         {
@@ -236,7 +236,7 @@ public class StandingsServiceTests
     {
         using var db = CreateDb("standings_visual_perf_missing");
 
-        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = 2025, IsActive = true };
+        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = 2025, Status = SeasonStatus.Active };
         var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Cavaliers" };
         var show = new ShowEntity
         {

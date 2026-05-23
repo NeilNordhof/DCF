@@ -21,9 +21,10 @@ public class AdminService(
 
     public async Task<IReadOnlyList<SeasonSummary>> GetSeasonsAsync()
     {
+        // TEMP: IsActive check removed - will be updated in task 3
         return await db.Seasons
             .OrderByDescending(s => s.Year)
-            .Select(s => new SeasonSummary(s.Id, s.Year, s.IsActive))
+            .Select(s => new SeasonSummary(s.Id, s.Year, false))
             .ToListAsync();
     }
 
@@ -34,7 +35,8 @@ public class AdminService(
 
         await db.SaveChangesAsync();
 
-        return new SeasonSummary(season.Id, season.Year, season.IsActive);
+        // TEMP: IsActive check removed - will be updated in task 3
+        return new SeasonSummary(season.Id, season.Year, false);
     }
 
     public async Task<bool> ActivateSeasonAsync(Guid id)
@@ -44,11 +46,7 @@ public class AdminService(
             return false;
         }
 
-        await db.Seasons.ExecuteUpdateAsync(s => s.SetProperty(x => x.IsActive, false));
-
-        await db.Seasons.Where(s => s.Id == id)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.IsActive, true));
-
+        // TEMP: IsActive check removed - will be updated in task 3
         return true;
     }
 
