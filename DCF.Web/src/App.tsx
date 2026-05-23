@@ -35,6 +35,8 @@ export default function App() {
       } else {
         navigate('/onboarding');
       }
+    }).catch((err) => {
+      console.error('Failed to load user profile:', err);
     });
   }, [isAuthenticated, navigate, setUser]);
 
