@@ -1,18 +1,17 @@
-import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useMqtt } from '../mqtt/useMqtt';
+import { useUser } from '../context/UserContext';
 import type { Corps, DraftState, League } from '../types/api';
 
 export function DraftRoom() {
   const { id } = useParams<{ id: string }>();
-  const { user: _user } = useAuth0();
+  const { user } = useUser();
   const [league, setLeague] = useState<League | null>(null);
   const [corps, setCorps] = useState<Corps[]>([]);
   const [selectedCorps, setSelectedCorps] = useState('');
   const [selectedCaption, setSelectedCaption] = useState('');
-  const [myProfile, setMyProfile] = useState<{ id: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -22,17 +21,16 @@ export function DraftRoom() {
     if (!id) return;
     api.getLeague(id).then(setLeague).catch(() => setError('Failed to load league.'));
     api.adminGetCorps().then(setCorps).catch(() => {});
-    api.upsertUser().then(p => setMyProfile(p)).catch(() => {});
   }, [id]);
 
   if (error) return <div>{error}</div>;
   if (!league) return <div>Loading...</div>;
 
   const isMyTurn = draftState?.status === 'InProgress' &&
-    draftState.currentDrafterId === myProfile?.id;
+    draftState.currentDrafterId === user?.id;
 
-  const isCommissioner = myProfile?.id !== undefined &&
-    myProfile.id === league.commissionerUserId;
+  const isCommissioner = user?.id !== undefined &&
+    user.id === league.commissionerUserId;
 
   const takenCombos = new Set(
     (draftState?.picks ?? []).map(p => `${p.corpsId}|${p.caption}`)

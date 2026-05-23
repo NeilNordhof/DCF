@@ -1,22 +1,15 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { api } from '../api/client';
-import type { UserProfile } from '../types/api';
+import { useUser } from '../context/UserContext';
 
 export function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth0();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [checking, setChecking] = useState(true);
+  const { user } = useUser();
 
-  useEffect(() => {
-    if (!isAuthenticated) { setChecking(false); return; }
-    api.upsertUser()
-      .then(p => { setProfile(p); setChecking(false); })
-      .catch(() => setChecking(false));
-  }, [isAuthenticated]);
+  if (isLoading) return <div>Loading...</div>;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (!user) return <div>Loading...</div>;
+  if (!user.isAdmin) return <Navigate to="/" replace />;
 
-  if (isLoading || checking) return <div>Loading...</div>;
-  if (!isAuthenticated || !profile?.isAdmin) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
