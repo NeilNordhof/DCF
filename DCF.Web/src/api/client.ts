@@ -23,7 +23,20 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  upsertUser: () => request<UserProfile>('/api/auth/me', { method: 'POST' }),
+  getUser: async (): Promise<UserProfile | null> => {
+    const token = getToken ? await getToken() : null;
+    const res = await fetch(`${API_URL}/api/auth/me`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(await res.text());
+    return res.json() as UserProfile;
+  },
+  upsertUser: (displayName: string) =>
+    request<UserProfile>('/api/auth/me', { method: 'POST', body: JSON.stringify({ displayName }) }),
   getLeagues: () => request<League[]>('/api/leagues'),
   getLeague: (id: string) => request<League>(`/api/leagues/${id}`),
   createLeague: (body: CreateLeagueRequest) => request<{ id: string; name: string; inviteCode: string }>('/api/leagues', { method: 'POST', body: JSON.stringify(body) }),
