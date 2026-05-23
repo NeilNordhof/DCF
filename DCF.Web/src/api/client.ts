@@ -1,4 +1,4 @@
-import type { Corps, CreateLeagueRequest, League, Standing, UserProfile } from '../types/api';
+import type { Corps, CreateLeagueRequest, League, Season, SeasonDetail, Show, Standing, UserProfile } from '../types/api';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -56,4 +56,28 @@ export const api = {
     request<Corps>('/api/admin/corps', { method: 'POST', body: JSON.stringify({ name }) }),
   adminTriggerScrape: (showId: string) =>
     request<void>(`/api/admin/shows/${showId}/scrape`, { method: 'POST' }),
+  adminGetSeasons: () =>
+    request<Season[]>('/api/admin/seasons'),
+  adminGetSeason: (id: string) =>
+    request<SeasonDetail>(`/api/admin/seasons/${id}`),
+  adminCreateSeason: (year: number, startDate: string, endDate: string) =>
+    request<Season>('/api/admin/seasons', { method: 'POST', body: JSON.stringify({ year, startDate, endDate }) }),
+  adminPublishSeason: (id: string) =>
+    request<void>(`/api/admin/seasons/${id}/publish`, { method: 'POST' }),
+  adminSetSeasonCorps: (id: string, corpsIds: string[]) =>
+    request<void>(`/api/admin/seasons/${id}/corps`, { method: 'PUT', body: JSON.stringify({ corpsIds }) }),
+  adminGetShows: (seasonId: string) =>
+    request<Show[]>(`/api/admin/seasons/${seasonId}/shows`),
+  adminCreateShow: (
+    seasonId: string,
+    name: string,
+    url: string,
+    date: string,
+    scoresAnnouncedTime: string,
+    corpsIds: string[]
+  ) =>
+    request<{ id: string; name: string }>(`/api/admin/seasons/${seasonId}/shows`, {
+      method: 'POST',
+      body: JSON.stringify({ name, url, date, scoresAnnouncedTime, corpsIds }),
+    }),
 };

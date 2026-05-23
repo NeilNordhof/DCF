@@ -66,3 +66,27 @@ export interface CreateLeagueRequest {
   draftableCaptions: string[];
   draftStartTime?: string | null;
 }
+
+export type SeasonStatus = 'Upcoming' | 'Active' | 'Completed';
+
+export interface Season {
+  id: string;
+  year: number;
+  startDate: string;
+  endDate: string;
+  status: SeasonStatus;
+  isPublished: boolean;
+}
+
+export interface SeasonDetail extends Season {
+  corpsIds: string[];
+}
+
+export interface Show {
+  id: string;
+  name: string;
+  url: string;
+  date: string;
+  scoresAnnouncedTime: string;
+  corpsIds: string[];
+}
