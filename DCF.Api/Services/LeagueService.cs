@@ -63,7 +63,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
         }
 
         // TEMP: IsActive check removed - will be updated in task 5
-        var activeSeason = await db.Seasons.FirstOrDefaultAsync();
+        var activeSeason = await db.Seasons.OrderByDescending(s => s.Year).FirstOrDefaultAsync();
 
         if (activeSeason is null)
         {
