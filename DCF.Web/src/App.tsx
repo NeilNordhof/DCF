@@ -11,6 +11,7 @@ import { Home } from './pages/Home';
 import { LeagueCreate } from './pages/LeagueCreate';
 import { LeagueDetail } from './pages/LeagueDetail';
 import { Leagues } from './pages/Leagues';
+import { Onboarding } from './pages/Onboarding';
 import { Profile } from './pages/Profile';
 
 export default function App() {
@@ -43,6 +44,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
       <Route path="/leagues" element={<ProtectedRoute><Leagues /></ProtectedRoute>} />
       <Route path="/leagues/create" element={<ProtectedRoute><LeagueCreate /></ProtectedRoute>} />
       <Route path="/leagues/:id" element={<ProtectedRoute><LeagueDetail /></ProtectedRoute>} />
