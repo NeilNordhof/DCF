@@ -1,6 +1,6 @@
 namespace DCF.Api.Models;
 
-public record CreateSeasonRequest(int Year);
+public record CreateSeasonRequest(int Year, DateOnly StartDate, DateOnly EndDate);
 public record CreateCorpsRequest(string Name);
 public record CreateShowRequest(
     string Name,

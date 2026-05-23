@@ -30,6 +30,24 @@ public class AdminController(IAdminService adminService) : ControllerBase
         return Ok(await adminService.GetSeasonsAsync());
     }
 
+    [HttpGet("seasons/{id}")]
+    public async Task<IActionResult> GetSeason(Guid id)
+    {
+        if (!await adminService.IsAdminAsync(GetSub()))
+        {
+            return Forbid();
+        }
+
+        var detail = await adminService.GetSeasonDetailAsync(id);
+
+        if (detail is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(detail);
+    }
+
     [HttpPost("seasons")]
     public async Task<IActionResult> CreateSeason(CreateSeasonRequest req)
     {
@@ -38,19 +56,17 @@ public class AdminController(IAdminService adminService) : ControllerBase
             return Forbid();
         }
 
-        // TEMP: startDate/endDate will come from request in Task 6
-        return Ok(await adminService.CreateSeasonAsync(req.Year, default, default));
+        return Ok(await adminService.CreateSeasonAsync(req.Year, req.StartDate, req.EndDate));
     }
 
-    [HttpPut("seasons/{id}/activate")]
-    public async Task<IActionResult> ActivateSeason(Guid id)
+    [HttpPost("seasons/{id}/publish")]
+    public async Task<IActionResult> PublishSeason(Guid id)
     {
         if (!await adminService.IsAdminAsync(GetSub()))
         {
             return Forbid();
         }
 
-        // TEMP: replaced with PublishSeasonAsync in Task 6
         return await adminService.PublishSeasonAsync(id) ? NoContent() : NotFound();
     }
 
