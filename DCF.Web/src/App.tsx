@@ -1,9 +1,10 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { setTokenGetter } from './api/client';
+import { Route, Routes, useNavigate } from 'react-router-dom';
+import { api, setTokenGetter } from './api/client';
 import { AdminRoute } from './components/AdminRoute';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { useUser } from './context/UserContext';
 import { Admin } from './pages/Admin';
 import { DraftRoom } from './pages/DraftRoom';
 import { Home } from './pages/Home';
@@ -13,7 +14,9 @@ import { Leagues } from './pages/Leagues';
 import { Profile } from './pages/Profile';
 
 export default function App() {
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
+  const { setUser } = useUser();
+  const navigate = useNavigate();
 
   useEffect(() => {
     setTokenGetter(() =>
@@ -23,17 +26,27 @@ export default function App() {
     );
   }, [getAccessTokenSilently]);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    api.getUser().then((profile) => {
+      if (profile) {
+        setUser(profile);
+      } else {
+        navigate('/onboarding');
+      }
+    });
+  }, [isAuthenticated, navigate, setUser]);
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/leagues" element={<ProtectedRoute><Leagues /></ProtectedRoute>} />
-        <Route path="/leagues/create" element={<ProtectedRoute><LeagueCreate /></ProtectedRoute>} />
-        <Route path="/leagues/:id" element={<ProtectedRoute><LeagueDetail /></ProtectedRoute>} />
-        <Route path="/leagues/:id/draft" element={<ProtectedRoute><DraftRoom /></ProtectedRoute>} />
-        <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/leagues" element={<ProtectedRoute><Leagues /></ProtectedRoute>} />
+      <Route path="/leagues/create" element={<ProtectedRoute><LeagueCreate /></ProtectedRoute>} />
+      <Route path="/leagues/:id" element={<ProtectedRoute><LeagueDetail /></ProtectedRoute>} />
+      <Route path="/leagues/:id/draft" element={<ProtectedRoute><DraftRoom /></ProtectedRoute>} />
+      <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+    </Routes>
   );
 }
