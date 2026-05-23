@@ -33,7 +33,7 @@ export const api = {
     });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(await res.text());
-    return res.json() as UserProfile;
+    return res.json() as Promise<UserProfile>;
   },
   upsertUser: (displayName: string) =>
     request<UserProfile>('/api/auth/me', { method: 'POST', body: JSON.stringify({ displayName }) }),

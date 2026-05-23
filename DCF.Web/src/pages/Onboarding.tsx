@@ -24,6 +24,7 @@ export function Onboarding() {
     try {
       const profile = await api.upsertUser(displayName);
       setUser(profile);
+      setSubmitting(false);
       navigate('/');
     } catch {
       setError('Failed to create profile. Please try again.');
