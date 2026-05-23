@@ -25,9 +25,8 @@ public class ScrapeSchedulerService(
         var shows = await db.Shows
             .Include(s => s.Season)
             .Include(s => s.ShowCorps)
-            .Where(s => s.ScoresAnnouncedTime > DateTimeOffset.UtcNow)
+            .Where(s => s.Season.Status == SeasonStatus.Active && s.ScoresAnnouncedTime > DateTimeOffset.UtcNow)
             .ToListAsync(stoppingToken);
-        // TEMP: IsActive check removed - will be updated in task 5
 
         foreach (var show in shows)
         {

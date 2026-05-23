@@ -35,10 +35,12 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ScrapeSchedulerSer
 builder.Services.AddSingleton<DraftSchedulerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DraftSchedulerService>());
 
+builder.Services.AddSingleton<SeasonStatusService>();
+builder.Services.AddSingleton<ISeasonStatusService>(sp => sp.GetRequiredService<SeasonStatusService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SeasonStatusService>());
+
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
-// TEMP: SeasonStatusService will be registered in Task 5 once implemented in Task 4
-builder.Services.AddScoped<ISeasonStatusService, NoOpSeasonStatusService>();
 builder.Services.AddScoped<ILeagueService, LeagueService>();
 builder.Services.AddScoped<IStandingsService, StandingsService>();
 builder.Services.AddScoped<IDraftService, DraftService>();
