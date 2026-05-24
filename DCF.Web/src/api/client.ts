@@ -46,6 +46,8 @@ export const api = {
   getStandings: (id: string) => request<Standing[]>(`/api/leagues/${id}/standings`),
   startDraft: (leagueId: string) =>
     request<void>(`/api/leagues/${leagueId}/draft/start`, { method: 'POST' }),
+  openDraft: (leagueId: string) =>
+    request<void>(`/api/leagues/${leagueId}/draft/open`, { method: 'POST' }),
   submitPick: (leagueId: string, corpsId: string, caption: string) =>
     request<{ id: string; pickNumber: number }>(`/api/leagues/${leagueId}/draft/pick`, {
       method: 'POST', body: JSON.stringify({ corpsId, caption }),

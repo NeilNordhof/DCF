@@ -1,4 +1,4 @@
-export type DraftStatus = 'NotStarted' | 'Scheduled' | 'InProgress' | 'Completed';
+export type DraftStatus = 'NotStarted' | 'Scheduled' | 'Open' | 'InProgress' | 'Completed';
 
 export interface League {
   id: string;
@@ -48,6 +48,7 @@ export interface DraftState {
   draftStartTime?: string;
   currentPickNumber: number;
   currentDrafterId?: string;
+  draftOrder: { userId: string; displayName: string }[];
   members: Member[];
   picks: DraftPick[];
 }
