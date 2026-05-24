@@ -49,7 +49,7 @@ public class MqttPublisherService : IMqttPublisherService, IHostedService
         }
     }
 
-    public async Task PublishAsync(string topic, object payload, CancellationToken ct = default)
+    public async Task PublishAsync(string topic, object payload, bool retain = false, CancellationToken ct = default)
     {
         if (!_client.IsConnected)
         {
@@ -69,6 +69,7 @@ public class MqttPublisherService : IMqttPublisherService, IHostedService
                 .WithTopic(topic)
                 .WithPayload(JsonSerializer.Serialize(payload, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }))
                 .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                .WithRetainFlag(retain)
                 .Build();
 
             await _client.PublishAsync(message, ct);
