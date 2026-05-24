@@ -1,17 +1,17 @@
-import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useMqtt } from '../mqtt/useMqtt';
-import type { League, Standing } from '../types/api';
+import { useUser } from '../context/UserContext';
+import type { DraftState, League, Standing } from '../types/api';
 
 export function LeagueDetail() {
   const { id } = useParams<{ id: string }>();
-  const { user: _user } = useAuth0();
+  const { user } = useUser();
   const [league, setLeague] = useState<League | null>(null);
   const [standings, setStandings] = useState<Standing[]>([]);
   const [error, setError] = useState<string | null>(null);
-  useMqtt(`dcf/leagues/${id}/draft`);
+  const draftState = useMqtt<DraftState>(`dcf/leagues/${id}/draft`);
   const scoresUpdated = useMqtt<{ showId: string }>('dcf/scores/updated');
 
   useEffect(() => {
@@ -25,11 +25,18 @@ export function LeagueDetail() {
   if (error) return <div>{error}</div>;
   if (!league) return <div>Loading...</div>;
 
+  const isCommissioner = user?.id !== undefined && user.id === league.commissionerUserId;
+  const isDraftRoomOpen = draftState?.status === 'Open'
+    || draftState?.status === 'InProgress'
+    || draftState?.status === 'Completed';
+
   const joinLeague = async () => {
     const code = league.isPublic ? undefined : prompt('Enter invite code:') ?? undefined;
     await api.joinLeague(league.id, code);
     window.location.reload();
   };
+
+  const openDraft = () => id && api.openDraft(id).catch(() => {});
 
   return (
     <div>
@@ -37,7 +44,14 @@ export function LeagueDetail() {
       <p>Season: {league.seasonYear} | Status: {league.draftStatus}</p>
       {league.inviteCode && <p>Invite code: <code>{league.inviteCode}</code></p>}
 
-      <Link to={`/leagues/${id}/draft`}>Draft Room</Link>
+      {isDraftRoomOpen
+        ? <Link to={`/leagues/${id}/draft`}>Join Draft Room</Link>
+        : <span>Draft Room not open yet</span>}
+
+      {isCommissioner && league.draftStatus === 'NotStarted' && !draftState && (
+        <button onClick={openDraft}>Open Draft</button>
+      )}
+
       {!league.isMember && <button onClick={joinLeague}>Join League</button>}
 
       <h3>Standings</h3>
