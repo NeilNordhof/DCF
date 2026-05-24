@@ -4,7 +4,7 @@
 
 ## Overview
 
-The draft lifecycle currently merges order initialization and pick activation into a single `StartDraft` action. This design splits them into two distinct phases — **open** (order determined, lobby ready) and **start** (picks go live) — and ensures both the scheduled and manual paths converge on the same codepath.
+The draft lifecycle currently merges order initialization and pick activation into a single `StartDraft` action. This design splits them into two distinct phases — **open** (order determined, lobby ready, members can enter) and **start** (picks go live) — and ensures both the scheduled and manual paths converge on the same codepath.
 
 The pick timer system is explicitly out of scope for this spec and will be designed separately.
 
@@ -15,24 +15,32 @@ The pick timer system is explicitly out of scope for this spec and will be desig
 ```
 NotStarted / Scheduled
        │
-       ▼ open (order shuffled, MQTT initialized)
-  [Draft Order Set, DraftOrderJson populated]
+       ▼ open (order shuffled, status → Open, MQTT published)
+     Open
        │
-       ▼ start (InProgress, timers begin)
-    InProgress
+       ▼ start (status → InProgress, timers begin)
+   InProgress
        │
        ▼ all picks made
-    Completed
+   Completed
 ```
+
+### `DraftStatus` enum
+
+```csharp
+public enum DraftStatus { NotStarted, Scheduled, Open, InProgress, Completed }
+```
+
+`Open` is inserted between `Scheduled` and `InProgress`. It is the authoritative signal that the draft has been initialized — no `DraftOrderJson` string checks are needed anywhere.
 
 ### Scheduled path
 
-- At `DraftStartTime - 10 minutes`: auto-open fires (draft order shuffled, MQTT state published, status stays `Scheduled`)
+- At `DraftStartTime - 10 minutes`: auto-open fires (draft order shuffled, status → `Open`, MQTT state published)
 - At `DraftStartTime`: auto-start fires (status → `InProgress`)
 
 ### Manual path
 
-- Commissioner clicks **Open Draft**: draft order shuffled, MQTT state published, status stays `NotStarted`
+- Commissioner clicks **Open Draft**: draft order shuffled, status → `Open`, MQTT state published
 - Commissioner clicks **Start Draft**: status → `InProgress`
 
 ---
@@ -45,6 +53,7 @@ The current `StartDraftCoreAsync` private method is split:
 
 **`OpenDraftCoreAsync(LeagueEntity league)`**
 - Shuffles `league.Members` → writes `league.DraftOrderJson`
+- Sets `league.DraftStatus = DraftStatus.Open`
 - Saves to DB
 - Calls `PublishDraftStateAsync` (retained)
 
@@ -57,26 +66,22 @@ The current `StartDraftCoreAsync` private method is split:
 
 **`OpenDraftAsync(Guid leagueId)`** — scheduler path, no auth check
 - Loads league + members
-- Validates `DraftOrderJson == "[]"` (idempotent guard)
+- Idempotent guard: returns early if `DraftStatus == Open` (handles double-fire on restart)
 - Calls `OpenDraftCoreAsync`
 
 **`OpenDraftAsync(Guid leagueId, string userSub)`** — commissioner path
-- Validates: user exists, user is commissioner, `DraftStatus == NotStarted`, `DraftOrderJson == "[]"`
+- Validates: user exists, user is commissioner, `DraftStatus == NotStarted`
 - Calls `OpenDraftCoreAsync`
 
-**`StartDraftAsync(Guid leagueId)`** — scheduler path, no auth check (unchanged signature)
+**`StartDraftAsync(Guid leagueId)`** — scheduler path, no auth check
 - Loads league + members
-- Validates `DraftOrderJson != "[]"` — throws if not opened yet
+- Validates `DraftStatus == Open` — throws if not yet opened
 - Calls `StartDraftCoreAsync`
 
 **`StartDraftAsync(Guid leagueId, string userSub)`** — commissioner path (updated)
-- Validates: user exists, user is commissioner, `DraftStatus != InProgress && != Completed`, `DraftOrderJson != "[]"`
-- Returns `InvalidOperationException("Draft must be opened before starting")` if not opened
+- Validates: user exists, user is commissioner, `DraftStatus == Open`
+- Returns `InvalidOperationException("Draft must be opened before starting")` if status is not `Open`
 - Calls `StartDraftCoreAsync`
-
-### "Opened" signal
-
-`DraftOrderJson == "[]"` means the draft has not been opened. Any non-empty value means it has. No new `DraftStatus` value is introduced.
 
 ---
 
@@ -107,18 +112,18 @@ If either delay is ≤ 0, that phase runs immediately with no wait. Cancellation
 
 ### Startup recovery (`ExecuteAsync`)
 
-Queries all leagues where `DraftStatus == Scheduled && DraftStartTime != null`. For each:
+Queries all leagues where `(DraftStatus == Scheduled || DraftStatus == Open) && DraftStartTime != null`. For each:
 
 ```
-isAlreadyOpened = league.DraftOrderJson != "[]"
+isAlreadyOpened = league.DraftStatus == Open
 ScheduleNext(league.Id, league.DraftStartTime, isAlreadyOpened)
 ```
 
 This handles all restart scenarios:
 - Server restarted before open window → Phase 1 waits, Phase 2 follows
-- Server restarted during 10-minute window (open not yet run) → Phase 1 runs immediately, Phase 2 waits
-- Server restarted during 10-minute window (open already ran) → Phase 1 skipped, Phase 2 waits
-- Server restarted after start time → both phases run immediately
+- Server restarted during 10-minute window, open not yet run → Phase 1 fires immediately, Phase 2 waits
+- Server restarted during 10-minute window, open already ran (`Open` status) → Phase 1 skipped, Phase 2 waits
+- Server restarted after start time → both phases run immediately (zero-delay)
 
 ### Callers updated
 
@@ -145,7 +150,7 @@ POST /api/leagues/{leagueId}/draft/open
 POST /api/leagues/{leagueId}/draft/start
 ```
 
-- Now returns `400 "Draft must be opened before starting"` if `DraftOrderJson == "[]"` (enforced in the service, not the controller)
+- Now returns `400 "Draft must be opened before starting"` if `DraftStatus != Open` (enforced in the service)
 
 ---
 
@@ -169,7 +174,7 @@ All calls via `PublishDraftStateAsync` pass `retain: true`. The existing scores 
 
 ```json
 {
-  "status": "...",
+  "status": "Open",
   "draftStartTime": "...",
   "currentPickNumber": 0,
   "currentDrafterId": "...",
@@ -181,23 +186,38 @@ All calls via `PublishDraftStateAsync` pass `retain: true`. The existing scores 
 }
 ```
 
-`DraftOrder` is computed from `DraftOrderJson` by joining against the members list. It is an empty array before the draft is opened.
+`DraftOrder` is computed from `DraftOrderJson` by joining against the members list. It is an empty array when status is `NotStarted` or `Scheduled` (i.e. before open).
 
 ---
 
-## Frontend — `DraftRoom.tsx`
+## Frontend
 
-### Lobby view changes
+### `LeagueDetail.tsx` — Join Draft Room button
 
-When `draftState` is available and `draftOrder.length > 0`, the lobby shows the pick order list (position + display name).
+The existing `<Link to="/leagues/{id}/draft">Draft Room</Link>` becomes a button that is enabled only when the draft is open. `LeagueDetail` already subscribes to the draft MQTT topic (`useMqtt`) but discards the result — it now consumes `draftState.status` to reactively gate the button without requiring a REST re-fetch.
 
-### Commissioner buttons
+- `draftState.status === 'NotStarted' || 'Scheduled'` (or `draftState` is null): button is disabled / not shown
+- `draftState.status === 'Open'`, `'InProgress'`, or `'Completed'`: button is enabled and navigates to `/leagues/{id}/draft`
 
-| State | Condition | Button shown |
-|---|---|---|
-| `NotStarted`, not opened | `draftOrder.length === 0` | **Open Draft** |
-| `NotStarted`, opened | `draftOrder.length > 0` | **Start Draft** |
-| `Scheduled` | (no manual action needed) | Neither |
+Using the retained MQTT message means the button state is correct immediately on page load and updates in real time when the commissioner opens the draft.
+
+### `DraftRoom.tsx` — entry guard
+
+As a safety net against direct URL access, `DraftRoom` checks `draftState.status` once the MQTT connection settles. If status is `NotStarted` or `Scheduled`, it redirects to the league detail page.
+
+### `DraftRoom.tsx` — lobby view
+
+When `draftState.status === 'Open'`, the lobby shows:
+- The full pick order list (position + display name) from `draftState.draftOrder`
+- Countdown to `draftStartTime` if set
+
+### `DraftRoom.tsx` — commissioner buttons
+
+| `draftStatus` | Button shown |
+|---|---|
+| `NotStarted` | **Open Draft** |
+| `Scheduled` | Neither (auto-handled) |
+| `Open` | **Start Draft** |
 
 ### API client
 
@@ -205,6 +225,11 @@ When `draftState` is available and `draftOrder.length > 0`, the lobby shows the 
 
 ---
 
-## Type changes — `DraftState`
+## Type changes
 
-`src/types/api.ts`: `DraftState` gains `draftOrder: { userId: string; displayName: string }[]`.
+**`src/types/api.ts`:**
+- `DraftState.status` union gains `'Open'`
+- `DraftState` gains `draftOrder: { userId: string; displayName: string }[]`
+
+**`DCF.Data/Models/DraftStatus.cs`:**
+- `Open` added between `Scheduled` and `InProgress`
