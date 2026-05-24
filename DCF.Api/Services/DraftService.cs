@@ -30,6 +30,11 @@ public class DraftService(DcfDbContext db, IMqttPublisherService mqtt) : IDraftS
             return;
         }
 
+        if (league.DraftStatus != DraftStatus.NotStarted && league.DraftStatus != DraftStatus.Scheduled)
+        {
+            throw new InvalidOperationException("Draft can only be opened from NotStarted or Scheduled status");
+        }
+
         await OpenDraftCoreAsync(league);
     }
 
