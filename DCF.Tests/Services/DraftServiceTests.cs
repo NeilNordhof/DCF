@@ -1,4 +1,5 @@
 using DCF.Api.Services;
+using DCF.Data.Models;
 using Xunit;
 
 namespace DCF.Tests.Services;
@@ -40,5 +41,17 @@ public class DraftServiceTests
         // Round 2 (third round) snakes forward again: A, B, C
         var order = new[] { "a", "b", "c" };
         Assert.Equal("a", DraftService.GetCurrentDrafter(order, 6));
+    }
+
+    [Fact]
+    public void DraftStatus_Open_ExistsBetweenScheduledAndInProgress()
+    {
+        var values = Enum.GetValues<DraftStatus>().ToList();
+        int scheduledIdx = values.IndexOf(DraftStatus.Scheduled);
+        int inProgressIdx = values.IndexOf(DraftStatus.InProgress);
+
+        Assert.True(Enum.IsDefined(typeof(DraftStatus), "Open"));
+        int openIdx = values.IndexOf(DraftStatus.Open);
+        Assert.True(openIdx > scheduledIdx && openIdx < inProgressIdx);
     }
 }
