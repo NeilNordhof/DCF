@@ -11,6 +11,7 @@ public class DraftSchedulerService(
     ILogger<DraftSchedulerService> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _scheduled = new();
+    private static readonly TimeSpan OpenLeadTime = TimeSpan.FromMinutes(10);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -18,18 +19,17 @@ public class DraftSchedulerService(
         var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
 
         var leagues = await db.Leagues
-            .Where(l => l.DraftStatus == DraftStatus.Scheduled &&
-                        l.DraftStartTime != null &&
-                        l.DraftStartTime > DateTimeOffset.UtcNow)
+            .Where(l => (l.DraftStatus == DraftStatus.Scheduled || l.DraftStatus == DraftStatus.Open)
+                        && l.DraftStartTime != null)
             .ToListAsync(stoppingToken);
 
         foreach (var league in leagues)
         {
-            ScheduleDraftStart(league.Id, league.DraftStartTime!.Value);
+            ScheduleNext(league.Id, league.DraftStartTime!.Value, league.DraftStatus == DraftStatus.Open);
         }
     }
 
-    public void ScheduleDraftStart(Guid leagueId, DateTimeOffset startTime)
+    public void ScheduleNext(Guid leagueId, DateTimeOffset startTime, bool isAlreadyOpened)
     {
         if (_scheduled.TryRemove(leagueId, out var existing))
         {
@@ -44,11 +44,31 @@ public class DraftSchedulerService(
         {
             try
             {
-                var delay = startTime - DateTimeOffset.UtcNow;
-
-                if (delay > TimeSpan.Zero)
+                if (!isAlreadyOpened)
                 {
-                    await Task.Delay(delay, cts.Token);
+                    var openDelay = startTime - OpenLeadTime - DateTimeOffset.UtcNow;
+
+                    if (openDelay > TimeSpan.Zero)
+                    {
+                        await Task.Delay(openDelay, cts.Token);
+                    }
+
+                    if (cts.Token.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    using var openScope = scopeFactory.CreateScope();
+                    var openService = openScope.ServiceProvider.GetRequiredService<IDraftService>();
+
+                    await openService.OpenDraftAsync(leagueId);
+                }
+
+                var startDelay = startTime - DateTimeOffset.UtcNow;
+
+                if (startDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(startDelay, cts.Token);
                 }
 
                 if (cts.Token.IsCancellationRequested)
@@ -56,18 +76,18 @@ public class DraftSchedulerService(
                     return;
                 }
 
-                using var scope = scopeFactory.CreateScope();
-                var draftService = scope.ServiceProvider.GetRequiredService<IDraftService>();
+                using var startScope = scopeFactory.CreateScope();
+                var startService = startScope.ServiceProvider.GetRequiredService<IDraftService>();
 
-                await draftService.StartDraftAsync(leagueId);
+                await startService.StartDraftAsync(leagueId);
             }
             catch (OperationCanceledException)
             {
-                // expected when rescheduled
+                // expected when rescheduled or cancelled
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Auto-start draft failed for league {Id}", leagueId);
+                logger.LogError(ex, "Draft scheduling failed for league {Id}", leagueId);
             }
         });
     }

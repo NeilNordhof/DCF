@@ -90,7 +90,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
 
         if (draftStartTime.HasValue)
         {
-            draftScheduler.ScheduleDraftStart(league.Id, draftStartTime.Value);
+            draftScheduler.ScheduleNext(league.Id, draftStartTime.Value, isAlreadyOpened: false);
         }
 
         return new LeagueBrief(league.Id, league.Name, league.InviteCode);
