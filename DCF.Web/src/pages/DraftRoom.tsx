@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useMqtt } from '../mqtt/useMqtt';
 import { useUser } from '../context/UserContext';
@@ -8,6 +8,7 @@ import type { Corps, DraftState, League } from '../types/api';
 export function DraftRoom() {
   const { id } = useParams<{ id: string }>();
   const { user } = useUser();
+  const navigate = useNavigate();
   const [league, setLeague] = useState<League | null>(null);
   const [corps, setCorps] = useState<Corps[]>([]);
   const [selectedCorps, setSelectedCorps] = useState('');
@@ -22,6 +23,13 @@ export function DraftRoom() {
     api.getLeague(id).then(setLeague).catch(() => setError('Failed to load league.'));
     api.adminGetCorps().then(setCorps).catch(() => {});
   }, [id]);
+
+  useEffect(() => {
+    if (!league) return;
+    if (league.draftStatus === 'NotStarted' || league.draftStatus === 'Scheduled') {
+      navigate(`/leagues/${id}`);
+    }
+  }, [league, id, navigate]);
 
   if (error) return <div>{error}</div>;
   if (!league) return <div>Loading...</div>;
@@ -55,22 +63,32 @@ export function DraftRoom() {
   const skipPick = () => id && api.skipPick(id).catch(() => {});
   const startDraft = () => id && api.startDraft(id).catch(() => {});
 
-  // Lobby view
-  if (!draftState || draftState.status === 'NotStarted' || draftState.status === 'Scheduled') {
+  // Open lobby
+  if (!draftState || draftState.status === 'Open') {
     return (
       <div>
         <h2>{league.name} — Draft Lobby</h2>
         {league.draftStartTime && (
           <p>Draft starts: {new Date(league.draftStartTime).toLocaleString()}</p>
         )}
-        <h3>Members joined:</h3>
+        {draftState && draftState.draftOrder.length > 0 && (
+          <>
+            <h3>Draft Order</h3>
+            <ol>
+              {draftState.draftOrder.map(m => (
+                <li key={m.userId}>{m.displayName}</li>
+              ))}
+            </ol>
+          </>
+        )}
+        <h3>Members</h3>
         <ul>
           {(draftState?.members ?? league.members ?? []).map(m => (
             <li key={m.userId}>{m.displayName}</li>
           ))}
         </ul>
-        {isCommissioner && league.draftStatus === 'NotStarted' && (
-          <button onClick={startDraft}>Start Draft Now</button>
+        {isCommissioner && draftState?.status === 'Open' && (
+          <button onClick={startDraft}>Start Draft</button>
         )}
       </div>
     );
