@@ -17,6 +17,29 @@ public class DraftController(IDraftService draftService) : ControllerBase
             ?? throw new InvalidOperationException("No sub claim");
     }
 
+    [HttpPost("open")]
+    public async Task<IActionResult> Open(Guid leagueId)
+    {
+        try
+        {
+            await draftService.OpenDraftAsync(leagueId, GetSub());
+
+            return NoContent();
+        }
+        catch (ArgumentException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpPost("start")]
     public async Task<IActionResult> Start(Guid leagueId)
     {
