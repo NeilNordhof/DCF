@@ -8,7 +8,7 @@ public class DcfDbContextFactory : IDesignTimeDbContextFactory<DcfDbContext>
     public DcfDbContext CreateDbContext(string[] args)
     {
         var connectionString = args.FirstOrDefault()
-            ?? "Host=localhost;Database=dcf;Username=dcf;Password=dcf_dev";
+            ?? "Host=localhost;Database=dcf;Username=dcf;Password=dcf_dev_password";
 
         var options = new DbContextOptionsBuilder<DcfDbContext>()
             .UseNpgsql(connectionString)

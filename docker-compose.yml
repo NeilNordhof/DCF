@@ -30,8 +30,8 @@ services:
       - mosquitto
     environment:
       - ConnectionStrings__Default=Host=postgres;Port=5432;Database=dcf;Username=dcf;Password=dcf_dev_password
-      - Auth0__Domain=${AUTH0_DOMAIN:-your-tenant.auth0.com}
-      - Auth0__Audience=${AUTH0_AUDIENCE:-https://your-api-audience}
+      - Auth0__Domain=${AUTH0_DOMAIN}
+      - Auth0__Audience=${AUTH0_AUDIENCE}
       - Mqtt__Host=mosquitto
 
 volumes:
