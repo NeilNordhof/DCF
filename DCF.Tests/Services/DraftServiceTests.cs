@@ -3,6 +3,7 @@ using DCF.Data;
 using DCF.Data.Entities;
 using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Xunit;
 
 namespace DCF.Tests.Services;
@@ -183,5 +184,91 @@ public class OpenDraftTests
 
         Assert.Single(mqtt.Messages);
         Assert.True(mqtt.Messages[0].Retain);
+    }
+}
+
+public class StartDraftTests
+{
+    private sealed class NullMqtt : IMqttPublisherService
+    {
+        public Task PublishAsync(string topic, object payload, bool retain = false, CancellationToken ct = default)
+        {
+            return Task.CompletedTask;
+        }
+    }
+
+    private static DcfDbContext CreateDb() =>
+        new(new DbContextOptionsBuilder<DcfDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options);
+
+    private static (DcfDbContext Db, DraftService Service, Guid CommissionerId, Guid LeagueId) Seed(
+        DraftStatus status = DraftStatus.Open)
+    {
+        var db = CreateDb();
+        var commissioner = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|comm", DisplayName = "Commissioner", Email = "c@test.com" };
+        var member = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|mem", DisplayName = "Member", Email = "m@test.com" };
+        var draftOrder = JsonSerializer.Serialize(new[] { commissioner.Id.ToString(), member.Id.ToString() });
+        var league = new LeagueEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test League",
+            CommissionerUserId = commissioner.Id,
+            DraftStatus = status,
+            DraftOrderJson = status == DraftStatus.Open ? draftOrder : "[]",
+            InviteCode = "TESTCODE",
+            DraftableCaptions = [Caption.Brass],
+            CorpsPerCaption = 1
+        };
+        db.Users.AddRange(commissioner, member);
+        db.Leagues.Add(league);
+        db.LeagueMembers.AddRange(
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = commissioner.Id },
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = member.Id }
+        );
+        db.SaveChanges();
+        return (db, new DraftService(db, new NullMqtt()), commissioner.Id, league.Id);
+    }
+
+    [Fact]
+    public async Task SchedulerPath_ThrowsWhenNotOpen()
+    {
+        var (_, svc, _, leagueId) = Seed(DraftStatus.NotStarted);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => svc.StartDraftAsync(leagueId));
+
+        Assert.Contains("opened", ex.Message);
+    }
+
+    [Fact]
+    public async Task CommissionerPath_ThrowsWhenNotOpen()
+    {
+        var (_, svc, _, leagueId) = Seed(DraftStatus.NotStarted);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => svc.StartDraftAsync(leagueId, "auth|comm"));
+
+        Assert.Contains("opened", ex.Message);
+    }
+
+    [Fact]
+    public async Task CommissionerPath_SetsStatusToInProgress_WhenOpen()
+    {
+        var (db, svc, _, leagueId) = Seed(DraftStatus.Open);
+
+        await svc.StartDraftAsync(leagueId, "auth|comm");
+
+        var league = await db.Leagues.FindAsync(leagueId);
+        Assert.Equal(DraftStatus.InProgress, league!.DraftStatus);
+    }
+
+    [Fact]
+    public async Task CommissionerPath_ThrowsWhenNotCommissioner()
+    {
+        var (_, svc, _, leagueId) = Seed(DraftStatus.Open);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => svc.StartDraftAsync(leagueId, "auth|mem"));
     }
 }
