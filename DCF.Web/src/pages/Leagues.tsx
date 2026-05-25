@@ -47,7 +47,7 @@ export function Leagues() {
 
   useEffect(() => {
     if (!featured) {
-      Promise.resolve().then(() => setFeaturedStandings([]));
+      setFeaturedStandings([]);
       return;
     }
     api.getStandings(featured.id).then(setFeaturedStandings).catch(() => {});
