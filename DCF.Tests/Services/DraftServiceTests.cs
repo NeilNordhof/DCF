@@ -8,6 +8,27 @@ using Xunit;
 
 namespace DCF.Tests.Services;
 
+internal sealed class NullMqtt : IMqttService
+{
+    public Task PublishAsync(string topic, object payload, bool retain = false, CancellationToken ct = default)
+    {
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class NullPresenceService : IPresenceService
+{
+    public Task HandlePresenceAsync(Guid leagueId, Guid userId, bool online)
+    {
+        return Task.CompletedTask;
+    }
+
+    public IReadOnlyCollection<Guid> GetOnline(Guid leagueId)
+    {
+        return Array.Empty<Guid>();
+    }
+}
+
 public class DraftServiceTests
 {
     [Fact]
@@ -104,7 +125,7 @@ public class OpenDraftTests
             new LeagueMemberEntity { LeagueId = league.Id, UserId = member.Id }
         );
         db.SaveChanges();
-        return (db, new DraftService(db, mqtt), mqtt, commissioner.Id, member.Id, league.Id);
+        return (db, new DraftService(db, mqtt, new NullPresenceService()), mqtt, commissioner.Id, member.Id, league.Id);
     }
 
     [Fact]
@@ -189,14 +210,6 @@ public class OpenDraftTests
 
 public class StartDraftTests
 {
-    private sealed class NullMqtt : IMqttService
-    {
-        public Task PublishAsync(string topic, object payload, bool retain = false, CancellationToken ct = default)
-        {
-            return Task.CompletedTask;
-        }
-    }
-
     private static DcfDbContext CreateDb() =>
         new(new DbContextOptionsBuilder<DcfDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -227,7 +240,7 @@ public class StartDraftTests
             new LeagueMemberEntity { LeagueId = league.Id, UserId = member.Id }
         );
         db.SaveChanges();
-        return (db, new DraftService(db, new NullMqtt()), commissioner.Id, league.Id);
+        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService()), commissioner.Id, league.Id);
     }
 
     [Fact]
@@ -270,5 +283,99 @@ public class StartDraftTests
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(
             () => svc.StartDraftAsync(leagueId, "auth|mem"));
+    }
+}
+
+public class PublishStateTests
+{
+    private sealed class CapturingMqtt : IMqttService
+    {
+        public string? LastPayloadJson { get; private set; }
+
+        public Task PublishAsync(string topic, object payload, bool retain = false, CancellationToken ct = default)
+        {
+            LastPayloadJson = JsonSerializer.Serialize(
+                payload,
+                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakePresenceService : IPresenceService
+    {
+        private readonly Guid[] _online;
+
+        public FakePresenceService(params Guid[] online)
+        {
+            _online = online;
+        }
+
+        public Task HandlePresenceAsync(Guid leagueId, Guid userId, bool online)
+        {
+            return Task.CompletedTask;
+        }
+
+        public IReadOnlyCollection<Guid> GetOnline(Guid leagueId)
+        {
+            return _online;
+        }
+    }
+
+    private static DcfDbContext CreateDb()
+    {
+        return new(new DbContextOptionsBuilder<DcfDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options);
+    }
+
+    [Fact]
+    public async Task PublishStateAsync_LeagueNotFound_DoesNotThrow()
+    {
+        var db = CreateDb();
+        var svc = new DraftService(db, new NullMqtt(), new NullPresenceService());
+
+        var ex = await Record.ExceptionAsync(() => svc.PublishStateAsync(Guid.NewGuid()));
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public async Task PublishStateAsync_IncludesOnlineUserIds()
+    {
+        var db = CreateDb();
+        var mqtt = new CapturingMqtt();
+        var user1 = Guid.NewGuid();
+        var user2 = Guid.NewGuid();
+        var presence = new FakePresenceService(user1, user2);
+        var svc = new DraftService(db, mqtt, presence);
+
+        var league = new LeagueEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test",
+            CommissionerUserId = user1,
+            DraftStatus = DraftStatus.Open,
+            DraftOrderJson = "[]",
+            InviteCode = "ABCD1234",
+            DraftableCaptions = [Caption.Brass],
+            CorpsPerCaption = 1
+        };
+        db.Leagues.Add(league);
+
+        await db.SaveChangesAsync();
+
+        await svc.PublishStateAsync(league.Id);
+
+        Assert.NotNull(mqtt.LastPayloadJson);
+
+        using var doc = JsonDocument.Parse(mqtt.LastPayloadJson!);
+        var ids = doc.RootElement.GetProperty("onlineUserIds")
+            .EnumerateArray()
+            .Select(e => e.GetString()!)
+            .ToHashSet();
+
+        Assert.Contains(user1.ToString(), ids);
+        Assert.Contains(user2.ToString(), ids);
     }
 }

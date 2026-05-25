@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace DCF.Api.Services;
 
-public class DraftService(DcfDbContext db, IMqttService mqtt) : IDraftService
+public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService presenceService) : IDraftService
 {
     public static string GetCurrentDrafter(string[] draftOrder, int currentPickNumber)
     {
@@ -216,9 +216,16 @@ public class DraftService(DcfDbContext db, IMqttService mqtt) : IDraftService
         await PublishDraftStateAsync(league);
     }
 
-    public Task PublishStateAsync(Guid leagueId)
+    public async Task PublishStateAsync(Guid leagueId)
     {
-        throw new NotImplementedException();
+        var league = await db.Leagues.FirstOrDefaultAsync(l => l.Id == leagueId);
+
+        if (league is null)
+        {
+            return;
+        }
+
+        await PublishDraftStateAsync(league);
     }
 
     private async Task PublishDraftStateAsync(LeagueEntity league)
@@ -247,6 +254,10 @@ public class DraftService(DcfDbContext db, IMqttService mqtt) : IDraftService
             .Select(id => new { UserId = id, DisplayName = membersByUserId[id] })
             .ToArray();
 
+        var onlineUserIds = presenceService.GetOnline(league.Id)
+            .Select(id => id.ToString())
+            .ToArray();
+
         var payload = new
         {
             Status = league.DraftStatus.ToString(),
@@ -261,7 +272,8 @@ public class DraftService(DcfDbContext db, IMqttService mqtt) : IDraftService
                 UserId = p.UserId, p.User.DisplayName,
                 CorpsId = p.CorpsId, CorpsName = p.Corps.Name,
                 Caption = p.Caption.ToString()
-            })
+            }),
+            OnlineUserIds = onlineUserIds
         };
 
         await mqtt.PublishAsync($"dcf/leagues/{league.Id}/draft", payload, retain: true);
