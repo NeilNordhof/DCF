@@ -113,5 +113,5 @@ export interface MemberScoreBreakdown {
   userId: string;
   displayName: string;
   totalScore: number;
-  captions: Record<string, CaptionBreakdown>;
+  captions: Partial<Record<string, CaptionBreakdown>>;
 }
