@@ -1,14 +1,11 @@
 import { useEffect, useRef } from 'react';
+import Auth0Lock from 'auth0-lock';
 
 export function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    // @ts-ignore
-    const Auth0Lock = (window as any).Auth0Lock ?? require('auth0-lock').default ?? require('auth0-lock');
 
     const lock = new Auth0Lock(
       import.meta.env.VITE_AUTH0_CLIENT_ID as string,
@@ -123,7 +120,7 @@ export function Home() {
         {/* Right — Auth0 Lock */}
         <div style={{
           flex: '0 0 340px',
-          background: '#0f1117',
+          background: 'var(--surface-2)',
           borderLeft: '1px solid var(--border)',
           display: 'flex',
           flexDirection: 'column',
