@@ -149,7 +149,7 @@ export function LeagueScoresTab({ breakdown, captions, currentUserId }: Props) {
                     color: isMe ? 'var(--accent)' : 'var(--text-heading)',
                     borderBottom: isLastRow ? '1px solid var(--border)' : undefined,
                   }}>
-                    {isFirstRow && player.totalScore > 0 ? player.totalScore.toFixed(3) : ''}
+                    {isFirstRow ? player.totalScore.toFixed(3) : ''}
                   </td>
                 </tr>
               );
