@@ -54,7 +54,7 @@ public class LeaguesController(ILeagueService leagueService, IStandingsService s
 
         return result switch
         {
-            JoinResult.Ok => Ok(),
+            JoinResult.Ok => NoContent(),
             JoinResult.Unauthorized => Unauthorized(),
             JoinResult.NotFound => NotFound(),
             JoinResult.BadInviteCode => BadRequest("Invalid invite code"),

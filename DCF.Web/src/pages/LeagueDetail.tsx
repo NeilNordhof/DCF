@@ -26,9 +26,10 @@ export function LeagueDetail() {
   if (!league) return <div>Loading...</div>;
 
   const isCommissioner = user?.id !== undefined && user.id === league.commissionerUserId;
-  const isDraftRoomOpen = draftState?.status === 'Open'
-    || draftState?.status === 'InProgress'
-    || draftState?.status === 'Completed';
+  const effectiveStatus = draftState?.status ?? league.draftStatus;
+  const isDraftRoomOpen = effectiveStatus === 'Open'
+    || effectiveStatus === 'InProgress'
+    || effectiveStatus === 'Completed';
 
   const joinLeague = async () => {
     const code = league.isPublic ? undefined : prompt('Enter invite code:') ?? undefined;
