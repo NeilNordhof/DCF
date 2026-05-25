@@ -216,6 +216,11 @@ public class DraftService(DcfDbContext db, IMqttService mqtt) : IDraftService
         await PublishDraftStateAsync(league);
     }
 
+    public Task PublishStateAsync(Guid leagueId)
+    {
+        throw new NotImplementedException();
+    }
+
     private async Task PublishDraftStateAsync(LeagueEntity league)
     {
         var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson) ?? [];

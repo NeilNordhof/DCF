@@ -4,6 +4,7 @@ namespace DCF.Api.Services;
 
 public interface IDraftService
 {
+    Task PublishStateAsync(Guid leagueId);
     Task OpenDraftAsync(Guid leagueId);
     Task OpenDraftAsync(Guid leagueId, string userSub);
     Task StartDraftAsync(Guid leagueId);
