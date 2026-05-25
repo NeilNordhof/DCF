@@ -48,9 +48,16 @@ export interface DraftState {
   draftStartTime?: string;
   currentPickNumber: number;
   currentDrafterId?: string;
+  onlineUserIds: string[];
   draftOrder: { userId: string; displayName: string }[];
   members: Member[];
   picks: DraftPick[];
+}
+
+export interface PickPreview {
+  userId: string;
+  corpsId: string;
+  caption: string;
 }
 
 export interface UserProfile {
