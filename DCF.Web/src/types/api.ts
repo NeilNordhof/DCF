@@ -109,7 +109,7 @@ export interface CaptionBreakdown {
   picks: PickScore[];
 }
 
-export interface PlayerScoreBreakdown {
+export interface MemberScoreBreakdown {
   userId: string;
   displayName: string;
   totalScore: number;

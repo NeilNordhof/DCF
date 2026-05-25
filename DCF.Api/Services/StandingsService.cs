@@ -95,6 +95,7 @@ public class StandingsService(DcfDbContext db) : IStandingsService
                 foreach (var pick in picks)
                 {
                     var corpsName = allCorps.FirstOrDefault(c => c.Id == pick.CorpsId)?.Name ?? "Unknown";
+
                     var score = await GetEffectiveScoreAsync(pick.CorpsId, caption);
                     pickScores.Add(new PickScore(corpsName, score));
 
