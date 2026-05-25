@@ -77,6 +77,21 @@ public class LeaguesController(ILeagueService leagueService, IStandingsService s
         }
     }
 
+    [HttpGet("{id}/standings/breakdown")]
+    public async Task<IActionResult> StandingsBreakdown(Guid id)
+    {
+        try
+        {
+            var breakdown = await standingsService.GetScoreBreakdownAsync(id);
+
+            return Ok(breakdown);
+        }
+        catch (ArgumentException)
+        {
+            return NotFound();
+        }
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> Get(Guid id)
     {

@@ -98,3 +98,20 @@ export interface Show {
   scoresAnnouncedTime: string;
   corpsIds: string[];
 }
+
+export interface PickScore {
+  corpsName: string;
+  score: number | null;
+}
+
+export interface CaptionBreakdown {
+  avg: number;
+  picks: PickScore[];
+}
+
+export interface PlayerScoreBreakdown {
+  userId: string;
+  displayName: string;
+  totalScore: number;
+  captions: Record<string, CaptionBreakdown>;
+}
