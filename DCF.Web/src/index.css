@@ -5,7 +5,7 @@
   --border: #2a2d3a;
   --border-subtle: #1e2030;
   --text: #9ca3af;
-  --text-h: #f3f4f6;
+  --text-heading: #f3f4f6;
   --text-muted: #6b7280;
   --text-faint: #4b5563;
   --accent: #c084fc;
@@ -20,7 +20,6 @@
 
   font: 11px/160% var(--sans);
   color: var(--text);
-  background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -44,7 +43,7 @@ body {
 
 h1, h2, h3, h4 {
   margin: 0;
-  color: var(--text-h);
+  color: var(--text-heading);
   font-family: var(--sans);
 }
 
@@ -59,5 +58,5 @@ button {
 
 input, select, textarea {
   font-family: var(--sans);
-  font-size: 11px;
+  font-size: inherit;
 }
