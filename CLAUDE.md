@@ -98,7 +98,7 @@ MQTT Broker (Mosquitto) ← API publishes → React subscribes via WebSocket
 
 **Authentication:** Auth0 JWT Bearer. Users are auto-registered on first `/api/auth/me` call. `IsAdmin` is set directly in the database — there are no Auth0 roles.
 
-**Real-time:** Background services publish JSON to Mosquitto over TCP (`MqttPublisherService`). The React frontend subscribes via WebSocket (port 9001) using the `useMqtt` hook. Topics: `dcf/leagues/{leagueId}/draft`, `dcf/scores/updated`.
+**Real-time:** Background services publish JSON to Mosquitto over TCP (`MqttService`). The React frontend subscribes via WebSocket (port 9001) using the `useMqtt` hook. Topics: `dcf/leagues/{leagueId}/draft`, `dcf/scores/updated`.
 
 **Draft logic (snake draft):** `DraftService.GetCurrentDrafter` is a static method that computes whose turn it is from `CurrentPickNumber` and `DraftOrderJson`. The snake reversal happens every `CorpsPerCaption * captionCount` picks. A unique constraint on `(LeagueId, CorpsId, Caption)` enforces no duplicate picks.
 
