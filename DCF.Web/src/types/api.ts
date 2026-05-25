@@ -48,7 +48,7 @@ export interface DraftState {
   draftStartTime?: string;
   currentPickNumber: number;
   currentDrafterId?: string;
-  onlineUserIds: string[];
+  onlineUserIds?: string[];
   draftOrder: { userId: string; displayName: string }[];
   members: Member[];
   picks: DraftPick[];

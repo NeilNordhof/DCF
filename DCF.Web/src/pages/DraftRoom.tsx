@@ -56,7 +56,7 @@ export function DraftRoom() {
 
   const takenSet = new Set(draftState.picks.map(p => `${p.corpsId}|${p.caption}`));
   const isTaken = (corpsId: string, caption: string) => takenSet.has(`${corpsId}|${caption}`);
-  const isOnline = (userId: string) => draftState.onlineUserIds.includes(userId);
+  const isOnline = (userId: string) => (draftState.onlineUserIds ?? []).includes(userId);
 
   const currentDrafter = draftState.members.find(m => m.userId === draftState.currentDrafterId);
 
@@ -335,7 +335,7 @@ export function DraftRoom() {
       );
     }
 
-    const n = draftState.members.length;
+    const n = draftState.draftOrder.length;
     const totalPicks = n * league.draftableCaptions.length * league.corpsPerCaption;
 
     const upcomingOrder: Array<{ userId: string; displayName: string }> = [];
