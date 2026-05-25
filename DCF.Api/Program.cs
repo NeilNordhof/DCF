@@ -26,6 +26,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddScoped<ICorpsService, CorpsService>();
 builder.Services.AddHttpClient<IRecapScraperTask, RecapScraperTask>();
 
+builder.Services.AddSingleton<IPresenceService, PresenceService>();
 builder.Services.AddSingleton<IMqttService, MqttService>();
 builder.Services.AddHostedService(sp => (MqttService)sp.GetRequiredService<IMqttService>());
 
