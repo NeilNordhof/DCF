@@ -6,15 +6,15 @@ using System.Text.Json;
 
 namespace DCF.Api.Services;
 
-public class MqttPublisherService : IMqttPublisherService, IHostedService
+public class MqttService : IMqttService, IHostedService
 {
     private readonly IMqttClient _client;
     private readonly string _host;
     private readonly int _port;
-    private readonly ILogger<MqttPublisherService> _logger;
+    private readonly ILogger<MqttService> _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    public MqttPublisherService(IConfiguration config, ILogger<MqttPublisherService> logger)
+    public MqttService(IConfiguration config, ILogger<MqttService> logger)
     {
         _host = config["Mqtt:Host"] ?? "localhost";
         _port = config.GetValue<int>("Mqtt:Port", 1883);

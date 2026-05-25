@@ -62,7 +62,7 @@ public class DraftServiceTests
 
 public class OpenDraftTests
 {
-    private sealed class SpyMqtt : IMqttPublisherService
+    private sealed class SpyMqtt : IMqttService
     {
         public record Publish(string Topic, bool Retain);
         public List<Publish> Messages { get; } = new();
@@ -189,7 +189,7 @@ public class OpenDraftTests
 
 public class StartDraftTests
 {
-    private sealed class NullMqtt : IMqttPublisherService
+    private sealed class NullMqtt : IMqttService
     {
         public Task PublishAsync(string topic, object payload, bool retain = false, CancellationToken ct = default)
         {

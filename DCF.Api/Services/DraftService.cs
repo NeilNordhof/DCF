@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace DCF.Api.Services;
 
-public class DraftService(DcfDbContext db, IMqttPublisherService mqtt) : IDraftService
+public class DraftService(DcfDbContext db, IMqttService mqtt) : IDraftService
 {
     public static string GetCurrentDrafter(string[] draftOrder, int currentPickNumber)
     {

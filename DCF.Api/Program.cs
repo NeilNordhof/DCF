@@ -26,8 +26,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddScoped<ICorpsService, CorpsService>();
 builder.Services.AddHttpClient<IRecapScraperTask, RecapScraperTask>();
 
-builder.Services.AddSingleton<IMqttPublisherService, MqttPublisherService>();
-builder.Services.AddHostedService(sp => (MqttPublisherService)sp.GetRequiredService<IMqttPublisherService>());
+builder.Services.AddSingleton<IMqttService, MqttService>();
+builder.Services.AddHostedService(sp => (MqttService)sp.GetRequiredService<IMqttService>());
 
 builder.Services.AddSingleton<ScrapeSchedulerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ScrapeSchedulerService>());

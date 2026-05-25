@@ -14,7 +14,7 @@ public record ShowBrief(Guid Id, string Name);
 public class AdminService(
     DcfDbContext db,
     ScrapeSchedulerService scrapeScheduler,
-    IMqttPublisherService mqtt,
+    IMqttService mqtt,
     ISeasonStatusService seasonStatus) : IAdminService
 {
     public async Task<bool> IsAdminAsync(string sub)

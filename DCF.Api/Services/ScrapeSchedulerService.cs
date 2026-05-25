@@ -10,7 +10,7 @@ namespace DCF.Api.Services;
 
 public class ScrapeSchedulerService(
     IServiceScopeFactory scopeFactory,
-    IMqttPublisherService mqtt,
+    IMqttService mqtt,
     IConfiguration config,
     ILogger<ScrapeSchedulerService> logger) : BackgroundService
 {
