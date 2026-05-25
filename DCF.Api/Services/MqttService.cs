@@ -104,6 +104,7 @@ public class MqttService : IMqttService, IHostedService
             var parts = e.ApplicationMessage.Topic.Split('/');
 
             // Topic format: dcf/leagues/{leagueId}/draft/presence
+
             if (parts.Length != 5 || !Guid.TryParse(parts[2], out var leagueId))
             {
                 return;
