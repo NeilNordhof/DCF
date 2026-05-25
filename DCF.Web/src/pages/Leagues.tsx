@@ -8,26 +8,14 @@ function StatusBadge({ status }: { status: string }) {
   const isLive = status === 'InProgress';
   const isOpen = status === 'Open';
 
-  if (isLive) {
+  if (isLive || isOpen) {
     return (
       <span style={{
         fontSize: 8, padding: '2px 8px', borderRadius: 4, fontWeight: 700,
         textTransform: 'uppercase', letterSpacing: '0.5px',
         background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)',
       }}>
-        LIVE DRAFT
-      </span>
-    );
-  }
-
-  if (isOpen) {
-    return (
-      <span style={{
-        fontSize: 8, padding: '2px 8px', borderRadius: 4, fontWeight: 700,
-        textTransform: 'uppercase', letterSpacing: '0.5px',
-        background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)',
-      }}>
-        LOBBY OPEN
+        {isLive ? 'LIVE DRAFT' : 'LOBBY OPEN'}
       </span>
     );
   }
@@ -58,9 +46,12 @@ export function Leagues() {
   const others = leagues.filter(l => l !== featured);
 
   useEffect(() => {
-    if (!featured) return;
+    if (!featured) {
+      Promise.resolve().then(() => setFeaturedStandings([]));
+      return;
+    }
     api.getStandings(featured.id).then(setFeaturedStandings).catch(() => {});
-  }, [featured?.id]);
+  }, [featured]);
 
   const userRank = featuredStandings.findIndex(s => s.userId === user?.id) + 1;
   const userScore = featuredStandings.find(s => s.userId === user?.id)?.score ?? 0;
@@ -109,7 +100,7 @@ export function Leagues() {
       {/* Featured card */}
       {featured && (
         <div style={{
-          background: 'linear-gradient(135deg, #1e1230, var(--surface))',
+          background: 'linear-gradient(135deg, var(--surface-deep), var(--surface))',
           border: '1px solid var(--accent-border)',
           borderRadius: 6,
           padding: 24,
