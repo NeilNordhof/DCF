@@ -38,7 +38,7 @@ export function LeagueDetail() {
     if (id && activeTab === 'scores') {
       api.getScoreBreakdown(id).then(setBreakdown).catch(() => {});
     }
-  }, [id, activeTab]);
+  }, [id, activeTab, scoresUpdated]);
 
   if (error) {
     return <div style={{ color: 'var(--text-muted)', padding: 16 }}>{error}</div>;
@@ -50,12 +50,16 @@ export function LeagueDetail() {
 
   const isCommissioner = user?.id !== undefined && user.id === league.commissionerUserId;
   const effectiveStatus = draftState?.status ?? league.draftStatus;
-  const isDraftAccessible = effectiveStatus === 'Open' || effectiveStatus === 'InProgress' || effectiveStatus === 'Completed' || effectiveStatus === 'Scheduled';
+  const isDraftAccessible = effectiveStatus === 'Open' || effectiveStatus === 'InProgress' || effectiveStatus === 'Scheduled';
 
   const joinLeague = async () => {
-    const code = league.isPublic ? undefined : (prompt('Enter invite code:') ?? undefined);
-    await api.joinLeague(league.id, code);
-    window.location.reload();
+    try {
+      const code = league.isPublic ? undefined : (prompt('Enter invite code:') ?? undefined);
+      await api.joinLeague(league.id, code);
+      window.location.reload();
+    } catch {
+      setError('Failed to join league. Check your invite code.');
+    }
   };
 
   const openDraft = () => {
