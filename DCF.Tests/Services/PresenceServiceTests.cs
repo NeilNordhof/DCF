@@ -10,7 +10,12 @@ public class PresenceServiceTests
 {
     private sealed class SpyScopeFactory : IServiceScopeFactory
     {
-        public readonly SpyDraftService DraftService = new();
+        public readonly SpyDraftService DraftService;
+
+        public SpyScopeFactory(bool throwOnPublish = false)
+        {
+            DraftService = new SpyDraftService(throwOnPublish);
+        }
 
         public IServiceScope CreateScope()
         {
@@ -35,11 +40,23 @@ public class PresenceServiceTests
 
     private sealed class SpyDraftService : IDraftService
     {
+        private readonly bool _throwOnPublish;
         public List<Guid> PublishedStateFor { get; } = [];
+
+        public SpyDraftService(bool throwOnPublish = false)
+        {
+            _throwOnPublish = throwOnPublish;
+        }
 
         public Task PublishStateAsync(Guid leagueId)
         {
+            if (_throwOnPublish)
+            {
+                throw new InvalidOperationException("publish failed");
+            }
+
             PublishedStateFor.Add(leagueId);
+
             return Task.CompletedTask;
         }
 
@@ -111,5 +128,20 @@ public class PresenceServiceTests
 
         Assert.Single(factory.DraftService.PublishedStateFor);
         Assert.Equal(leagueId, factory.DraftService.PublishedStateFor[0]);
+    }
+
+    [Fact]
+    public async Task HandlePresenceAsync_PublishFails_DoesNotThrowAndPresenceIsUpdated()
+    {
+        var throwingFactory = new SpyScopeFactory(throwOnPublish: true);
+        var svc = Create(throwingFactory);
+        var leagueId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        var ex = await Record.ExceptionAsync(
+            () => svc.HandlePresenceAsync(leagueId, userId, online: true));
+
+        Assert.Null(ex);
+        Assert.Contains(userId, svc.GetOnline(leagueId));
     }
 }
