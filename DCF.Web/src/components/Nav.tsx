@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 
@@ -7,10 +8,10 @@ export function Nav() {
   const isAdmin = location.pathname.startsWith('/admin');
 
   const initials = user?.displayName
-    ? user.displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+    ? user.displayName.split(' ').filter(Boolean).map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
     : '?';
 
-  const linkStyle = (prefix: string): React.CSSProperties => ({
+  const linkStyle = (prefix: string): CSSProperties => ({
     fontSize: 11,
     color: location.pathname.startsWith(prefix) ? 'var(--accent)' : 'var(--text-muted)',
     textDecoration: 'none',
@@ -39,7 +40,7 @@ export function Nav() {
           <span style={{
             fontSize: 8,
             padding: '2px 6px',
-            background: '#374151',
+            background: 'var(--surface-elevated)',
             color: 'var(--text-muted)',
             borderRadius: 4,
             fontWeight: 700,
@@ -58,7 +59,7 @@ export function Nav() {
           height: 28,
           borderRadius: '50%',
           background: 'var(--accent)',
-          color: '#0d0f14',
+          color: 'var(--bg)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
