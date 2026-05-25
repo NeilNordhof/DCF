@@ -1,71 +1,405 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
+import { LeagueScoresTab } from '../components/LeagueScoresTab';
 import { useMqtt } from '../mqtt/useMqtt';
 import { useUser } from '../context/UserContext';
-import type { DraftState, League, Standing } from '../types/api';
+import type { DraftState, League, MemberScoreBreakdown, Standing } from '../types/api';
+
+type Tab = 'home' | 'scores' | 'members' | 'picks' | 'info';
 
 export function LeagueDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useUser();
+  const navigate = useNavigate();
   const [league, setLeague] = useState<League | null>(null);
   const [standings, setStandings] = useState<Standing[]>([]);
+  const [breakdown, setBreakdown] = useState<MemberScoreBreakdown[]>([]);
+  const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [activePicksPlayer, setActivePicksPlayer] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copying, setCopying] = useState(false);
   const draftState = useMqtt<DraftState>(`dcf/leagues/${id}/draft`);
   const scoresUpdated = useMqtt<{ showId: string }>('dcf/scores/updated');
 
   useEffect(() => {
-    if (id) api.getLeague(id).then(setLeague).catch(() => setError('Failed to load league.'));
+    if (id) {
+      api.getLeague(id).then(setLeague).catch(() => setError('Failed to load league.'));
+    }
   }, [id]);
 
   useEffect(() => {
-    if (id) api.getStandings(id).then(setStandings).catch(() => {});
+    if (id) {
+      api.getStandings(id).then(setStandings).catch(() => {});
+    }
   }, [id, scoresUpdated]);
 
-  if (error) return <div>{error}</div>;
-  if (!league) return <div>Loading...</div>;
+  useEffect(() => {
+    if (id && activeTab === 'scores') {
+      api.getScoreBreakdown(id).then(setBreakdown).catch(() => {});
+    }
+  }, [id, activeTab]);
+
+  if (error) {
+    return <div style={{ color: 'var(--text-muted)', padding: 16 }}>{error}</div>;
+  }
+
+  if (!league) {
+    return <div style={{ color: 'var(--text-muted)', padding: 16 }}>Loading…</div>;
+  }
 
   const isCommissioner = user?.id !== undefined && user.id === league.commissionerUserId;
   const effectiveStatus = draftState?.status ?? league.draftStatus;
-  const isDraftRoomOpen = effectiveStatus === 'Open'
-    || effectiveStatus === 'InProgress'
-    || effectiveStatus === 'Completed';
+  const isDraftAccessible = effectiveStatus === 'Open' || effectiveStatus === 'InProgress' || effectiveStatus === 'Completed' || effectiveStatus === 'Scheduled';
 
   const joinLeague = async () => {
-    const code = league.isPublic ? undefined : prompt('Enter invite code:') ?? undefined;
+    const code = league.isPublic ? undefined : (prompt('Enter invite code:') ?? undefined);
     await api.joinLeague(league.id, code);
     window.location.reload();
   };
 
-  const openDraft = () => id && api.openDraft(id).catch(() => {});
+  const openDraft = () => {
+    if (id) api.openDraft(id).catch(() => {});
+  };
+
+  const copyInviteCode = () => {
+    if (league.inviteCode) {
+      navigator.clipboard.writeText(league.inviteCode);
+      setCopying(true);
+      setTimeout(() => setCopying(false), 1500);
+    }
+  };
+
+  const statusBadge = () => {
+    const s = effectiveStatus;
+
+    if (s === 'InProgress') {
+      return (
+        <span style={{
+          fontSize: 8, padding: '2px 8px', borderRadius: 4, fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.5px',
+          background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)',
+        }}>LIVE DRAFT</span>
+      );
+    }
+
+    if (s === 'Open') {
+      return (
+        <span style={{
+          fontSize: 8, padding: '2px 8px', borderRadius: 4, fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.5px',
+          background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)',
+        }}>LOBBY OPEN</span>
+      );
+    }
+
+    const label = s === 'Scheduled' ? 'SCHEDULED' : s === 'Completed' ? 'COMPLETED' : 'NOT STARTED';
+
+    return (
+      <span style={{
+        fontSize: 8, padding: '2px 8px', borderRadius: 4, fontWeight: 600,
+        textTransform: 'uppercase', letterSpacing: '0.5px',
+        border: '1px solid var(--border)', color: 'var(--text-muted)',
+      }}>{label}</span>
+    );
+  };
+
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'home', label: 'Home' },
+    { key: 'scores', label: 'Scores' },
+    { key: 'members', label: 'Members' },
+    { key: 'picks', label: 'Picks' },
+    { key: 'info', label: 'Info' },
+  ];
+
+  const renderHomeTab = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {standings.length === 0 && (
+        <div style={{ color: 'var(--text-muted)', fontSize: 11, padding: '20px 0' }}>No standings yet.</div>
+      )}
+      {standings.map((s, i) => {
+        const isMe = s.userId === user?.id;
+        const rank = i + 1;
+
+        return (
+          <div
+            key={s.userId}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 14px',
+              background: isMe ? 'var(--accent-bg)' : 'var(--surface)',
+              border: `1px solid ${isMe ? 'var(--accent-border)' : 'var(--border)'}`,
+              borderRadius: 5,
+            }}
+          >
+            <span style={{
+              fontSize: 12, fontWeight: 800, minWidth: 20,
+              color: rank === 1 ? 'var(--accent)' : 'var(--text-muted)',
+            }}>
+              {rank}
+            </span>
+            <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: 'var(--text-heading)' }}>{s.displayName}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: isMe ? 'var(--accent)' : 'var(--text-heading)' }}>
+              {s.score.toFixed(3)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderMembersTab = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {(league.members ?? []).map(m => (
+        <div
+          key={m.userId}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '9px 14px',
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5,
+          }}
+        >
+          <span style={{ fontSize: 11, color: 'var(--text-heading)' }}>{m.displayName}</span>
+          {m.userId === league.commissionerUserId && (
+            <span style={{ fontSize: 8, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Commissioner
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderPicksTab = () => {
+    const members = league.members ?? [];
+    const effectivePlayer = activePicksPlayer ?? members[0]?.userId ?? null;
+    const currentPlayer = members.find(m => m.userId === effectivePlayer) ?? members[0];
+    if (!currentPlayer) return <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>No members yet.</div>;
+
+    const allPicks = league.picks ?? [];
+    const playerPicks = allPicks.filter(p => p.userId === currentPlayer.userId);
+
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
+          {members.map(m => (
+            <button
+              key={m.userId}
+              onClick={() => setActivePicksPlayer(m.userId)}
+              style={{
+                padding: '4px 12px', borderRadius: 12, fontSize: 10, fontWeight: 600,
+                cursor: 'pointer', border: 'none',
+                background: effectivePlayer === m.userId ? 'var(--accent)' : 'var(--surface)',
+                color: effectivePlayer === m.userId ? 'var(--bg)' : 'var(--text-muted)',
+              }}
+            >
+              {m.displayName.split(' ')[0]}
+            </button>
+          ))}
+        </div>
+        {league.draftableCaptions.map(cap => {
+          const capPicks = playerPicks.filter(p => p.caption === cap);
+          const filled = capPicks.length;
+          const total = league.corpsPerCaption;
+
+          return (
+            <div key={cap} style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>{cap}</div>
+                <div style={{
+                  fontSize: 8, padding: '1px 6px', borderRadius: 8, fontWeight: 700,
+                  background: filled > 0 ? 'var(--accent-bg)' : 'var(--surface)',
+                  color: filled > 0 ? 'var(--accent)' : 'var(--text-faint)',
+                  border: `1px solid ${filled > 0 ? 'var(--accent-border)' : 'var(--border)'}`,
+                }}>
+                  {filled} / {total}
+                </div>
+              </div>
+              {Array.from({ length: total }).map((_, i) => {
+                const pick = capPicks[i];
+
+                if (pick) {
+                  return (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '6px 10px', background: 'var(--surface)',
+                      border: '1px solid var(--border)', borderRadius: 5, marginBottom: 4,
+                    }}>
+                      <div style={{
+                        width: 20, height: 20, borderRadius: '50%',
+                        background: 'var(--accent-bg)', border: '1px solid var(--accent-border)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 8, color: 'var(--accent)', flexShrink: 0,
+                      }}>
+                        #{pick.pickNumber + 1}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-heading)' }}>{pick.corpsName}</div>
+                        <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>Pick #{pick.pickNumber + 1} overall</div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={i} style={{ padding: '6px 10px', border: '1px dashed var(--border)', borderRadius: 5, marginBottom: 4 }}>
+                    <span style={{ fontSize: 10, fontStyle: 'italic', color: 'var(--text-faint)' }}>Empty</span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderInfoTab = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {league.inviteCode && (
+        <div>
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 8 }}>Invite Code</div>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '10px 14px', background: 'var(--surface-2)',
+            border: '1px solid var(--border)', borderRadius: 5,
+          }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--accent)', flex: 1, letterSpacing: '0.5px' }}>
+              {league.inviteCode}
+            </span>
+            <button
+              onClick={copyInviteCode}
+              style={{
+                fontSize: 10, fontWeight: 600, padding: '4px 10px', borderRadius: 4,
+                background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)',
+              }}
+            >
+              {copying ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+        </div>
+      )}
+      <div>
+        <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 8 }}>Draft Settings</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {[
+            { label: 'Captions', value: league.draftableCaptions.join(', ') },
+            { label: 'Corps per Caption', value: String(league.corpsPerCaption) },
+            { label: 'Draft Start', value: league.draftStartTime ? new Date(league.draftStartTime).toLocaleString() : 'Not scheduled' },
+          ].map(item => (
+            <div key={item.label} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '8px 14px', background: 'var(--surface)',
+              border: '1px solid var(--border)', borderRadius: 5,
+            }}>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{item.label}</span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-heading)' }}>{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div>
-      <h2>{league.name}</h2>
-      <p>Season: {league.seasonYear} | Status: {league.draftStatus}</p>
-      {league.inviteCode && <p>Invite code: <code>{league.inviteCode}</code></p>}
+      {/* Header bar */}
+      <div style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 6,
+        padding: '16px 20px',
+        marginBottom: 0,
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: 16,
+      }}>
+        <div>
+          <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-heading)', marginBottom: 4 }}>{league.name}</h2>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+            {league.seasonYear} · {league.memberCount ?? league.members?.length ?? 0} members
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {statusBadge()}
+          {isDraftAccessible && (
+            <button
+              onClick={() => navigate(`/leagues/${id}/draft`)}
+              style={{
+                fontSize: 11, fontWeight: 800, padding: '6px 14px', borderRadius: 5,
+                background: 'var(--accent)', color: 'var(--bg)', border: 'none',
+                letterSpacing: '0.5px',
+              }}
+            >
+              Draft Room →
+            </button>
+          )}
+          {!league.isMember && (
+            <button
+              onClick={joinLeague}
+              style={{
+                fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 5,
+                background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)',
+              }}
+            >
+              Join League
+            </button>
+          )}
+          {isCommissioner && league.draftStatus === 'NotStarted' && !draftState && (
+            <button
+              onClick={openDraft}
+              style={{
+                fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 5,
+                background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)',
+              }}
+            >
+              Open Draft
+            </button>
+          )}
+        </div>
+      </div>
 
-      {isDraftRoomOpen
-        ? <Link to={`/leagues/${id}/draft`}>Join Draft Room</Link>
-        : <span>Draft Room not open yet</span>}
-
-      {isCommissioner && league.draftStatus === 'NotStarted' && !draftState && (
-        <button onClick={openDraft}>Open Draft</button>
-      )}
-
-      {!league.isMember && <button onClick={joinLeague}>Join League</button>}
-
-      <h3>Standings</h3>
-      <ol>
-        {standings.map(s => (
-          <li key={s.userId}>{s.displayName} — {s.score.toFixed(3)}</li>
+      {/* Tab bar */}
+      <div style={{
+        display: 'flex',
+        background: 'var(--surface)',
+        borderLeft: '1px solid var(--border)',
+        borderRight: '1px solid var(--border)',
+        borderBottom: '1px solid var(--border)',
+      }}>
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            style={{
+              flex: 1, padding: '10px 0', fontSize: 11, fontWeight: 600,
+              cursor: 'pointer', background: 'transparent', border: 'none',
+              color: activeTab === t.key ? 'var(--accent)' : 'var(--text-muted)',
+              borderBottom: activeTab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
+            }}
+          >
+            {t.label}
+          </button>
         ))}
-      </ol>
+      </div>
 
-      <h3>Members ({league.members?.length ?? 0})</h3>
-      <ul>
-        {league.members?.map(m => <li key={m.userId}>{m.displayName}</li>)}
-      </ul>
+      {/* Tab content */}
+      <div style={{
+        background: 'var(--surface-2)',
+        border: '1px solid var(--border)',
+        borderTop: 'none',
+        borderBottomLeftRadius: 6,
+        borderBottomRightRadius: 6,
+        padding: 20,
+        minHeight: 200,
+      }}>
+        {activeTab === 'home' && renderHomeTab()}
+        {activeTab === 'scores' && <LeagueScoresTab breakdown={breakdown} captions={league.draftableCaptions} currentUserId={user?.id} />}
+        {activeTab === 'members' && renderMembersTab()}
+        {activeTab === 'picks' && renderPicksTab()}
+        {activeTab === 'info' && renderInfoTab()}
+      </div>
     </div>
   );
 }
