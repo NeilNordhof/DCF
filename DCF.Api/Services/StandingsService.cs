@@ -1,4 +1,5 @@
 using DCF.Data;
+using DCF.Data.Entities;
 using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,11 +25,20 @@ public class StandingsService(DcfDbContext db) : IStandingsService
             .Where(m => m.LeagueId == leagueId)
             .ToListAsync();
 
-        return members
-            .Select(m => new MemberStanding(
-                m.UserId, m.User.DisplayName, 0,
-                new Dictionary<ComputedCaption, CaptionBreakdown>()))
-            .ToList();
+        var corpsNames = await db.Corps.ToDictionaryAsync(c => c.Id, c => c.Name);
+        var latestByCorps = await LoadLatestComputedScoresAsync(league.SeasonId);
+
+        var standings = new List<MemberStanding>();
+
+        foreach (var member in members)
+        {
+            var (totalScore, captions) = await ComputeMemberScoreAsync(
+                leagueId, member.UserId, league, latestByCorps, corpsNames);
+
+            standings.Add(new MemberStanding(member.UserId, member.User.DisplayName, totalScore, captions));
+        }
+
+        return standings.OrderByDescending(s => s.Score).ToList();
     }
 
     public async Task<List<MemberScoreBreakdown>> GetScoreBreakdownAsync(Guid leagueId)
@@ -41,10 +51,135 @@ public class StandingsService(DcfDbContext db) : IStandingsService
             .Where(m => m.LeagueId == leagueId)
             .ToListAsync();
 
-        return members
-            .Select(m => new MemberScoreBreakdown(
-                m.UserId, m.User.DisplayName, 0,
-                new Dictionary<ComputedCaption, CaptionBreakdown>()))
-            .ToList();
+        var corpsNames = await db.Corps.ToDictionaryAsync(c => c.Id, c => c.Name);
+        var latestByCorps = await LoadLatestComputedScoresAsync(league.SeasonId);
+
+        var result = new List<MemberScoreBreakdown>();
+
+        foreach (var member in members)
+        {
+            var (totalScore, captions) = await ComputeMemberScoreAsync(
+                leagueId, member.UserId, league, latestByCorps, corpsNames);
+
+            result.Add(new MemberScoreBreakdown(
+                member.UserId, member.User.DisplayName, totalScore, captions));
+        }
+
+        return result.OrderByDescending(r => r.TotalScore).ToList();
+    }
+
+    private async Task<Dictionary<Guid, ComputedScoreEntity>> LoadLatestComputedScoresAsync(Guid seasonId)
+    {
+        var allSeasonScores = await db.ComputedScores
+            .Include(cs => cs.Show)
+            .Where(cs => cs.SeasonId == seasonId)
+            .ToListAsync();
+
+        return allSeasonScores
+            .GroupBy(cs => cs.CorpsId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.MaxBy(cs => cs.Show.Date)!);
+    }
+
+    private async Task<(double TotalScore, Dictionary<ComputedCaption, CaptionBreakdown> Captions)>
+        ComputeMemberScoreAsync(
+            Guid leagueId,
+            Guid userId,
+            LeagueEntity league,
+            Dictionary<Guid, ComputedScoreEntity> latestByCorps,
+            Dictionary<Guid, string> corpsNames)
+    {
+        double totalScore = 0;
+        var captions = new Dictionary<ComputedCaption, CaptionBreakdown>();
+
+        foreach (var caption in league.DraftableCaptions)
+        {
+            var picks = await db.DraftPicks
+                .Where(p => p.LeagueId == leagueId &&
+                            p.UserId == userId &&
+                            p.Caption == caption)
+                .ToListAsync();
+
+            var pickScores = new List<PickScore>();
+            var captionScores = new List<double>();
+
+            foreach (var pick in picks)
+            {
+                var corpsName = corpsNames.GetValueOrDefault(pick.CorpsId, "Unknown");
+
+                if (latestByCorps.TryGetValue(pick.CorpsId, out var cs))
+                {
+                    var score = GetCaptionValue(cs, caption);
+                    pickScores.Add(new PickScore(corpsName, score));
+                    captionScores.Add(score);
+                }
+                else
+                {
+                    pickScores.Add(new PickScore(corpsName, null));
+                }
+            }
+
+            var avg = captionScores.Count > 0 ? captionScores.Average() : 0;
+            var weight = GetWeight(caption, league.DraftableCaptions);
+            var weighted = avg * weight;
+            totalScore += weighted;
+
+            captions[caption] = new CaptionBreakdown(weighted, pickScores);
+        }
+
+        return (totalScore, captions);
+    }
+
+    private static double GetCaptionValue(ComputedScoreEntity cs, ComputedCaption caption)
+    {
+        return caption switch
+        {
+            ComputedCaption.GeneralEffectCombined => cs.GeneralEffectCombined,
+            ComputedCaption.GeneralEffect1 => cs.GeneralEffect1,
+            ComputedCaption.GeneralEffect2 => cs.GeneralEffect2,
+            ComputedCaption.VisualCombined => cs.VisualCombined,
+            ComputedCaption.Visual => cs.Visual,
+            ComputedCaption.Colorguard => cs.Colorguard,
+            ComputedCaption.VisualProficiency => cs.VisualProficiency,
+            ComputedCaption.VisualAnalysis => cs.VisualAnalysis,
+            ComputedCaption.MusicCombined => cs.MusicCombined,
+            ComputedCaption.Brass => cs.Brass,
+            ComputedCaption.Percussion => cs.Percussion,
+            ComputedCaption.MusicAnalysis => cs.MusicAnalysis,
+            _ => 0
+        };
+    }
+
+    private static double GetWeight(ComputedCaption caption, ComputedCaption[] draftableCaptions)
+    {
+        if (caption is ComputedCaption.GeneralEffectCombined or
+            ComputedCaption.GeneralEffect1 or ComputedCaption.GeneralEffect2)
+        {
+            return 1.0;
+        }
+
+        if (caption == ComputedCaption.VisualCombined)
+        {
+            return 1.0;
+        }
+
+        if (caption is ComputedCaption.Visual or ComputedCaption.VisualProficiency or
+            ComputedCaption.VisualAnalysis or ComputedCaption.Colorguard)
+        {
+            return draftableCaptions.Contains(ComputedCaption.Visual) ? 0.75 : 0.5;
+        }
+
+        if (caption == ComputedCaption.MusicCombined)
+        {
+            return 1.0;
+        }
+
+        if (caption is ComputedCaption.Brass or ComputedCaption.Percussion or ComputedCaption.MusicAnalysis)
+        {
+            return draftableCaptions.Contains(ComputedCaption.MusicAnalysis) ? 0.5 : 0.75;
+        }
+
+        return 1.0;
     }
 }
