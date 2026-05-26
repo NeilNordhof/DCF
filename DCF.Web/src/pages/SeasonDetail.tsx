@@ -50,17 +50,21 @@ export function SeasonDetail() {
 
   useEffect(() => {
     if (!id) return;
+    let cancelled = false;
 
     Promise.all([
       api.adminGetSeason(id),
       api.adminGetCorps(),
       api.adminGetShows(id),
     ]).then(([s, c, sh]) => {
+      if (cancelled) return;
       setSeason(s);
       setAllCorps(c);
       setShows(sh);
       setSelectedCorpsIds(new Set(s.corpsIds));
-    }).catch(() => setError('Failed to load season.'));
+    }).catch(() => { if (!cancelled) setError('Failed to load season.'); });
+
+    return () => { cancelled = true; };
   }, [id]);
 
   const toggleCorps = (corpsId: string) => {
@@ -116,6 +120,7 @@ export function SeasonDetail() {
   const addShow = async (e: FormEvent) => {
     e.preventDefault();
     if (!id || addingShow) return;
+    if (showCorpsIds.size === 0) { setError('Select at least one corps.'); return; }
     setAddingShow(true);
     setError(null);
 
