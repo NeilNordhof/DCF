@@ -1,23 +1,42 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
 import { Auth0LockPasswordless } from 'auth0-lock';
+import { api } from '../api/client';
+import { useUser } from '../context/UserContext';
+
+type Panel = 'lock' | 'loading' | 'onboarding';
 
 export function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const { isAuthenticated, getAccessTokenSilently, user: auth0User } = useAuth0();
+  const { setUser } = useUser();
   const navigate = useNavigate();
+  const [panel, setPanel] = useState<Panel>('lock');
+  const [displayName, setDisplayName] = useState('');
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Redirect once auth0-react commits isAuthenticated = true (handles both
-  // the post-login case and visiting / while already logged in).
-  useEffect(() => {
-    if (isAuthenticated) navigate('/leagues');
-  }, [isAuthenticated, navigate]);
-
-  // Ref so the lock callback always sees the latest getAccessTokenSilently
-  // without re-initialising the lock on every render.
   const getTokenRef = useRef(getAccessTokenSilently);
   getTokenRef.current = getAccessTokenSilently;
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    setPanel('loading');
+
+    api.getUser().then((profile) => {
+      if (profile) {
+        setUser(profile);
+        navigate('/leagues');
+      } else {
+        setDisplayName(auth0User?.name ?? '');
+        setPanel('onboarding');
+      }
+    }).catch(() => {
+      setPanel('lock');
+    });
+  }, [isAuthenticated, auth0User, navigate, setUser]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -43,13 +62,9 @@ export function Home() {
 
     lock.on('authenticated', async () => {
       try {
-        // Trigger auth0-react's token fetch so it updates isAuthenticated,
-        // which the effect above watches to perform the navigation.
         await getTokenRef.current();
       } catch {
-        // Silent auth failed — isAuthenticated won't update and the user
-        // will stay on this page. This typically means third-party cookies
-        // are blocked; consider enabling useRefreshTokens in Auth0Provider.
+        // Silent auth failed — isAuthenticated won't update.
       }
     });
 
@@ -57,6 +72,21 @@ export function Home() {
 
     return () => { lock.hide(); };
   }, []);
+
+  async function handleOnboard(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const profile = await api.upsertUser(displayName, auth0User?.email ?? '');
+      setUser(profile);
+      navigate('/leagues');
+    } catch {
+      setSubmitError('Failed to create profile. Please try again.');
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div style={{
@@ -146,7 +176,7 @@ export function Home() {
           </ul>
         </div>
 
-        {/* Right — Auth0 Lock */}
+        {/* Right — dynamic panel */}
         <div style={{
           flex: '0 0 340px',
           background: 'var(--surface-2)',
@@ -155,7 +185,76 @@ export function Home() {
           flexDirection: 'column',
           minHeight: 480,
         }}>
-          <div id="lock-container" ref={containerRef} style={{ flex: 1, minHeight: 480 }} />
+          {/* Lock container — always in DOM so the widget initialises once */}
+          <div
+            id="lock-container"
+            ref={containerRef}
+            style={{ flex: 1, minHeight: 480, display: panel === 'lock' ? 'block' : 'none' }}
+          />
+
+          {panel === 'loading' && (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Loading...</span>
+            </div>
+          )}
+
+          {panel === 'onboarding' && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 32, gap: 24 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-heading)', marginBottom: 6 }}>
+                  Welcome to DCF Fantasy
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text)' }}>
+                  Choose a display name to get started.
+                </div>
+              </div>
+              <form onSubmit={handleOnboard} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                    Display Name
+                  </label>
+                  <input
+                    value={displayName}
+                    onChange={e => setDisplayName(e.target.value)}
+                    required
+                    minLength={1}
+                    style={{
+                      background: 'var(--bg)',
+                      border: '1px solid var(--border-input)',
+                      borderRadius: 4,
+                      color: 'var(--text-heading)',
+                      padding: '8px 12px',
+                      fontSize: 13,
+                      outline: 'none',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+                {submitError && (
+                  <div style={{ fontSize: 11, color: 'var(--red)' }}>{submitError}</div>
+                )}
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{
+                    background: 'var(--accent)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 4,
+                    padding: '10px 0',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    opacity: submitting ? 0.7 : 1,
+                    width: '100%',
+                  }}
+                >
+                  {submitting ? 'Setting up...' : 'Get started'}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
     </div>

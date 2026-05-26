@@ -1,6 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { api, setTokenGetter } from './api/client';
 import { AdminRoute } from './components/AdminRoute';
 import { Nav } from './components/Nav';
@@ -30,7 +30,6 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
   const { setUser } = useUser();
-  const navigate = useNavigate();
 
   useEffect(() => {
     setTokenGetter(() =>
@@ -46,13 +45,12 @@ export default function App() {
     api.getUser().then((profile) => {
       if (profile) {
         setUser(profile);
-      } else {
-        navigate('/onboarding');
       }
+      // New users are handled by Home.tsx which shows the onboarding form inline.
     }).catch((err) => {
       console.error('Failed to load user profile:', err);
     });
-  }, [isAuthenticated, navigate, setUser]);
+  }, [isAuthenticated, setUser]);
 
   return (
     <Routes>
