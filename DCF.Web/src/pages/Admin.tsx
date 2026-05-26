@@ -58,15 +58,14 @@ export function Admin() {
 
   useEffect(() => {
     let cancelled = false;
-    setError(null);
 
     if (tab === 'seasons') {
       api.adminGetSeasons()
-        .then(data => { if (!cancelled) setSeasons(data); })
+        .then(data => { if (!cancelled) { setError(null); setSeasons(data); } })
         .catch(() => { if (!cancelled) setError('Failed to load seasons.'); });
     } else {
       api.adminGetCorps()
-        .then(data => { if (!cancelled) setCorps(data); })
+        .then(data => { if (!cancelled) { setError(null); setCorps(data); } })
         .catch(() => { if (!cancelled) setError('Failed to load corps.'); });
     }
 

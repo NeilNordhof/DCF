@@ -46,10 +46,7 @@ export function Leagues() {
   const others = leagues.filter(l => l !== featured);
 
   useEffect(() => {
-    if (!featured) {
-      setFeaturedStandings([]);
-      return;
-    }
+    if (!featured) return;
     api.getStandings(featured.id).then(setFeaturedStandings).catch(() => {});
   }, [featured]);
 
