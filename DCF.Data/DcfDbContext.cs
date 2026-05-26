@@ -56,7 +56,7 @@ public class DcfDbContext(DbContextOptions<DcfDbContext> options) : DbContext(op
             .HasColumnType("jsonb")
             .HasConversion(
                 v => JsonSerializer.Serialize(v, JsonSerializerOptions.Default),
-                v => JsonSerializer.Deserialize<Caption[]>(v, JsonSerializerOptions.Default) ?? Array.Empty<Caption>());
+                v => JsonSerializer.Deserialize<ComputedCaption[]>(v, JsonSerializerOptions.Default) ?? Array.Empty<ComputedCaption>());
 
         mb.Entity<ComputedScoreEntity>()
             .HasIndex(e => new { e.ShowId, e.CorpsId })

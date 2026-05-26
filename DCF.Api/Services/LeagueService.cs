@@ -53,7 +53,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
     }
 
     public async Task<LeagueBrief?> CreateAsync(string userSub, string name, bool isPublic,
-        int corpsPerCaption, Caption[] draftableCaptions, DateTimeOffset? draftStartTime)
+        int corpsPerCaption, ComputedCaption[] draftableCaptions, DateTimeOffset? draftStartTime)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub);
 

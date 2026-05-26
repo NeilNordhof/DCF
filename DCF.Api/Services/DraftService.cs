@@ -125,7 +125,7 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
     }
 
     public async Task<(Guid Id, int PickNumber)> SubmitPickAsync(
-        Guid leagueId, string userSub, Guid corpsId, Caption caption)
+        Guid leagueId, string userSub, Guid corpsId, ComputedCaption caption)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub)
             ?? throw new UnauthorizedAccessException("User not found");

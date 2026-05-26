@@ -13,7 +13,7 @@ public class LeagueEntity
     public bool IsPublic { get; set; }
     public string InviteCode { get; set; } = string.Empty;
     public int CorpsPerCaption { get; set; }
-    public Caption[] DraftableCaptions { get; set; } = [];
+    public ComputedCaption[] DraftableCaptions { get; set; } = [];
     public DraftStatus DraftStatus { get; set; } = DraftStatus.NotStarted;
     public DateTimeOffset? DraftStartTime { get; set; }
     public string DraftOrderJson { get; set; } = "[]";

@@ -115,7 +115,7 @@ public class OpenDraftTests
             DraftStatus = status,
             DraftOrderJson = "[]",
             InviteCode = "TESTCODE",
-            DraftableCaptions = [Caption.Brass],
+            DraftableCaptions = [ComputedCaption.Brass],
             CorpsPerCaption = 1
         };
         db.Users.AddRange(commissioner, member);
@@ -230,7 +230,7 @@ public class StartDraftTests
             DraftStatus = status,
             DraftOrderJson = status == DraftStatus.Open ? draftOrder : "[]",
             InviteCode = "TESTCODE",
-            DraftableCaptions = [Caption.Brass],
+            DraftableCaptions = [ComputedCaption.Brass],
             CorpsPerCaption = 1
         };
         db.Users.AddRange(commissioner, member);
@@ -358,7 +358,7 @@ public class PublishStateTests
             DraftStatus = DraftStatus.Open,
             DraftOrderJson = "[]",
             InviteCode = "ABCD1234",
-            DraftableCaptions = [Caption.Brass],
+            DraftableCaptions = [ComputedCaption.Brass],
             CorpsPerCaption = 1
         };
         db.Leagues.Add(league);

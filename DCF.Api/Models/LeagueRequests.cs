@@ -6,9 +6,9 @@ public record CreateLeagueRequest(
     string Name,
     bool IsPublic,
     int CorpsPerCaption,
-    Caption[] DraftableCaptions,
+    ComputedCaption[] DraftableCaptions,
     DateTimeOffset? DraftStartTime);
 
 public record JoinLeagueRequest(string? InviteCode);
 
-public record SubmitPickRequest(Guid CorpsId, Caption Caption);
+public record SubmitPickRequest(Guid CorpsId, ComputedCaption Caption);
