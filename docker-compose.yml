@@ -34,5 +34,21 @@ services:
       - Auth0__Audience=${AUTH0_AUDIENCE}
       - Mqtt__Host=mosquitto
 
+  web:
+    build:
+      context: ./DCF.Web
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:5000}
+        - VITE_MQTT_URL=${VITE_MQTT_URL:-ws://localhost:9001}
+        - VITE_AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}
+        - VITE_AUTH0_CLIENT_ID=${VITE_AUTH0_CLIENT_ID}
+        - VITE_AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}
+    image: dcf-web
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
 volumes:
   postgres_data:
