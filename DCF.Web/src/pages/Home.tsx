@@ -5,15 +5,19 @@ import { Auth0LockPasswordless } from 'auth0-lock';
 
 export function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { getAccessTokenSilently } = useAuth0();
+  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
   const navigate = useNavigate();
 
-  // Use refs so the lock's authenticated callback always sees the latest values
+  // Redirect once auth0-react commits isAuthenticated = true (handles both
+  // the post-login case and visiting / while already logged in).
+  useEffect(() => {
+    if (isAuthenticated) navigate('/leagues');
+  }, [isAuthenticated, navigate]);
+
+  // Ref so the lock callback always sees the latest getAccessTokenSilently
   // without re-initialising the lock on every render.
   const getTokenRef = useRef(getAccessTokenSilently);
-  const navigateRef = useRef(navigate);
   getTokenRef.current = getAccessTokenSilently;
-  navigateRef.current = navigate;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -39,14 +43,14 @@ export function Home() {
 
     lock.on('authenticated', async () => {
       try {
-        // Bridge auth0-lock's session into @auth0/auth0-react so that
-        // ProtectedRoute sees isAuthenticated = true before we navigate.
+        // Trigger auth0-react's token fetch so it updates isAuthenticated,
+        // which the effect above watches to perform the navigation.
         await getTokenRef.current();
       } catch {
-        // Silent auth failed (e.g. third-party cookies blocked).
-        // Navigate anyway — App.tsx will redirect to onboarding if needed.
+        // Silent auth failed — isAuthenticated won't update and the user
+        // will stay on this page. This typically means third-party cookies
+        // are blocked; consider enabling useRefreshTokens in Auth0Provider.
       }
-      navigateRef.current('/leagues');
     });
 
     lock.show();
