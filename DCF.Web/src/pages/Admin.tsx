@@ -1,23 +1,54 @@
 import { useEffect, useState } from 'react';
+import type { CSSProperties, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Corps, Season } from '../types/api';
 
 type Tab = 'seasons' | 'corps';
 
+const inputStyle: CSSProperties = {
+  padding: '7px 10px', borderRadius: 5,
+  background: 'var(--bg)', border: '1px solid var(--border-input)',
+  color: 'var(--text-heading)', fontSize: 11, outline: 'none',
+};
+
+const primaryBtn: CSSProperties = {
+  padding: '7px 14px', borderRadius: 5, fontSize: 11, fontWeight: 800,
+  background: 'var(--accent)', color: 'var(--bg)', border: 'none', cursor: 'pointer',
+  letterSpacing: '0.5px',
+};
+
+const disabledBtn: CSSProperties = {
+  ...primaryBtn,
+  background: 'var(--border)', color: 'var(--text-faint)', cursor: 'not-allowed',
+};
+
+function SeasonBadge({ season }: { season: Season }) {
+  if (season.isPublished) {
+    return <span style={{ fontSize: 8, padding: '2px 6px', borderRadius: 4, fontWeight: 700, background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)' }}>PUBLISHED</span>;
+  }
+
+  if (season.status === 'Active') {
+    return <span style={{ fontSize: 8, padding: '2px 6px', borderRadius: 4, fontWeight: 700, background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)' }}>ACTIVE</span>;
+  }
+
+  if (season.status === 'Completed') {
+    return <span style={{ fontSize: 8, padding: '2px 6px', borderRadius: 4, fontWeight: 600, background: 'var(--surface)', color: 'var(--text-faint)', border: '1px solid var(--border)' }}>COMPLETED</span>;
+  }
+
+  return <span style={{ fontSize: 8, padding: '2px 6px', borderRadius: 4, fontWeight: 600, border: '1px solid var(--border)', color: 'var(--text-muted)' }}>UPCOMING</span>;
+}
+
 export function Admin() {
   const [tab, setTab] = useState<Tab>('seasons');
-
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [newYear, setNewYear] = useState('');
   const [newStartDate, setNewStartDate] = useState('');
   const [newEndDate, setNewEndDate] = useState('');
   const [addingSeason, setAddingSeason] = useState(false);
-
   const [corps, setCorps] = useState<Corps[]>([]);
   const [newCorpsName, setNewCorpsName] = useState('');
   const [addingCorps, setAddingCorps] = useState(false);
-
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,11 +60,12 @@ export function Admin() {
     }
   }, [tab]);
 
-  const addSeason = async (e: React.FormEvent) => {
+  const addSeason = async (e: FormEvent) => {
     e.preventDefault();
     if (addingSeason) return;
     setAddingSeason(true);
     setError(null);
+
     try {
       await api.adminCreateSeason(Number(newYear), newStartDate, newEndDate);
       const updated = await api.adminGetSeasons();
@@ -48,11 +80,12 @@ export function Admin() {
     }
   };
 
-  const addCorps = async (e: React.FormEvent) => {
+  const addCorps = async (e: FormEvent) => {
     e.preventDefault();
     if (addingCorps) return;
     setAddingCorps(true);
     setError(null);
+
     try {
       await api.adminCreateCorps(newCorpsName);
       const updated = await api.adminGetCorps();
@@ -65,83 +98,112 @@ export function Admin() {
     }
   };
 
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'seasons', label: 'Seasons' },
+    { key: 'corps', label: 'Corps' },
+  ];
+
   return (
     <div>
-      <h2>Admin Panel</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-heading)', marginBottom: 20 }}>Admin</h2>
 
-      <div>
-        <button onClick={() => setTab('seasons')} disabled={tab === 'seasons'}>Seasons</button>
-        <button onClick={() => setTab('corps')} disabled={tab === 'corps'}>Corps</button>
+      <div style={{
+        display: 'flex',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: '6px 6px 0 0',
+      }}>
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            style={{
+              flex: 1, padding: '10px 0', fontSize: 11, fontWeight: 600,
+              cursor: 'pointer', background: 'transparent', border: 'none',
+              color: tab === t.key ? 'var(--accent)' : 'var(--text-muted)',
+              borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {tab === 'seasons' && (
-        <section>
-          <h3>Seasons</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Year</th>
-                <th>Start</th>
-                <th>End</th>
-                <th>Status</th>
-                <th>Published</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {seasons.map(s => (
-                <tr key={s.id}>
-                  <td>{s.year}</td>
-                  <td>{s.startDate}</td>
-                  <td>{s.endDate}</td>
-                  <td>{s.status}</td>
-                  <td>{s.isPublished ? 'Published' : ''}</td>
-                  <td><Link to={`/admin/seasons/${s.id}`}>Manage →</Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <form onSubmit={addSeason}>
-            <input
-              type="number"
-              value={newYear}
-              onChange={e => setNewYear(e.target.value)}
-              placeholder="Year"
-              required
-            />
-            <input
-              type="date"
-              value={newStartDate}
-              onChange={e => setNewStartDate(e.target.value)}
-              required
-            />
-            <input
-              type="date"
-              value={newEndDate}
-              onChange={e => setNewEndDate(e.target.value)}
-              required
-            />
-            <button type="submit" disabled={addingSeason}>Add Season</button>
-          </form>
-        </section>
-      )}
+      <div style={{
+        background: 'var(--surface-2)',
+        border: '1px solid var(--border)',
+        borderTop: 'none',
+        borderBottomLeftRadius: 6,
+        borderBottomRightRadius: 6,
+        padding: 20,
+      }}>
+        {error && <div style={{ fontSize: 10, color: 'var(--red)', marginBottom: 12 }}>{error}</div>}
 
-      {tab === 'corps' && (
-        <section>
-          <h3>Corps</h3>
-          <ul>{corps.map(c => <li key={c.id}>{c.name}</li>)}</ul>
-          <form onSubmit={addCorps}>
-            <input
-              value={newCorpsName}
-              onChange={e => setNewCorpsName(e.target.value)}
-              placeholder="Corps name"
-              required
-            />
-            <button type="submit" disabled={addingCorps}>Add Corps</button>
-          </form>
-        </section>
-      )}
+        {tab === 'seasons' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {seasons.length === 0 && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '12px 0' }}>No seasons yet.</div>
+              )}
+              {seasons.map(s => (
+                <div key={s.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '10px 14px', background: 'var(--surface)',
+                  border: '1px solid var(--border)', borderRadius: 5,
+                }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-heading)', minWidth: 40 }}>{s.year}</span>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', flex: 1 }}>{s.startDate} – {s.endDate}</span>
+                  <SeasonBadge season={s} />
+                  <Link to={`/admin/seasons/${s.id}`} style={{ fontSize: 10, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
+                    Manage →
+                  </Link>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, padding: 16 }}>
+              <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 12 }}>Add Season</div>
+              <form onSubmit={addSeason} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <input type="number" value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="Year" required style={{ ...inputStyle, width: 80 }} />
+                <input type="date" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} required style={{ ...inputStyle, width: 140 }} />
+                <input type="date" value={newEndDate} onChange={e => setNewEndDate(e.target.value)} required style={{ ...inputStyle, width: 140 }} />
+                <button type="submit" disabled={addingSeason} style={addingSeason ? disabledBtn : primaryBtn}>
+                  Add Season
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {tab === 'corps' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {corps.length === 0 && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '12px 0' }}>No corps yet.</div>
+              )}
+              {corps.map(c => (
+                <div key={c.id} style={{
+                  padding: '9px 14px', background: 'var(--surface)',
+                  border: '1px solid var(--border)', borderRadius: 5,
+                  fontSize: 11, color: 'var(--text-heading)',
+                }}>
+                  {c.name}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, padding: 16 }}>
+              <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 12 }}>Add Corps</div>
+              <form onSubmit={addCorps} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <input value={newCorpsName} onChange={e => setNewCorpsName(e.target.value)} placeholder="Corps name" required style={{ ...inputStyle, flex: 1 }} />
+                <button type="submit" disabled={addingCorps} style={addingCorps ? disabledBtn : primaryBtn}>
+                  Add Corps
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
