@@ -17,6 +17,8 @@
   --green: #4ade80;
   --green-bg: #052e16;
   --green-border: #166534;
+  --border-input: #3d3f4e;
+  --red: #f87171;
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
