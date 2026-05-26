@@ -367,3 +367,4 @@ FodyWeavers.xsd
 appsettings.Development.json
 .claude/
 .superpowers/
+*.code-workspace

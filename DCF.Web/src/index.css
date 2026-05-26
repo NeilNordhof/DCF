@@ -65,3 +65,81 @@ input, select, textarea {
   font-family: var(--sans);
   font-size: inherit;
 }
+
+/* Auth0 Lock dark theme overrides */
+.auth0-lock.auth0-lock .auth0-lock-widget {
+  background: var(--surface-2) !important;
+  box-shadow: none !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-header,
+.auth0-lock.auth0-lock .auth0-lock-header-bg,
+.auth0-lock.auth0-lock .auth0-lock-header-bg .auth0-lock-header-bg-blur {
+  background: var(--surface-deep) !important;
+  filter: none !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-header-welcome {
+  color: var(--text-heading) !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-tabs {
+  background: var(--surface) !important;
+  border-bottom-color: var(--border) !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-tabs li a {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-tabs li.auth0-lock-tabs-current a {
+  color: var(--text-heading) !important;
+  border-bottom-color: var(--accent) !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-body-content {
+  background: var(--surface-deep) !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-form p,
+.auth0-lock.auth0-lock .auth0-lock-form .auth0-lock-form-error {
+  color: var(--text) !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-input-wrap {
+  background: var(--bg) !important;
+  border-color: var(--border-input) !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-input-wrap:focus-within {
+  border-color: var(--accent) !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-input {
+  background: var(--bg) !important;
+  color: var(--text-heading) !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-input::placeholder {
+  color: var(--text-faint) !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-input-wrap .auth0-lock-icon {
+  fill: var(--text-muted) !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-alternative a,
+.auth0-lock.auth0-lock .auth0-lock-terms a {
+  
+  color: var(--accent) !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-terms {
+  background: transparent !important;
+  color: var(--text-muted) !important;
+}
+
+.auth0-lock.auth0-lock .auth0-lock-error-invalid-hint {
+  color: var(--red) !important;
+}

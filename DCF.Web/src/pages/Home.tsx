@@ -1,28 +1,53 @@
 import { useEffect, useRef } from 'react';
-import Auth0Lock from 'auth0-lock';
+import { useNavigate } from 'react-router-dom';
+import { useAuth0 } from '@auth0/auth0-react';
+import { Auth0LockPasswordless } from 'auth0-lock';
 
 export function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const { getAccessTokenSilently } = useAuth0();
+  const navigate = useNavigate();
+
+  // Use refs so the lock's authenticated callback always sees the latest values
+  // without re-initialising the lock on every render.
+  const getTokenRef = useRef(getAccessTokenSilently);
+  const navigateRef = useRef(navigate);
+  getTokenRef.current = getAccessTokenSilently;
+  navigateRef.current = navigate;
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const lock = new Auth0Lock(
+    const lock = new Auth0LockPasswordless(
       import.meta.env.VITE_AUTH0_CLIENT_ID as string,
       import.meta.env.VITE_AUTH0_DOMAIN as string,
       {
+        allowedConnections: ['google-oauth2', 'email'],
+        passwordlessMethod: 'code',
         container: 'lock-container',
         auth: {
-          redirectUrl: `${window.location.origin}/leagues`,
-          responseType: 'code',
-          params: { audience: import.meta.env.VITE_AUTH0_AUDIENCE as string },
+          params: {
+            audience: import.meta.env.VITE_AUTH0_AUDIENCE as string,
+            scope: 'openid profile email',
+          },
         },
         theme: { primaryColor: '#c084fc' },
         languageDictionary: { title: '' },
-        allowShowPassword: true,
         closable: false,
       }
     );
+
+    lock.on('authenticated', async () => {
+      try {
+        // Bridge auth0-lock's session into @auth0/auth0-react so that
+        // ProtectedRoute sees isAuthenticated = true before we navigate.
+        await getTokenRef.current();
+      } catch {
+        // Silent auth failed (e.g. third-party cookies blocked).
+        // Navigate anyway — App.tsx will redirect to onboarding if needed.
+      }
+      navigateRef.current('/leagues');
+    });
 
     lock.show();
 
