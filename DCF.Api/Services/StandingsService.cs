@@ -6,6 +6,12 @@ namespace DCF.Api.Services;
 
 public record MemberStanding(Guid UserId, string DisplayName, double Score);
 
+public record PickScore(string CorpsName, double? Score);
+
+public record CaptionBreakdown(double Avg, List<PickScore> Picks);
+
+public record MemberScoreBreakdown(Guid UserId, string DisplayName, double TotalScore, Dictionary<string, CaptionBreakdown> Captions);
+
 public class StandingsService(DcfDbContext db) : IStandingsService
 {
     public async Task<List<MemberStanding>> GetStandingsAsync(Guid leagueId)
@@ -54,6 +60,65 @@ public class StandingsService(DcfDbContext db) : IStandingsService
         }
 
         return standings.OrderByDescending(s => s.Score).ToList();
+    }
+
+    public async Task<List<MemberScoreBreakdown>> GetScoreBreakdownAsync(Guid leagueId)
+    {
+        var league = await db.Leagues.FindAsync(leagueId)
+            ?? throw new ArgumentException("League not found", nameof(leagueId));
+
+        var members = await db.LeagueMembers
+            .Include(m => m.User)
+            .Where(m => m.LeagueId == leagueId)
+            .ToListAsync();
+
+        var allCorps = await db.Corps.ToListAsync();
+
+        var result = new List<MemberScoreBreakdown>();
+
+        foreach (var member in members)
+        {
+            double totalScore = 0;
+            var captionBreakdowns = new Dictionary<string, CaptionBreakdown>();
+
+            foreach (var caption in league.DraftableCaptions)
+            {
+                var picks = await db.DraftPicks
+                    .Where(p => p.LeagueId == leagueId &&
+                                p.UserId == member.UserId &&
+                                p.Caption == caption)
+                    .ToListAsync();
+
+                var pickScores = new List<PickScore>();
+                var captionScores = new List<double>();
+
+                foreach (var pick in picks)
+                {
+                    var corpsName = allCorps.FirstOrDefault(c => c.Id == pick.CorpsId)?.Name ?? "Unknown";
+
+                    var score = await GetEffectiveScoreAsync(pick.CorpsId, caption);
+                    pickScores.Add(new PickScore(corpsName, score));
+
+                    if (score.HasValue)
+                    {
+                        captionScores.Add(score.Value);
+                    }
+                }
+
+                var avg = captionScores.Count > 0 ? captionScores.Average() : 0;
+
+                if (captionScores.Count > 0)
+                {
+                    totalScore += avg;
+                }
+
+                captionBreakdowns[caption.ToString()] = new CaptionBreakdown(avg, pickScores);
+            }
+
+            result.Add(new MemberScoreBreakdown(member.UserId, member.User.DisplayName, totalScore, captionBreakdowns));
+        }
+
+        return result.OrderByDescending(r => r.TotalScore).ToList();
     }
 
     /// <summary>

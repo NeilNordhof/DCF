@@ -1,62 +1,39 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import type { CSSProperties, FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 
-type CaptionPreset = { label: string; description: string; captions: string[] };
-
-const GE_PRESETS: CaptionPreset[] = [
-  { label: 'Combined', description: 'General Effect (single score)',   captions: ['GeneralEffect'] },
-  { label: 'Split',    description: 'GE1 Music · GE2 Visual',         captions: ['GeneralEffectMusic', 'GeneralEffectVisual'] },
+const ALL_CAPTIONS: { value: string; label: string; group: string }[] = [
+  { value: 'GeneralEffect',        label: 'GE',            group: 'General Effect' },
+  { value: 'GeneralEffectMusic',   label: 'GE1 Music',     group: 'General Effect' },
+  { value: 'GeneralEffectVisual',  label: 'GE2 Visual',    group: 'General Effect' },
+  { value: 'Visual',               label: 'Visual',        group: 'Visual' },
+  { value: 'VisualPerformance',    label: 'Vis Perf',      group: 'Visual' },
+  { value: 'VisualAnalysis',       label: 'Vis Analysis',  group: 'Visual' },
+  { value: 'VisualProficiency',    label: 'Vis Prof',      group: 'Visual' },
+  { value: 'ColorGuard',           label: 'Color Guard',   group: 'Visual' },
+  { value: 'Music',                label: 'Music',         group: 'Music' },
+  { value: 'Brass',                label: 'Brass',         group: 'Music' },
+  { value: 'MusicAnalysis',        label: 'Mus Analysis',  group: 'Music' },
+  { value: 'Percussion',           label: 'Percussion',    group: 'Music' },
 ];
 
-const VISUAL_PRESETS: CaptionPreset[] = [
-  { label: 'Combined',               description: 'Visual (single score)',                    captions: ['Visual'] },
-  { label: 'Vis Perf + Color Guard', description: 'Visual Performance (VA+VP) · Color Guard', captions: ['VisualPerformance', 'ColorGuard'] },
-  { label: 'Split',                  description: 'Vis Analysis · Vis Prof · Color Guard',    captions: ['VisualAnalysis', 'VisualProficiency', 'ColorGuard'] },
-];
+const CAPTION_GROUPS = ['General Effect', 'Visual', 'Music'];
 
-const MUSIC_PRESETS: CaptionPreset[] = [
-  { label: 'Combined',           description: 'Music (single score)',                captions: ['Music'] },
-  { label: 'Brass + Percussion', description: 'Brass · Percussion',                 captions: ['Brass', 'Percussion'] },
-  { label: 'Split',              description: 'Brass · Music Analysis · Percussion', captions: ['Brass', 'MusicAnalysis', 'Percussion'] },
-];
-
-function PresetGroup({
-  legend,
-  name,
-  presets,
-  selected,
-  onChange,
-}: {
-  legend: string;
-  name: string;
-  presets: CaptionPreset[];
-  selected: number;
-  onChange: (index: number) => void;
-}) {
+function Chip({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
   return (
-    <fieldset>
-      <legend>{legend}</legend>
-      {presets.map((preset, i) => {
-        const id = `${name}-${i}`;
-
-        return (
-          <label key={preset.label} htmlFor={id}>
-            <input
-              type="radio"
-              id={id}
-              name={name}
-              value={String(i)}
-              checked={selected === i}
-              onChange={() => onChange(i)}
-            />
-            <strong>{preset.label}</strong>
-            {' — '}
-            <span>{preset.description}</span>
-          </label>
-        );
-      })}
-    </fieldset>
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        padding: '5px 12px', borderRadius: 5, fontSize: 10, fontWeight: selected ? 600 : 500,
+        cursor: 'pointer', border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
+        background: selected ? 'var(--accent-bg)' : 'var(--surface)',
+        color: selected ? 'var(--text-heading)' : 'var(--text-muted)',
+      }}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -65,15 +42,31 @@ export function LeagueCreate() {
   const [name, setName] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [corpsPerCaption, setCorpsPerCaption] = useState(3);
-  const [gePreset, setGePreset] = useState(0);
-  const [visualPreset, setVisualPreset] = useState(0);
-  const [musicPreset, setMusicPreset] = useState(0);
+  const [selectedCaptions, setSelectedCaptions] = useState<Set<string>>(new Set(['Brass', 'Percussion', 'ColorGuard', 'GeneralEffectMusic', 'GeneralEffectVisual', 'VisualAnalysis', 'VisualProficiency']));
   const [draftStartTime, setDraftStartTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const submit = async (e: React.FormEvent) => {
+  const toggleCaption = (value: string) => {
+    setSelectedCaptions(prev => {
+      const next = new Set(prev);
+      if (next.has(value)) {
+        next.delete(value);
+      } else {
+        next.add(value);
+      }
+      return next;
+    });
+  };
+
+  const totalPicks = corpsPerCaption * selectedCaptions.size;
+
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (selectedCaptions.size === 0) {
+      setError('Select at least one caption.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
@@ -82,11 +75,7 @@ export function LeagueCreate() {
         name,
         isPublic,
         corpsPerCaption,
-        draftableCaptions: [
-          ...GE_PRESETS[gePreset].captions,
-          ...VISUAL_PRESETS[visualPreset].captions,
-          ...MUSIC_PRESETS[musicPreset].captions,
-        ],
+        draftableCaptions: Array.from(selectedCaptions),
         draftStartTime: draftStartTime || null,
       });
 
@@ -97,18 +86,126 @@ export function LeagueCreate() {
     }
   };
 
+  const inputStyle: CSSProperties = {
+    width: '100%', padding: '8px 10px', borderRadius: 5,
+    background: 'var(--bg)', border: '1px solid var(--border-input)',
+    color: 'var(--text-heading)', fontSize: 11, outline: 'none',
+  };
+
   return (
-    <form onSubmit={submit}>
-      <h2>Create League</h2>
-      <label>Name: <input value={name} onChange={e => setName(e.target.value)} required /></label>
-      <label>Public: <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} /></label>
-      <label>Corps per caption: <input type="number" value={corpsPerCaption} min={1} max={10} onChange={e => setCorpsPerCaption(Number(e.target.value))} /></label>
-      <PresetGroup legend="General Effect" name="general-effect" presets={GE_PRESETS} selected={gePreset} onChange={setGePreset} />
-      <PresetGroup legend="Visual" name="visual" presets={VISUAL_PRESETS} selected={visualPreset} onChange={setVisualPreset} />
-      <PresetGroup legend="Music" name="music" presets={MUSIC_PRESETS} selected={musicPreset} onChange={setMusicPreset} />
-      <label>Draft Start Time (optional): <input type="datetime-local" value={draftStartTime} onChange={e => setDraftStartTime(e.target.value)} /></label>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <button type="submit" disabled={submitting}>Create</button>
-    </form>
+    <div style={{ maxWidth: 480 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-heading)' }}>Create League</h2>
+        <Link to="/leagues" style={{ fontSize: 10, color: 'var(--text-muted)', textDecoration: 'none' }}>← Back to Leagues</Link>
+      </div>
+
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div>
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 6 }}>League Name</div>
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            required
+            placeholder="My Fantasy League"
+            style={inputStyle}
+          />
+        </div>
+
+        <div>
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 6 }}>Visibility</div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[true, false].map(pub => (
+              <button
+                key={String(pub)}
+                type="button"
+                onClick={() => setIsPublic(pub)}
+                style={{
+                  flex: 1, padding: '7px 0', borderRadius: 5, fontSize: 11, fontWeight: isPublic === pub ? 700 : 500,
+                  cursor: 'pointer',
+                  border: `1px solid ${isPublic === pub ? 'var(--accent)' : 'var(--border)'}`,
+                  background: isPublic === pub ? 'var(--accent-bg)' : 'var(--surface)',
+                  color: isPublic === pub ? 'var(--text-heading)' : 'var(--text-muted)',
+                }}
+              >
+                {pub ? 'Public' : 'Private'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 10 }}>Captions</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {CAPTION_GROUPS.map(group => (
+              <div key={group}>
+                <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6, letterSpacing: '0.3px' }}>{group}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {ALL_CAPTIONS.filter(c => c.group === group).map(c => (
+                    <Chip
+                      key={c.value}
+                      label={c.label}
+                      selected={selectedCaptions.has(c.value)}
+                      onClick={() => toggleCaption(c.value)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 6 }}>Corps per Caption</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              type="button"
+              onClick={() => setCorpsPerCaption(Math.max(1, corpsPerCaption - 1))}
+              style={{
+                width: 32, height: 32, borderRadius: 5, fontSize: 16, fontWeight: 700,
+                background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-heading)', cursor: 'pointer',
+              }}
+            >−</button>
+            <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-heading)', minWidth: 20, textAlign: 'center' }}>{corpsPerCaption}</span>
+            <button
+              type="button"
+              onClick={() => setCorpsPerCaption(Math.min(10, corpsPerCaption + 1))}
+              style={{
+                width: 32, height: 32, borderRadius: 5, fontSize: 16, fontWeight: 700,
+                background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-heading)', cursor: 'pointer',
+              }}
+            >+</button>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>= {totalPicks} total picks</span>
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 6 }}>
+            Draft Start <span style={{ color: 'var(--text-faint)', fontWeight: 400, textTransform: 'none' }}>(optional)</span>
+          </div>
+          <input
+            type="datetime-local"
+            value={draftStartTime}
+            onChange={e => setDraftStartTime(e.target.value)}
+            style={inputStyle}
+          />
+        </div>
+
+        {error && <div style={{ fontSize: 10, color: 'var(--red)' }}>{error}</div>}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          style={{
+            width: '100%', padding: '10px 0', borderRadius: 5, fontSize: 11, fontWeight: 800,
+            letterSpacing: '0.5px', textTransform: 'uppercase',
+            background: submitting ? 'var(--border)' : 'var(--accent)',
+            color: submitting ? 'var(--text-faint)' : 'var(--bg)',
+            border: 'none', cursor: submitting ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {submitting ? 'Creating…' : 'Create League'}
+        </button>
+      </form>
+    </div>
   );
 }

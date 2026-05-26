@@ -23,6 +23,11 @@ const disabledBtn: CSSProperties = {
   background: 'var(--border)', color: 'var(--text-faint)', cursor: 'not-allowed',
 };
 
+const tabs: { key: Tab; label: string }[] = [
+  { key: 'seasons', label: 'Seasons' },
+  { key: 'corps', label: 'Corps' },
+];
+
 function SeasonBadge({ season }: { season: Season }) {
   if (season.isPublished) {
     return <span style={{ fontSize: 8, padding: '2px 6px', borderRadius: 4, fontWeight: 700, background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)' }}>PUBLISHED</span>;
@@ -52,12 +57,19 @@ export function Admin() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setError(null);
+    let cancelled = false;
+
     if (tab === 'seasons') {
-      api.adminGetSeasons().then(setSeasons).catch(() => setError('Failed to load seasons.'));
+      api.adminGetSeasons()
+        .then(data => { if (!cancelled) { setError(null); setSeasons(data); } })
+        .catch(() => { if (!cancelled) setError('Failed to load seasons.'); });
     } else {
-      api.adminGetCorps().then(setCorps).catch(() => setError('Failed to load corps.'));
+      api.adminGetCorps()
+        .then(data => { if (!cancelled) { setError(null); setCorps(data); } })
+        .catch(() => { if (!cancelled) setError('Failed to load corps.'); });
     }
+
+    return () => { cancelled = true; };
   }, [tab]);
 
   const addSeason = async (e: FormEvent) => {
@@ -98,16 +110,10 @@ export function Admin() {
     }
   };
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'seasons', label: 'Seasons' },
-    { key: 'corps', label: 'Corps' },
-  ];
-
   return (
     <div>
       <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-heading)', marginBottom: 20 }}>Admin</h2>
 
-      {/* Tab bar */}
       <div style={{
         display: 'flex',
         background: 'var(--surface)',
@@ -130,7 +136,6 @@ export function Admin() {
         ))}
       </div>
 
-      {/* Tab content */}
       <div style={{
         background: 'var(--surface-2)',
         border: '1px solid var(--border)',
@@ -143,7 +148,6 @@ export function Admin() {
 
         {tab === 'seasons' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Seasons table */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {seasons.length === 0 && (
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '12px 0' }}>No seasons yet.</div>
@@ -164,7 +168,6 @@ export function Admin() {
               ))}
             </div>
 
-            {/* Add Season form */}
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, padding: 16 }}>
               <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 12 }}>Add Season</div>
               <form onSubmit={addSeason} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -181,7 +184,6 @@ export function Admin() {
 
         {tab === 'corps' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Corps list */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {corps.length === 0 && (
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '12px 0' }}>No corps yet.</div>
@@ -197,7 +199,6 @@ export function Admin() {
               ))}
             </div>
 
-            {/* Add Corps form */}
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, padding: 16 }}>
               <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 12 }}>Add Corps</div>
               <form onSubmit={addCorps} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>

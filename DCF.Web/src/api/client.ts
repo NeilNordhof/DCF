@@ -1,4 +1,4 @@
-import type { Corps, CreateLeagueRequest, League, Season, SeasonDetail, Show, Standing, UserProfile } from '../types/api';
+import type { Corps, CreateLeagueRequest, League, MemberScoreBreakdown, Season, SeasonDetail, Show, Standing, UserProfile } from '../types/api';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -44,6 +44,7 @@ export const api = {
   joinLeague: (id: string, inviteCode?: string) =>
     request<void>(`/api/leagues/${id}/join`, { method: 'POST', body: JSON.stringify({ inviteCode }) }),
   getStandings: (id: string) => request<Standing[]>(`/api/leagues/${id}/standings`),
+  getScoreBreakdown: (id: string) => request<MemberScoreBreakdown[]>(`/api/leagues/${id}/standings/breakdown`),
   startDraft: (leagueId: string) =>
     request<void>(`/api/leagues/${leagueId}/draft/start`, { method: 'POST' }),
   openDraft: (leagueId: string) =>

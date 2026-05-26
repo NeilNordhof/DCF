@@ -35,17 +35,17 @@ export function DraftRoom() {
   useEffect(() => {
     if (!league) return;
 
-    if (league.draftStatus === 'NotStarted' || league.draftStatus === 'Scheduled') {
+    if (league.draftStatus === 'NotStarted') {
       navigate(`/leagues/${id}`);
     }
   }, [league, id, navigate]);
 
   // Countdown timer — only ticks during Open lobby
   useEffect(() => {
-    if (draftState?.status !== 'Open') return;
+    if (draftState?.status !== 'Open' && league?.draftStatus !== 'Scheduled') return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [draftState?.status]);
+  }, [draftState?.status, league?.draftStatus]);
 
   if (error) return <div style={{ padding: 16, color: 'var(--text)' }}>{error}</div>;
   if (!league || !draftState) return <div style={{ padding: 16, color: 'var(--text-muted)' }}>Loading…</div>;
@@ -109,7 +109,7 @@ export function DraftRoom() {
   // ── Top bar ──────────────────────────────────────────────────────────────
 
   const renderTopBar = () => {
-    if (status === 'Open') {
+    if (status === 'Open' || (status !== 'InProgress' && status !== 'Completed' && league.draftStatus === 'Scheduled')) {
       return (
         <div style={{ background: 'linear-gradient(90deg, #0f1a0f, #101810)', borderBottom: '2px solid var(--green-border)', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
