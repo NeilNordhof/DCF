@@ -134,6 +134,86 @@ public class ScrapeSchedulerService(
         }
 
         await db.SaveChangesAsync();
+
+        await ComputeAndUpsertComputedScoresAsync(db, freshShow.Id, freshShow.SeasonId);
+    }
+
+    public static async Task ComputeAndUpsertComputedScoresAsync(DcfDbContext db, Guid showId, Guid seasonId)
+    {
+        var showScores = await db.Scores
+            .Where(s => s.ShowId == showId)
+            .ToListAsync();
+
+        var byCorps = showScores.GroupBy(s => s.CorpsId);
+
+        foreach (var group in byCorps)
+        {
+            var corpsId = group.Key;
+            var scores = group.ToList();
+
+            double Avg(Caption caption)
+            {
+                var vals = scores.Where(s => s.Caption == caption).Select(s => s.TotalScore).ToList();
+                return vals.Count > 0 ? vals.Average() : 0;
+            }
+
+            double Single(Caption caption)
+            {
+                return scores.FirstOrDefault(s => s.Caption == caption)?.TotalScore ?? 0;
+            }
+
+            var ge1 = Avg(Caption.GeneralEffectMusic);
+            var ge2 = Avg(Caption.GeneralEffectVisual);
+            var vp = Single(Caption.VisualProficiency);
+            var va = Single(Caption.VisualAnalysis);
+            var cg = Single(Caption.ColorGuard);
+            var brass = Single(Caption.Brass);
+            var perc = Avg(Caption.Percussion);
+            var ma = Avg(Caption.MusicAnalysis);
+
+            var existing = await db.ComputedScores
+                .FirstOrDefaultAsync(cs => cs.ShowId == showId && cs.CorpsId == corpsId);
+
+            if (existing is null)
+            {
+                db.ComputedScores.Add(new ComputedScoreEntity
+                {
+                    Id = Guid.NewGuid(),
+                    ShowId = showId,
+                    SeasonId = seasonId,
+                    CorpsId = corpsId,
+                    GeneralEffect1 = ge1,
+                    GeneralEffect2 = ge2,
+                    GeneralEffectCombined = ge1 + ge2,
+                    Visual = (vp + va) / 2,
+                    VisualCombined = (vp + va + cg) / 2,
+                    Colorguard = cg,
+                    VisualProficiency = vp,
+                    VisualAnalysis = va,
+                    Brass = brass,
+                    Percussion = perc,
+                    MusicAnalysis = ma,
+                    MusicCombined = (brass + ma + perc) / 2
+                });
+            }
+            else
+            {
+                existing.GeneralEffect1 = ge1;
+                existing.GeneralEffect2 = ge2;
+                existing.GeneralEffectCombined = ge1 + ge2;
+                existing.Visual = (vp + va) / 2;
+                existing.VisualCombined = (vp + va + cg) / 2;
+                existing.Colorguard = cg;
+                existing.VisualProficiency = vp;
+                existing.VisualAnalysis = va;
+                existing.Brass = brass;
+                existing.Percussion = perc;
+                existing.MusicAnalysis = ma;
+                existing.MusicCombined = (brass + ma + perc) / 2;
+            }
+        }
+
+        await db.SaveChangesAsync();
     }
 
     private static IEnumerable<ScoreEntity> EnumerateScores(Result r)
