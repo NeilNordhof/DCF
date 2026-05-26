@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { CSSProperties, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 
@@ -60,7 +61,7 @@ export function LeagueCreate() {
 
   const totalPicks = corpsPerCaption * selectedCaptions.size;
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (selectedCaptions.size === 0) {
       setError('Select at least one caption.');
@@ -85,7 +86,7 @@ export function LeagueCreate() {
     }
   };
 
-  const inputStyle: React.CSSProperties = {
+  const inputStyle: CSSProperties = {
     width: '100%', padding: '8px 10px', borderRadius: 5,
     background: 'var(--bg)', border: '1px solid var(--border-input)',
     color: 'var(--text-heading)', fontSize: 11, outline: 'none',
