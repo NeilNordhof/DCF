@@ -2,20 +2,21 @@ import { useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import type { ComputedCaption } from '../types/api';
 
-const ALL_CAPTIONS: { value: string; label: string; group: string }[] = [
-  { value: 'GeneralEffect',        label: 'GE',            group: 'General Effect' },
-  { value: 'GeneralEffectMusic',   label: 'GE1 Music',     group: 'General Effect' },
-  { value: 'GeneralEffectVisual',  label: 'GE2 Visual',    group: 'General Effect' },
-  { value: 'Visual',               label: 'Visual',        group: 'Visual' },
-  { value: 'VisualPerformance',    label: 'Vis Perf',      group: 'Visual' },
-  { value: 'VisualAnalysis',       label: 'Vis Analysis',  group: 'Visual' },
-  { value: 'VisualProficiency',    label: 'Vis Prof',      group: 'Visual' },
-  { value: 'ColorGuard',           label: 'Color Guard',   group: 'Visual' },
-  { value: 'Music',                label: 'Music',         group: 'Music' },
-  { value: 'Brass',                label: 'Brass',         group: 'Music' },
-  { value: 'MusicAnalysis',        label: 'Mus Analysis',  group: 'Music' },
-  { value: 'Percussion',           label: 'Percussion',    group: 'Music' },
+const ALL_CAPTIONS: { value: ComputedCaption; label: string; group: string }[] = [
+  { value: 'GeneralEffectCombined', label: 'GE Combined',  group: 'General Effect' },
+  { value: 'GeneralEffect1',        label: 'GE1 Music',    group: 'General Effect' },
+  { value: 'GeneralEffect2',        label: 'GE2 Visual',   group: 'General Effect' },
+  { value: 'VisualCombined',        label: 'Vis Combined', group: 'Visual' },
+  { value: 'Visual',                label: 'Visual',       group: 'Visual' },
+  { value: 'VisualAnalysis',        label: 'Vis Analysis', group: 'Visual' },
+  { value: 'VisualProficiency',     label: 'Vis Prof',     group: 'Visual' },
+  { value: 'Colorguard',            label: 'Color Guard',  group: 'Visual' },
+  { value: 'MusicCombined',         label: 'Mus Combined', group: 'Music' },
+  { value: 'Brass',                 label: 'Brass',        group: 'Music' },
+  { value: 'MusicAnalysis',         label: 'Mus Analysis', group: 'Music' },
+  { value: 'Percussion',            label: 'Percussion',   group: 'Music' },
 ];
 
 const CAPTION_GROUPS = ['General Effect', 'Visual', 'Music'];
@@ -42,12 +43,12 @@ export function LeagueCreate() {
   const [name, setName] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [corpsPerCaption, setCorpsPerCaption] = useState(3);
-  const [selectedCaptions, setSelectedCaptions] = useState<Set<string>>(new Set(['Brass', 'Percussion', 'ColorGuard', 'GeneralEffectMusic', 'GeneralEffectVisual', 'VisualAnalysis', 'VisualProficiency']));
+  const [selectedCaptions, setSelectedCaptions] = useState<Set<ComputedCaption>>(new Set<ComputedCaption>(['Brass', 'Percussion', 'Colorguard', 'GeneralEffect1', 'GeneralEffect2', 'VisualAnalysis', 'VisualProficiency']));
   const [draftStartTime, setDraftStartTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const toggleCaption = (value: string) => {
+  const toggleCaption = (value: ComputedCaption) => {
     setSelectedCaptions(prev => {
       const next = new Set(prev);
       if (next.has(value)) {

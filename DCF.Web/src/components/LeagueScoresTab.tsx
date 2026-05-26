@@ -1,8 +1,8 @@
-import type { MemberScoreBreakdown } from '../types/api';
+import type { ComputedCaption, MemberScoreBreakdown } from '../types/api';
 
 interface Props {
   breakdown: MemberScoreBreakdown[];
-  captions: string[];
+  captions: ComputedCaption[];
   currentUserId?: string;
 }
 

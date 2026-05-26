@@ -1,5 +1,19 @@
 export type DraftStatus = 'NotStarted' | 'Scheduled' | 'Open' | 'InProgress' | 'Completed';
 
+export type ComputedCaption =
+  | 'GeneralEffectCombined'
+  | 'GeneralEffect1'
+  | 'GeneralEffect2'
+  | 'VisualCombined'
+  | 'Visual'
+  | 'Colorguard'
+  | 'VisualProficiency'
+  | 'VisualAnalysis'
+  | 'MusicCombined'
+  | 'Brass'
+  | 'Percussion'
+  | 'MusicAnalysis';
+
 export interface League {
   id: string;
   name: string;
@@ -9,7 +23,7 @@ export interface League {
   draftStatus: DraftStatus;
   draftStartTime?: string;
   corpsPerCaption: number;
-  draftableCaptions: string[];
+  draftableCaptions: ComputedCaption[];
   seasonYear: number;
   isMember?: boolean;
   memberCount?: number;
@@ -27,7 +41,7 @@ export interface DraftPick {
   displayName: string;
   corpsId: string;
   corpsName: string;
-  caption: string;
+  caption: ComputedCaption;
   pickNumber: number;
   roundNumber: number;
 }
@@ -36,6 +50,7 @@ export interface Standing {
   userId: string;
   displayName: string;
   score: number;
+  captions: Partial<Record<ComputedCaption, CaptionBreakdown>>;
 }
 
 export interface Corps {
@@ -71,7 +86,7 @@ export interface CreateLeagueRequest {
   name: string;
   isPublic: boolean;
   corpsPerCaption: number;
-  draftableCaptions: string[];
+  draftableCaptions: ComputedCaption[];
   draftStartTime?: string | null;
 }
 
@@ -113,5 +128,5 @@ export interface MemberScoreBreakdown {
   userId: string;
   displayName: string;
   totalScore: number;
-  captions: Partial<Record<string, CaptionBreakdown>>;
+  captions: Partial<Record<ComputedCaption, CaptionBreakdown>>;
 }
