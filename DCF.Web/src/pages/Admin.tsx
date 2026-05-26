@@ -23,6 +23,11 @@ const disabledBtn: CSSProperties = {
   background: 'var(--border)', color: 'var(--text-faint)', cursor: 'not-allowed',
 };
 
+const tabs: { key: Tab; label: string }[] = [
+  { key: 'seasons', label: 'Seasons' },
+  { key: 'corps', label: 'Corps' },
+];
+
 function SeasonBadge({ season }: { season: Season }) {
   if (season.isPublished) {
     return <span style={{ fontSize: 8, padding: '2px 6px', borderRadius: 4, fontWeight: 700, background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-border)' }}>PUBLISHED</span>;
@@ -52,12 +57,20 @@ export function Admin() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     setError(null);
+
     if (tab === 'seasons') {
-      api.adminGetSeasons().then(setSeasons).catch(() => setError('Failed to load seasons.'));
+      api.adminGetSeasons()
+        .then(data => { if (!cancelled) setSeasons(data); })
+        .catch(() => { if (!cancelled) setError('Failed to load seasons.'); });
     } else {
-      api.adminGetCorps().then(setCorps).catch(() => setError('Failed to load corps.'));
+      api.adminGetCorps()
+        .then(data => { if (!cancelled) setCorps(data); })
+        .catch(() => { if (!cancelled) setError('Failed to load corps.'); });
     }
+
+    return () => { cancelled = true; };
   }, [tab]);
 
   const addSeason = async (e: FormEvent) => {
@@ -97,11 +110,6 @@ export function Admin() {
       setAddingCorps(false);
     }
   };
-
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'seasons', label: 'Seasons' },
-    { key: 'corps', label: 'Corps' },
-  ];
 
   return (
     <div>
