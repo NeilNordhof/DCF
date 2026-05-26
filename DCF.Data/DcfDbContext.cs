@@ -17,6 +17,7 @@ public class DcfDbContext(DbContextOptions<DcfDbContext> options) : DbContext(op
     public DbSet<LeagueEntity> Leagues => Set<LeagueEntity>();
     public DbSet<LeagueMemberEntity> LeagueMembers => Set<LeagueMemberEntity>();
     public DbSet<DraftPickEntity> DraftPicks => Set<DraftPickEntity>();
+    public DbSet<ComputedScoreEntity> ComputedScores => Set<ComputedScoreEntity>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -56,5 +57,12 @@ public class DcfDbContext(DbContextOptions<DcfDbContext> options) : DbContext(op
             .HasConversion(
                 v => JsonSerializer.Serialize(v, JsonSerializerOptions.Default),
                 v => JsonSerializer.Deserialize<Caption[]>(v, JsonSerializerOptions.Default) ?? Array.Empty<Caption>());
+
+        mb.Entity<ComputedScoreEntity>()
+            .HasIndex(e => new { e.ShowId, e.CorpsId })
+            .IsUnique();
+
+        mb.Entity<ComputedScoreEntity>()
+            .HasIndex(e => e.SeasonId);
     }
 }
