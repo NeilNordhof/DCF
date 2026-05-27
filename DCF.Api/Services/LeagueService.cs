@@ -12,12 +12,13 @@ public record LeagueSummary(
     int SeasonYear, bool IsMember, int MemberCount);
 
 public record LeagueDetail(
-    Guid Id, string Name, bool IsPublic, string InviteCode,
+    Guid Id, string Name, bool IsPublic, string? InviteCode,
     DraftStatus DraftStatus, DateTimeOffset? DraftStartTime,
     int CorpsPerCaption, Guid CommissionerUserId,
     IEnumerable<string> DraftableCaptions, int SeasonYear,
     IEnumerable<MemberSummary> Members,
-    IEnumerable<PickSummary> Picks);
+    IEnumerable<PickSummary> Picks,
+    bool IsMember, int MaxPlayers);
 
 public record MemberSummary(Guid UserId, string DisplayName);
 
@@ -135,12 +136,12 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
         return JoinResult.Ok;
     }
 
-    public async Task<LeagueDetail?> GetAsync(Guid leagueId)
+    public async Task<LeagueDetail?> GetAsync(Guid leagueId, string? userSub, string? inviteCode)
     {
         var league = await db.Leagues
+            .Include(l => l.Season)
             .Include(l => l.Members).ThenInclude(m => m.User)
             .Include(l => l.DraftPicks).ThenInclude(p => p.Corps)
-            .Include(l => l.Season)
             .FirstOrDefaultAsync(l => l.Id == leagueId);
 
         if (league is null)
@@ -148,8 +149,31 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             return null;
         }
 
+        var user = userSub is not null
+            ? await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub)
+            : null;
+
+        var isMember = user is not null && league.Members.Any(m => m.UserId == user.Id);
+
+        if (!isMember && !league.IsPublic)
+        {
+            if (inviteCode is null || string.IsNullOrEmpty(league.InviteCode))
+            {
+                return null;
+            }
+
+            var codeBytes = System.Text.Encoding.UTF8.GetBytes(inviteCode);
+            var storedBytes = System.Text.Encoding.UTF8.GetBytes(league.InviteCode);
+
+            if (!CryptographicOperations.FixedTimeEquals(codeBytes, storedBytes))
+            {
+                return null;
+            }
+        }
+
         return new LeagueDetail(
-            league.Id, league.Name, league.IsPublic, league.InviteCode,
+            league.Id, league.Name, league.IsPublic,
+            isMember ? league.InviteCode : null,
             league.DraftStatus, league.DraftStartTime, league.CorpsPerCaption,
             league.CommissionerUserId,
             league.DraftableCaptions.Select(c => c.ToString()),
@@ -157,7 +181,9 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             league.Members.Select(m => new MemberSummary(m.UserId, m.User.DisplayName)),
             league.DraftPicks.Select(p => new PickSummary(
                 p.UserId, p.CorpsId, p.Corps.Name,
-                p.Caption.ToString(), p.PickNumber, p.RoundNumber)));
+                p.Caption.ToString(), p.PickNumber, p.RoundNumber)),
+            isMember,
+            league.MaxPlayers);
     }
 
     private static string GenerateInviteCode()

@@ -93,9 +93,9 @@ public class LeaguesController(ILeagueService leagueService, IStandingsService s
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> Get(Guid id)
+    public async Task<IActionResult> Get(Guid id, [FromQuery] string? code)
     {
-        var league = await leagueService.GetAsync(id);
+        var league = await leagueService.GetAsync(id, GetSub(), code);
 
         if (league is null)
         {
