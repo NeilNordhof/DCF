@@ -1,6 +1,7 @@
 using DCF.Api.Services;
 using DCF.Data;
 using DCF.Data.Entities;
+using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -38,6 +39,32 @@ public class LeagueServiceTests
         await db.SaveChangesAsync();
 
         return (season, league);
+    }
+
+    private static async Task<(SeasonEntity Season, UserEntity User)> CreateSeasonAndUser(
+        DcfDbContext db, int corpsCount, string userSub)
+    {
+        var season = new SeasonEntity { Year = 2026, IsPublished = true };
+        db.Seasons.Add(season);
+
+        await db.SaveChangesAsync();
+
+        for (var i = 0; i < corpsCount; i++)
+        {
+            var corps = new CorpsEntity { Name = $"Corps {i}" };
+            db.Corps.Add(corps);
+
+            await db.SaveChangesAsync();
+
+            db.SeasonCorps.Add(new SeasonCorpsEntity { SeasonId = season.Id, CorpsId = corps.Id });
+        }
+
+        var user = new UserEntity { Auth0Sub = userSub, DisplayName = userSub, Email = $"{userSub}@test.com" };
+        db.Users.Add(user);
+
+        await db.SaveChangesAsync();
+
+        return (season, user);
     }
 
     // ── GetAsync ────────────────────────────────────────────────────────────
@@ -126,5 +153,58 @@ public class LeagueServiceTests
         Assert.NotNull(result);
         Assert.True(result!.IsMember);
         Assert.Equal("SECRET", result.InviteCode);
+    }
+
+    // ── CreateAsync ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task CreateAsync_ValidParams_SetsMaxPlayers()
+    {
+        await using var db = CreateDb(nameof(CreateAsync_ValidParams_SetsMaxPlayers));
+        var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
+
+        var svc = new LeagueService(db, null!);
+        var league = await svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
+            maxPlayers: 8, captions: [ComputedCaption.MusicCombined], userSub: "sub|me");
+
+        Assert.Equal(8, league.MaxPlayers);
+    }
+
+    [Fact]
+    public async Task CreateAsync_MaxPlayersBelowMinimum_Throws()
+    {
+        await using var db = CreateDb(nameof(CreateAsync_MaxPlayersBelowMinimum_Throws));
+        var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
+
+        var svc = new LeagueService(db, null!);
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
+                maxPlayers: 2, captions: [ComputedCaption.MusicCombined], userSub: "sub|me"));
+    }
+
+    [Fact]
+    public async Task CreateAsync_CorpsPerCaptionTooHigh_Throws()
+    {
+        await using var db = CreateDb(nameof(CreateAsync_CorpsPerCaptionTooHigh_Throws));
+        var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
+
+        var svc = new LeagueService(db, null!);
+        // floor(24/4) = 6, so 7 is invalid
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 7,
+                maxPlayers: 4, captions: [ComputedCaption.MusicCombined], userSub: "sub|me"));
+    }
+
+    [Fact]
+    public async Task CreateAsync_MaxPlayersExceedsFloor_Throws()
+    {
+        await using var db = CreateDb(nameof(CreateAsync_MaxPlayersExceedsFloor_Throws));
+        var (season, user) = await CreateSeasonAndUser(db, corpsCount: 12, userSub: "sub|me");
+
+        var svc = new LeagueService(db, null!);
+        // 12 corps, corpsPerCaption=3 → floor(12/3) = 4 max
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
+                maxPlayers: 5, captions: [ComputedCaption.MusicCombined], userSub: "sub|me"));
     }
 }

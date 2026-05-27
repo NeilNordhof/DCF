@@ -26,24 +26,21 @@ public class LeaguesController(ILeagueService leagueService, IStandingsService s
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(CreateLeagueRequest req)
+    public async Task<IActionResult> Create([FromBody] CreateLeagueRequest req)
     {
+        var userSub = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value;
+
         try
         {
-            var result = await leagueService.CreateAsync(
-                GetSub(), req.Name, req.IsPublic,
-                req.CorpsPerCaption, req.DraftableCaptions, req.DraftStartTime);
+            var league = await leagueService.CreateAsync(
+                req.Name, req.IsPublic, req.CorpsPerCaption, req.MaxPlayers,
+                req.DraftableCaptions.ToList(), userSub, req.DraftStartTime);
 
-            if (result is null)
-            {
-                return Unauthorized();
-            }
-
-            return Ok(result);
+            return CreatedAtAction(nameof(Get), new { id = league.Id }, new { id = league.Id });
         }
-        catch (InvalidOperationException ex)
+        catch (ArgumentException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new { error = ex.Message });
         }
     }
 

@@ -6,6 +6,7 @@ public record CreateLeagueRequest(
     string Name,
     bool IsPublic,
     int CorpsPerCaption,
+    int MaxPlayers,
     ComputedCaption[] DraftableCaptions,
     DateTimeOffset? DraftStartTime);
 

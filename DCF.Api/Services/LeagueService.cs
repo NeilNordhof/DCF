@@ -53,22 +53,44 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             .ToListAsync();
     }
 
-    public async Task<LeagueBrief?> CreateAsync(string userSub, string name, bool isPublic,
-        int corpsPerCaption, ComputedCaption[] draftableCaptions, DateTimeOffset? draftStartTime)
+    public async Task<LeagueEntity> CreateAsync(
+        string name,
+        bool isPublic,
+        int corpsPerCaption,
+        int maxPlayers,
+        List<ComputedCaption> captions,
+        string userSub,
+        DateTimeOffset? draftStartTime = null)
     {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub)
+            ?? throw new InvalidOperationException("User not found.");
 
-        if (user is null)
+        var activeSeason = await db.Seasons
+            .Include(s => s.SeasonCorps)
+            .Where(s => s.IsPublished)
+            .OrderByDescending(s => s.Year)
+            .FirstOrDefaultAsync()
+            ?? throw new InvalidOperationException("No active season found.");
+
+        var corpsCount = activeSeason.SeasonCorps.Count;
+        var maxCorpsPerCaption = corpsCount / 4;
+        var maxAllowedPlayers = corpsPerCaption > 0 ? corpsCount / corpsPerCaption : 0;
+
+        if (maxPlayers < 4)
         {
-            return null;
+            throw new ArgumentException("maxPlayers must be at least 4.", nameof(maxPlayers));
         }
 
-        // TEMP: IsActive check removed - will be updated in task 5
-        var activeSeason = await db.Seasons.OrderByDescending(s => s.Year).FirstOrDefaultAsync();
-
-        if (activeSeason is null)
+        if (corpsPerCaption > maxCorpsPerCaption)
         {
-            throw new InvalidOperationException("No active season");
+            throw new ArgumentException(
+                $"corpsPerCaption cannot exceed {maxCorpsPerCaption} for the active season.", nameof(corpsPerCaption));
+        }
+
+        if (maxPlayers > maxAllowedPlayers)
+        {
+            throw new ArgumentException(
+                $"maxPlayers cannot exceed {maxAllowedPlayers} for the given corpsPerCaption.", nameof(maxPlayers));
         }
 
         var league = new LeagueEntity
@@ -79,8 +101,9 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             CommissionerUserId = user.Id,
             IsPublic = isPublic,
             InviteCode = GenerateInviteCode(),
+            MaxPlayers = maxPlayers,
             CorpsPerCaption = corpsPerCaption,
-            DraftableCaptions = draftableCaptions,
+            DraftableCaptions = captions.ToArray(),
             DraftStatus = draftStartTime.HasValue ? DraftStatus.Scheduled : DraftStatus.NotStarted,
             DraftStartTime = draftStartTime
         };
@@ -94,7 +117,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             draftScheduler.ScheduleNext(league.Id, draftStartTime.Value, isAlreadyOpened: false);
         }
 
-        return new LeagueBrief(league.Id, league.Name, league.InviteCode);
+        return league;
     }
 
     public async Task<JoinResult> JoinAsync(Guid leagueId, string userSub, string? inviteCode)
