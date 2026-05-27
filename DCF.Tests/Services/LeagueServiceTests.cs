@@ -207,4 +207,52 @@ public class LeagueServiceTests
             svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
                 maxPlayers: 5, captions: [ComputedCaption.MusicCombined], userSub: "sub|me"));
     }
+
+    // ── JoinAsync ────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task JoinAsync_LeagueFull_ReturnsFull()
+    {
+        await using var db = CreateDb(nameof(JoinAsync_LeagueFull_ReturnsFull));
+        var owner = new UserEntity { Auth0Sub = "sub|owner", DisplayName = "Owner", Email = "o@test.com" };
+        var member = new UserEntity { Auth0Sub = "sub|member", DisplayName = "Member", Email = "m@test.com" };
+        var joiner = new UserEntity { Auth0Sub = "sub|joiner", DisplayName = "Joiner", Email = "j@test.com" };
+        var league = new LeagueEntity { Name = "Full League", IsPublic = true, MaxPlayers = 2, InviteCode = "X" };
+        db.Users.AddRange(owner, member, joiner);
+        db.Leagues.Add(league);
+
+        await db.SaveChangesAsync();
+
+        db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = owner.Id });
+        db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = member.Id });
+
+        await db.SaveChangesAsync();
+
+        var svc = new LeagueService(db, null!);
+        var result = await svc.JoinAsync(league.Id, "sub|joiner", inviteCode: null);
+
+        Assert.Equal(JoinResult.Full, result);
+    }
+
+    [Fact]
+    public async Task JoinAsync_LeagueNotFull_ReturnsSuccess()
+    {
+        await using var db = CreateDb(nameof(JoinAsync_LeagueNotFull_ReturnsSuccess));
+        var owner = new UserEntity { Auth0Sub = "sub|owner", DisplayName = "Owner", Email = "o@test.com" };
+        var joiner = new UserEntity { Auth0Sub = "sub|joiner", DisplayName = "Joiner", Email = "j@test.com" };
+        var league = new LeagueEntity { Name = "Open League", IsPublic = true, MaxPlayers = 8, InviteCode = "X" };
+        db.Users.AddRange(owner, joiner);
+        db.Leagues.Add(league);
+
+        await db.SaveChangesAsync();
+
+        db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = owner.Id });
+
+        await db.SaveChangesAsync();
+
+        var svc = new LeagueService(db, null!);
+        var result = await svc.JoinAsync(league.Id, "sub|joiner", inviteCode: null);
+
+        Assert.Equal(JoinResult.Ok, result);
+    }
 }

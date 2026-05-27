@@ -147,6 +147,13 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             }
         }
 
+        var memberCount = await db.LeagueMembers.CountAsync(m => m.LeagueId == leagueId);
+
+        if (memberCount >= league.MaxPlayers)
+        {
+            return JoinResult.Full;
+        }
+
         var already = await db.LeagueMembers.AnyAsync(m => m.LeagueId == leagueId && m.UserId == user.Id);
 
         if (!already)
@@ -219,4 +226,4 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
     }
 }
 
-public enum JoinResult { Ok, Unauthorized, NotFound, BadInviteCode }
+public enum JoinResult { Ok, Unauthorized, NotFound, BadInviteCode, Full }

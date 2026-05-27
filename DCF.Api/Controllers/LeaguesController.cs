@@ -55,6 +55,7 @@ public class LeaguesController(ILeagueService leagueService, IStandingsService s
             JoinResult.Unauthorized => Unauthorized(),
             JoinResult.NotFound => NotFound(),
             JoinResult.BadInviteCode => BadRequest("Invalid invite code"),
+            JoinResult.Full => Conflict(new { error = "This league is full." }),
             _ => StatusCode(500)
         };
     }
