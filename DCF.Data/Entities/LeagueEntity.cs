@@ -12,6 +12,7 @@ public class LeagueEntity
     public UserEntity Commissioner { get; set; } = null!;
     public bool IsPublic { get; set; }
     public string InviteCode { get; set; } = string.Empty;
+    public int MaxPlayers { get; set; } = 8;
     public int CorpsPerCaption { get; set; }
     public ComputedCaption[] DraftableCaptions { get; set; } = [];
     public DraftStatus DraftStatus { get; set; } = DraftStatus.NotStarted;
