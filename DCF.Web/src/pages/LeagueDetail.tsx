@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { LeagueScoresTab } from '../components/LeagueScoresTab';
 import { useMqtt } from '../mqtt/useMqtt';
@@ -10,6 +10,8 @@ type Tab = 'home' | 'scores' | 'members' | 'picks' | 'info';
 
 export function LeagueDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const code = searchParams.get('code') ?? undefined;
   const { user } = useUser();
   const navigate = useNavigate();
   const [league, setLeague] = useState<League | null>(null);
@@ -24,7 +26,7 @@ export function LeagueDetail() {
 
   useEffect(() => {
     if (id) {
-      api.getLeague(id).then(setLeague).catch(() => setError('Failed to load league.'));
+      api.getLeague(id, code).then(setLeague).catch(() => setError('Failed to load league.'));
     }
   }, [id]);
 
@@ -50,13 +52,11 @@ export function LeagueDetail() {
 
   const isCommissioner = user?.id !== undefined && user.id === league.commissionerUserId;
   const effectiveStatus = draftState?.status ?? league.draftStatus;
-  const isDraftAccessible = effectiveStatus === 'Open' || effectiveStatus === 'InProgress' || effectiveStatus === 'Scheduled';
 
-  const joinLeague = async () => {
+  const handleJoin = async () => {
     try {
-      const code = league.isPublic ? undefined : (prompt('Enter invite code:') ?? undefined);
       await api.joinLeague(league.id, code);
-      window.location.reload();
+      navigate(`/leagues/${league.id}`);
     } catch {
       setError('Failed to join league. Check your invite code.');
     }
@@ -321,33 +321,58 @@ export function LeagueDetail() {
       }}>
         <div>
           <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-heading)', marginBottom: 4 }}>{league.name}</h2>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-            {league.seasonYear} · {league.memberCount ?? league.members?.length ?? 0} members
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: 'var(--text-muted)' }}>
+            <span>
+              Members: {league.memberCount ?? league.members?.length ?? 0} / {league.maxPlayers}
+            </span>
+            {(league.memberCount ?? 0) >= league.maxPlayers && (
+              <span style={{
+                fontSize: 8, padding: '1px 7px', borderRadius: 4, fontWeight: 700,
+                background: '#3c2a2a', color: '#e06c75', border: '1px solid #e06c75',
+                textTransform: 'uppercase', letterSpacing: '0.5px',
+              }}>
+                Full
+              </span>
+            )}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {statusBadge()}
-          {isDraftAccessible && (
+          {!league.isMember && (
+            <Link
+              to="/leagues?tab=join"
+              style={{
+                fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 5,
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                color: 'var(--text-muted)', textDecoration: 'none',
+              }}
+            >
+              ← Browse
+            </Link>
+          )}
+          {!league.isMember &&
+            (league.memberCount ?? 0) < league.maxPlayers &&
+            (effectiveStatus === 'NotStarted' || effectiveStatus === 'Scheduled') && (
+              <button
+                onClick={handleJoin}
+                style={{
+                  fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 5,
+                  background: 'var(--accent)', color: 'var(--bg)', border: 'none', cursor: 'pointer',
+                }}
+              >
+                Join League
+              </button>
+            )}
+          {league.isMember && (effectiveStatus === 'InProgress' || effectiveStatus === 'Open') && (
             <button
               onClick={() => navigate(`/leagues/${id}/draft`)}
               style={{
                 fontSize: 11, fontWeight: 800, padding: '6px 14px', borderRadius: 5,
-                background: 'var(--accent)', color: 'var(--bg)', border: 'none',
-                letterSpacing: '0.5px',
+                background: 'var(--green)', color: '#fff', border: 'none',
+                letterSpacing: '0.5px', cursor: 'pointer',
               }}
             >
-              Draft Room →
-            </button>
-          )}
-          {!league.isMember && (
-            <button
-              onClick={joinLeague}
-              style={{
-                fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 5,
-                background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)',
-              }}
-            >
-              Join League
+              Join Draft Room →
             </button>
           )}
           {isCommissioner && league.draftStatus === 'NotStarted' && !draftState && (
@@ -356,6 +381,7 @@ export function LeagueDetail() {
               style={{
                 fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 5,
                 background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)',
+                cursor: 'pointer',
               }}
             >
               Open Draft
