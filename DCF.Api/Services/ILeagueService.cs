@@ -9,4 +9,5 @@ public interface ILeagueService
     Task<LeagueEntity> CreateAsync(string name, bool isPublic, int corpsPerCaption, int maxPlayers, List<ComputedCaption> captions, string userSub, DateTimeOffset? draftStartTime = null);
     Task<JoinResult> JoinAsync(Guid leagueId, string userSub, string? inviteCode);
     Task<LeagueDetail?> GetAsync(Guid leagueId, string? userSub, string? inviteCode);
+    Task<IReadOnlyList<PublicLeagueSummary>> GetPublicLeaguesAsync();
 }

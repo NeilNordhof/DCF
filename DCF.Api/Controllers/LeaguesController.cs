@@ -25,6 +25,14 @@ public class LeaguesController(ILeagueService leagueService, IStandingsService s
         return Ok(leagues);
     }
 
+    [HttpGet("public")]
+    public async Task<IActionResult> GetPublic()
+    {
+        var leagues = await leagueService.GetPublicLeaguesAsync();
+
+        return Ok(leagues);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateLeagueRequest req)
     {

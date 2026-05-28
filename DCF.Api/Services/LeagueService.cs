@@ -29,6 +29,14 @@ public record PickSummary(
 
 public record LeagueBrief(Guid Id, string Name, string InviteCode);
 
+public record PublicLeagueSummary(
+    Guid Id,
+    string Name,
+    DraftStatus DraftStatus,
+    int MemberCount,
+    int MaxPlayers
+);
+
 public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler, IStandingsService standingsService) : ILeagueService
 {
     public async Task<IReadOnlyList<LeagueSummary>> BrowseAsync(string userSub)
@@ -224,6 +232,21 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
                 p.Caption.ToString(), p.PickNumber, p.RoundNumber)),
             isMember,
             league.MaxPlayers);
+    }
+
+    public async Task<IReadOnlyList<PublicLeagueSummary>> GetPublicLeaguesAsync()
+    {
+        return await db.Leagues
+            .Where(l => l.IsPublic)
+            .Include(l => l.Members)
+            .Select(l => new PublicLeagueSummary(
+                l.Id,
+                l.Name,
+                l.DraftStatus,
+                l.Members.Count,
+                l.MaxPlayers
+            ))
+            .ToListAsync();
     }
 
     private static string GenerateInviteCode()

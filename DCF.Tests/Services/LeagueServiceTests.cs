@@ -326,4 +326,41 @@ public class LeagueServiceTests
         Assert.Null(rank);
         Assert.Null(score);
     }
+
+    // ── GetPublicLeaguesAsync ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetPublicLeaguesAsync_ReturnsOnlyPublicLeagues()
+    {
+        await using var db = CreateDb(nameof(GetPublicLeaguesAsync_ReturnsOnlyPublicLeagues));
+        var (_, publicLeague) = await CreateSeasonAndLeague(db, "Public League", isPublic: true);
+        var (_, privateLeague) = await CreateSeasonAndLeague(db, "Private League", isPublic: false, inviteCode: "SECRET");
+
+        var svc = new LeagueService(db, null!, new NoOpStandings());
+        var result = await svc.GetPublicLeaguesAsync();
+
+        Assert.Single(result);
+        Assert.Equal("Public League", result[0].Name);
+    }
+
+    [Fact]
+    public async Task GetPublicLeaguesAsync_IncludesMemberCount()
+    {
+        await using var db = CreateDb(nameof(GetPublicLeaguesAsync_IncludesMemberCount));
+        var user = new UserEntity { Auth0Sub = "sub|member", DisplayName = "Member", Email = "member@test.com" };
+        db.Users.Add(user);
+
+        await db.SaveChangesAsync();
+
+        var (_, league) = await CreateSeasonAndLeague(db, "Public League", isPublic: true, maxPlayers: 8);
+        db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = user.Id });
+
+        await db.SaveChangesAsync();
+
+        var svc = new LeagueService(db, null!, new NoOpStandings());
+        var result = await svc.GetPublicLeaguesAsync();
+
+        Assert.Equal(1, result[0].MemberCount);
+        Assert.Equal(8, result[0].MaxPlayers);
+    }
 }
