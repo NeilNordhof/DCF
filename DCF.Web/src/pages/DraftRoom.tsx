@@ -165,7 +165,7 @@ export function DraftRoom() {
   // ── Pick grid ─────────────────────────────────────────────────────────────
 
   const renderGrid = () => {
-    const captions = league.draftableCaptions;
+    const captions = league.draftableCaptions!;
     const gridLocked = status !== 'InProgress' || !isMyTurn;
     const cellWidth = captions.length <= 3 ? Math.min(88, Math.floor(176 / captions.length)) : 44;
 
@@ -336,7 +336,7 @@ export function DraftRoom() {
     }
 
     const n = draftState.draftOrder.length;
-    const totalPicks = n * league.draftableCaptions.length * league.corpsPerCaption;
+    const totalPicks = n * league.draftableCaptions!.length * league.corpsPerCaption!;
 
     const upcomingOrder: Array<{ userId: string; displayName: string }> = [];
 
@@ -397,7 +397,7 @@ export function DraftRoom() {
     const currentPlayer = players.find(m => m.userId === effectivePicksPlayer) ?? players[0];
     if (!currentPlayer) return null;
 
-    const captions = league.draftableCaptions;
+    const captions = league.draftableCaptions!;
     const playerPicks = draftState.picks.filter(p => p.userId === currentPlayer.userId);
 
     return (
@@ -421,7 +421,7 @@ export function DraftRoom() {
         {captions.map(cap => {
           const capPicks = playerPicks.filter(p => p.caption === cap);
           const filled = capPicks.length;
-          const total = league.corpsPerCaption;
+          const total = league.corpsPerCaption!;
 
           return (
             <div key={cap} style={{ marginBottom: 10 }}>

@@ -76,6 +76,7 @@ export function LeagueCreate() {
         name,
         isPublic,
         corpsPerCaption,
+        maxPlayers: 8,
         draftableCaptions: Array.from(selectedCaptions),
         draftStartTime: draftStartTime || null,
       });

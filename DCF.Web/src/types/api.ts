@@ -22,13 +22,30 @@ export interface League {
   commissionerUserId?: string;
   draftStatus: DraftStatus;
   draftStartTime?: string;
-  corpsPerCaption: number;
-  draftableCaptions: ComputedCaption[];
-  seasonYear: number;
+  corpsPerCaption?: number;
+  draftableCaptions?: ComputedCaption[];
+  seasonYear?: number;
+  maxPlayers: number;
+  memberCount: number;
   isMember?: boolean;
-  memberCount?: number;
+  userRank?: number;
+  userScore?: number;
   members?: Member[];
   picks?: DraftPick[];
+}
+
+export interface PublicLeague {
+  id: string;
+  name: string;
+  draftStatus: DraftStatus;
+  memberCount: number;
+  maxPlayers: number;
+}
+
+export interface ActiveSeason {
+  id: string;
+  year: number;
+  corpsCount: number;
 }
 
 export interface Member {
@@ -86,6 +103,7 @@ export interface CreateLeagueRequest {
   name: string;
   isPublic: boolean;
   corpsPerCaption: number;
+  maxPlayers: number;
   draftableCaptions: ComputedCaption[];
   draftStartTime?: string | null;
 }

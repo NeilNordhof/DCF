@@ -1,4 +1,4 @@
-import type { Corps, CreateLeagueRequest, League, MemberScoreBreakdown, Season, SeasonDetail, Show, Standing, UserProfile } from '../types/api';
+import type { ActiveSeason, Corps, CreateLeagueRequest, League, MemberScoreBreakdown, PublicLeague, Season, SeasonDetail, Show, Standing, UserProfile } from '../types/api';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -39,7 +39,14 @@ export const api = {
   upsertUser: (displayName: string, email: string) =>
     request<UserProfile>('/api/auth/me', { method: 'POST', body: JSON.stringify({ displayName, email }) }),
   getLeagues: () => request<League[]>('/api/leagues'),
-  getLeague: (id: string) => request<League>(`/api/leagues/${id}`),
+  getLeague: (id: string, code?: string) => {
+    const params = code ? `?code=${encodeURIComponent(code)}` : '';
+    return request<League>(`/api/leagues/${id}${params}`);
+  },
+  getPublicLeagues: () => request<PublicLeague[]>('/api/leagues/public'),
+  lookupLeagueByCode: (code: string) =>
+    request<{ leagueId: string }>(`/api/leagues/lookup?code=${encodeURIComponent(code)}`),
+  getActiveSeason: () => request<ActiveSeason>('/api/seasons/active'),
   createLeague: (body: CreateLeagueRequest) => request<{ id: string; name: string; inviteCode: string }>('/api/leagues', { method: 'POST', body: JSON.stringify(body) }),
   joinLeague: (id: string, inviteCode?: string) =>
     request<void>(`/api/leagues/${id}/join`, { method: 'POST', body: JSON.stringify({ inviteCode }) }),

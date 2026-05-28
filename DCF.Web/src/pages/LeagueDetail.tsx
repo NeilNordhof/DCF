@@ -201,10 +201,10 @@ export function LeagueDetail() {
             </button>
           ))}
         </div>
-        {league.draftableCaptions.map(cap => {
+        {league.draftableCaptions!.map(cap => {
           const capPicks = playerPicks.filter(p => p.caption === cap);
           const filled = capPicks.length;
-          const total = league.corpsPerCaption;
+          const total = league.corpsPerCaption!;
 
           return (
             <div key={cap} style={{ marginBottom: 12 }}>
@@ -287,7 +287,7 @@ export function LeagueDetail() {
         <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 8 }}>Draft Settings</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {[
-            { label: 'Captions', value: league.draftableCaptions.join(', ') },
+            { label: 'Captions', value: league.draftableCaptions!.join(', ') },
             { label: 'Corps per Caption', value: String(league.corpsPerCaption) },
             { label: 'Draft Start', value: league.draftStartTime ? new Date(league.draftStartTime).toLocaleString() : 'Not scheduled' },
           ].map(item => (
@@ -399,7 +399,7 @@ export function LeagueDetail() {
         minHeight: 200,
       }}>
         {activeTab === 'home' && renderHomeTab()}
-        {activeTab === 'scores' && <LeagueScoresTab breakdown={breakdown} captions={league.draftableCaptions} currentUserId={user?.id} />}
+        {activeTab === 'scores' && <LeagueScoresTab breakdown={breakdown} captions={league.draftableCaptions!} currentUserId={user?.id} />}
         {activeTab === 'members' && renderMembersTab()}
         {activeTab === 'picks' && renderPicksTab()}
         {activeTab === 'info' && renderInfoTab()}
