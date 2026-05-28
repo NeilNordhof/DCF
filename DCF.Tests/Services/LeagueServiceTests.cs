@@ -9,6 +9,24 @@ namespace DCF.Tests.Services;
 
 public class LeagueServiceTests
 {
+    private sealed class NoOpStandings : IStandingsService
+    {
+        public Task<List<MemberStanding>> GetStandingsAsync(Guid leagueId)
+        {
+            return Task.FromResult(new List<MemberStanding>());
+        }
+
+        public Task<List<MemberScoreBreakdown>> GetScoreBreakdownAsync(Guid leagueId)
+        {
+            return Task.FromResult(new List<MemberScoreBreakdown>());
+        }
+
+        public Task<(int? Rank, double? Score)> GetUserRankAsync(Guid leagueId, Guid userId)
+        {
+            return Task.FromResult<(int?, double?)>((null, null));
+        }
+    }
+
     private static DcfDbContext CreateDb(string name)
     {
         var opts = new DbContextOptionsBuilder<DcfDbContext>()
@@ -75,7 +93,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(GetAsync_PublicLeague_NonMemberNoCode_ReturnsLeague));
         var (_, league) = await CreateSeasonAndLeague(db, "Open", isPublic: true);
 
-        var svc = new LeagueService(db, null!);
+        var svc = new LeagueService(db, null!, new NoOpStandings());
         var result = await svc.GetAsync(league.Id, userSub: "sub|other", inviteCode: null);
 
         Assert.NotNull(result);
@@ -89,7 +107,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(GetAsync_PrivateLeague_NonMemberNoCode_ReturnsNull));
         var (_, league) = await CreateSeasonAndLeague(db, "Private", isPublic: false, inviteCode: "ABC123");
 
-        var svc = new LeagueService(db, null!);
+        var svc = new LeagueService(db, null!, new NoOpStandings());
         var result = await svc.GetAsync(league.Id, userSub: "sub|other", inviteCode: null);
 
         Assert.Null(result);
@@ -101,7 +119,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(GetAsync_PrivateLeague_NonMemberCorrectCode_ReturnsLeagueWithoutInviteCode));
         var (_, league) = await CreateSeasonAndLeague(db, "Private", isPublic: false, inviteCode: "ABC123");
 
-        var svc = new LeagueService(db, null!);
+        var svc = new LeagueService(db, null!, new NoOpStandings());
         var result = await svc.GetAsync(league.Id, userSub: "sub|other", inviteCode: "ABC123");
 
         Assert.NotNull(result);
@@ -115,7 +133,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(GetAsync_PrivateLeague_NonMemberWrongCode_ReturnsNull));
         var (_, league) = await CreateSeasonAndLeague(db, "Private", isPublic: false, inviteCode: "ABC123");
 
-        var svc = new LeagueService(db, null!);
+        var svc = new LeagueService(db, null!, new NoOpStandings());
         var result = await svc.GetAsync(league.Id, userSub: "sub|other", inviteCode: "WRONG");
 
         Assert.Null(result);
@@ -127,7 +145,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(GetAsync_PublicLeague_NullUserSub_ReturnsLeague));
         var (_, league) = await CreateSeasonAndLeague(db, "Open", isPublic: true);
 
-        var svc = new LeagueService(db, null!);
+        var svc = new LeagueService(db, null!, new NoOpStandings());
         var result = await svc.GetAsync(league.Id, userSub: null, inviteCode: null);
 
         Assert.NotNull(result);
@@ -147,7 +165,7 @@ public class LeagueServiceTests
 
         await db.SaveChangesAsync();
 
-        var svc = new LeagueService(db, null!);
+        var svc = new LeagueService(db, null!, new NoOpStandings());
         var result = await svc.GetAsync(league.Id, userSub: "sub|me", inviteCode: null);
 
         Assert.NotNull(result);
@@ -163,7 +181,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(CreateAsync_ValidParams_SetsMaxPlayers));
         var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
 
-        var svc = new LeagueService(db, null!);
+        var svc = new LeagueService(db, null!, new NoOpStandings());
         var league = await svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
             maxPlayers: 8, captions: [ComputedCaption.MusicCombined], userSub: "sub|me");
 
@@ -176,7 +194,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(CreateAsync_MaxPlayersBelowMinimum_Throws));
         var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
 
-        var svc = new LeagueService(db, null!);
+        var svc = new LeagueService(db, null!, new NoOpStandings());
         await Assert.ThrowsAsync<ArgumentException>(() =>
             svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
                 maxPlayers: 2, captions: [ComputedCaption.MusicCombined], userSub: "sub|me"));
@@ -188,7 +206,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(CreateAsync_CorpsPerCaptionTooHigh_Throws));
         var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
 
-        var svc = new LeagueService(db, null!);
+        var svc = new LeagueService(db, null!, new NoOpStandings());
         // floor(24/4) = 6, so 7 is invalid
         await Assert.ThrowsAsync<ArgumentException>(() =>
             svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 7,
@@ -201,7 +219,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(CreateAsync_MaxPlayersExceedsFloor_Throws));
         var (season, user) = await CreateSeasonAndUser(db, corpsCount: 12, userSub: "sub|me");
 
-        var svc = new LeagueService(db, null!);
+        var svc = new LeagueService(db, null!, new NoOpStandings());
         // 12 corps, corpsPerCaption=3 → floor(12/3) = 4 max
         await Assert.ThrowsAsync<ArgumentException>(() =>
             svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
@@ -228,7 +246,7 @@ public class LeagueServiceTests
 
         await db.SaveChangesAsync();
 
-        var svc = new LeagueService(db, null!);
+        var svc = new LeagueService(db, null!, new NoOpStandings());
         var result = await svc.JoinAsync(league.Id, "sub|joiner", inviteCode: null);
 
         Assert.Equal(JoinResult.Full, result);
@@ -250,9 +268,62 @@ public class LeagueServiceTests
 
         await db.SaveChangesAsync();
 
-        var svc = new LeagueService(db, null!);
+        var svc = new LeagueService(db, null!, new NoOpStandings());
         var result = await svc.JoinAsync(league.Id, "sub|joiner", inviteCode: null);
 
         Assert.Equal(JoinResult.Ok, result);
+    }
+
+    // ── BrowseAsync (my leagues) ─────────────────────────────────────────────────
+
+    [Fact]
+    public async Task BrowseAsync_ReturnsOnlyUserLeagues()
+    {
+        await using var db = CreateDb(nameof(BrowseAsync_ReturnsOnlyUserLeagues));
+        var me = new UserEntity { Auth0Sub = "sub|me", DisplayName = "Me", Email = "me@test.com" };
+        var other = new UserEntity { Auth0Sub = "sub|other", DisplayName = "Other", Email = "other@test.com" };
+        var season = new SeasonEntity { Year = 2026 };
+        db.Users.AddRange(me, other);
+        db.Seasons.Add(season);
+
+        await db.SaveChangesAsync();
+
+        var myLeague = new LeagueEntity { Name = "Mine", IsPublic = false, InviteCode = "A", MaxPlayers = 8, SeasonId = season.Id };
+        var otherLeague = new LeagueEntity { Name = "Theirs", IsPublic = true, InviteCode = "B", MaxPlayers = 8, SeasonId = season.Id };
+        db.Leagues.AddRange(myLeague, otherLeague);
+
+        await db.SaveChangesAsync();
+
+        db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = myLeague.Id, UserId = me.Id });
+        db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = otherLeague.Id, UserId = other.Id });
+
+        await db.SaveChangesAsync();
+
+        var svc = new LeagueService(db, null!, new NoOpStandings());
+        var result = await svc.BrowseAsync("sub|me");
+
+        Assert.Single(result);
+        Assert.Equal("Mine", result[0].Name);
+    }
+
+    [Fact]
+    public async Task GetUserRankAsync_EmptyLeague_ReturnsNullNull()
+    {
+        await using var db = CreateDb(nameof(GetUserRankAsync_EmptyLeague_ReturnsNullNull));
+        var season = new SeasonEntity { Year = 2026 };
+        db.Seasons.Add(season);
+
+        await db.SaveChangesAsync();
+
+        var league = new LeagueEntity { Name = "L", MaxPlayers = 8, InviteCode = "X", SeasonId = season.Id };
+        db.Leagues.Add(league);
+
+        await db.SaveChangesAsync();
+
+        var svc = new StandingsService(db);
+        var (rank, score) = await svc.GetUserRankAsync(league.Id, Guid.NewGuid());
+
+        Assert.Null(rank);
+        Assert.Null(score);
     }
 }

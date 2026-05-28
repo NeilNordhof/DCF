@@ -68,6 +68,25 @@ public class StandingsService(DcfDbContext db) : IStandingsService
         return result.OrderByDescending(r => r.TotalScore).ToList();
     }
 
+    public async Task<(int? Rank, double? Score)> GetUserRankAsync(Guid leagueId, Guid userId)
+    {
+        var standings = await GetStandingsAsync(leagueId);
+
+        if (standings.Count == 0)
+        {
+            return (null, null);
+        }
+
+        var idx = standings.FindIndex(s => s.UserId == userId);
+
+        if (idx < 0)
+        {
+            return (null, null);
+        }
+
+        return (idx + 1, standings[idx].Score);
+    }
+
     private async Task<Dictionary<Guid, ComputedScoreEntity>> LoadLatestComputedScoresAsync(Guid seasonId)
     {
         var allSeasonScores = await db.ComputedScores

@@ -9,7 +9,8 @@ namespace DCF.Api.Services;
 public record LeagueSummary(
     Guid Id, string Name, bool IsPublic, DraftStatus DraftStatus,
     DateTimeOffset? DraftStartTime, Guid CommissionerUserId,
-    int SeasonYear, bool IsMember, int MemberCount);
+    int SeasonYear, bool IsMember, int MemberCount, int MaxPlayers,
+    int? UserRank, double? UserScore);
 
 public record LeagueDetail(
     Guid Id, string Name, bool IsPublic, string? InviteCode,
@@ -28,7 +29,7 @@ public record PickSummary(
 
 public record LeagueBrief(Guid Id, string Name, string InviteCode);
 
-public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler) : ILeagueService
+public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler, IStandingsService standingsService) : ILeagueService
 {
     public async Task<IReadOnlyList<LeagueSummary>> BrowseAsync(string userSub)
     {
@@ -39,18 +40,27 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             return [];
         }
 
-        var myLeagueIds = await db.LeagueMembers
+        var leagues = await db.LeagueMembers
             .Where(m => m.UserId == user.Id)
-            .Select(m => m.LeagueId)
+            .Include(m => m.League).ThenInclude(l => l.Season)
+            .Include(m => m.League).ThenInclude(l => l.Members)
+            .Select(m => m.League)
             .ToListAsync();
 
-        return await db.Leagues
-            .Where(l => l.IsPublic || myLeagueIds.Contains(l.Id))
-            .Select(l => new LeagueSummary(
-                l.Id, l.Name, l.IsPublic, l.DraftStatus, l.DraftStartTime,
-                l.CommissionerUserId, l.Season.Year,
-                myLeagueIds.Contains(l.Id), l.Members.Count))
-            .ToListAsync();
+        var summaries = new List<LeagueSummary>();
+
+        foreach (var league in leagues)
+        {
+            var (rank, score) = await standingsService.GetUserRankAsync(league.Id, user.Id);
+
+            summaries.Add(new LeagueSummary(
+                league.Id, league.Name, league.IsPublic, league.DraftStatus,
+                league.DraftStartTime, league.CommissionerUserId,
+                league.Season.Year, IsMember: true, league.Members.Count,
+                league.MaxPlayers, rank, score));
+        }
+
+        return summaries;
     }
 
     public async Task<LeagueEntity> CreateAsync(
