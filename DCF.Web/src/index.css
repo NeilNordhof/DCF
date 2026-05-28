@@ -99,7 +99,7 @@ input, select, textarea {
 }
 
 .auth0-lock.auth0-lock .auth0-lock-body-content {
-  background: var(--surface-deep) !important;
+  background: var(--bg) !important;
 }
 
 .auth0-lock.auth0-lock .auth0-lock-form p,
