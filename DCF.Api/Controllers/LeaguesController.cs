@@ -33,6 +33,24 @@ public class LeaguesController(ILeagueService leagueService, IStandingsService s
         return Ok(leagues);
     }
 
+    [HttpGet("lookup")]
+    public async Task<IActionResult> Lookup([FromQuery] string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return BadRequest(new { error = "code is required." });
+        }
+
+        var leagueId = await leagueService.LookupByCodeAsync(code);
+
+        if (leagueId is null)
+        {
+            return NotFound(new { error = "No league found with that code." });
+        }
+
+        return Ok(new { leagueId });
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateLeagueRequest req)
     {

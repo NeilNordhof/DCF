@@ -363,4 +363,33 @@ public class LeagueServiceTests
         Assert.Equal(1, result[0].MemberCount);
         Assert.Equal(8, result[0].MaxPlayers);
     }
+
+    // ── LookupByCodeAsync ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task LookupByCodeAsync_ValidCode_ReturnsLeagueId()
+    {
+        await using var db = CreateDb(nameof(LookupByCodeAsync_ValidCode_ReturnsLeagueId));
+        var season = new SeasonEntity { Year = 2025, IsPublished = true };
+        db.Seasons.Add(season);
+        var league = new LeagueEntity { Name = "L", InviteCode = "MYCODE", MaxPlayers = 8, SeasonId = season.Id };
+        db.Leagues.Add(league);
+
+        await db.SaveChangesAsync();
+
+        var svc = new LeagueService(db, null!, new NoOpStandings());
+        var result = await svc.LookupByCodeAsync("MYCODE");
+
+        Assert.Equal(league.Id, result);
+    }
+
+    [Fact]
+    public async Task LookupByCodeAsync_InvalidCode_ReturnsNull()
+    {
+        await using var db = CreateDb(nameof(LookupByCodeAsync_InvalidCode_ReturnsNull));
+        var svc = new LeagueService(db, null!, new NoOpStandings());
+        var result = await svc.LookupByCodeAsync("NOPE");
+
+        Assert.Null(result);
+    }
 }

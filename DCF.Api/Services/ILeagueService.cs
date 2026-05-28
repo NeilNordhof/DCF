@@ -10,4 +10,5 @@ public interface ILeagueService
     Task<JoinResult> JoinAsync(Guid leagueId, string userSub, string? inviteCode);
     Task<LeagueDetail?> GetAsync(Guid leagueId, string? userSub, string? inviteCode);
     Task<IReadOnlyList<PublicLeagueSummary>> GetPublicLeaguesAsync();
+    Task<Guid?> LookupByCodeAsync(string code);
 }

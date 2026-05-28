@@ -249,6 +249,14 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             .ToListAsync();
     }
 
+    public async Task<Guid?> LookupByCodeAsync(string code)
+    {
+        return await db.Leagues
+            .Where(l => l.InviteCode == code)
+            .Select(l => (Guid?)l.Id)
+            .FirstOrDefaultAsync();
+    }
+
     private static string GenerateInviteCode()
     {
         var bytes = RandomNumberGenerator.GetBytes(6);
