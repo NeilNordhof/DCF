@@ -73,6 +73,7 @@ export interface Standing {
 export interface Corps {
   id: string;
   name: string;
+  iconUrl?: string;
 }
 
 export interface DraftState {
@@ -128,6 +129,7 @@ export interface Show {
   name: string;
   url: string;
   date: string;
+  startTime?: string;
   scoresAnnouncedTime: string;
   corpsIds: string[];
 }
@@ -135,6 +137,7 @@ export interface Show {
 export interface PickScore {
   corpsName: string;
   score: number | null;
+  iconUrl?: string;
 }
 
 export interface CaptionBreakdown {
