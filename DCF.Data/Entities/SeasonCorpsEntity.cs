@@ -6,4 +6,5 @@ public class SeasonCorpsEntity
     public SeasonEntity Season { get; set; } = null!;
     public Guid CorpsId { get; set; }
     public CorpsEntity Corps { get; set; } = null!;
+    public int? SortOrder { get; set; }
 }
