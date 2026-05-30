@@ -55,6 +55,9 @@ export function Nav() {
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+        {user?.isAdmin && (
+          <Link to="/admin" style={linkStyle('/admin')}>ADMIN</Link>
+        )}
         <Link to="/leagues" style={linkStyle('/leagues')}>LEAGUES</Link>
         <Link to="/profile" style={linkStyle('/profile')}>PROFILE</Link>
         <button
