@@ -9,7 +9,7 @@ namespace DCF.Api.Controllers;
 [ApiController]
 [Route("api/admin")]
 [Authorize]
-public class AdminController(IAdminService adminService) : ControllerBase
+public class AdminController(IAdminService adminService, IWebHostEnvironment env) : ControllerBase
 {
     private string GetSub()
     {
@@ -146,6 +146,67 @@ public class AdminController(IAdminService adminService) : ControllerBase
         }
 
         return NoContent();
+    }
+
+    [HttpPost("corps/{id}/icon")]
+    public async Task<IActionResult> UploadCorpsIcon(Guid id, IFormFile file)
+    {
+        if (!await adminService.IsAdminAsync(GetSub()))
+        {
+            return Forbid();
+        }
+
+        var allowedTypes = new[] { "image/png", "image/jpeg", "image/webp", "image/svg+xml" };
+
+        if (!allowedTypes.Contains(file.ContentType))
+        {
+            return BadRequest(new { error = "File must be PNG, JPEG, WebP, or SVG." });
+        }
+
+        if (file.Length > 2 * 1024 * 1024)
+        {
+            return BadRequest(new { error = "File must be 2 MB or smaller." });
+        }
+
+        var ext = file.ContentType switch
+        {
+            "image/png" => "png",
+            "image/jpeg" => "jpg",
+            "image/webp" => "webp",
+            "image/svg+xml" => "svg",
+            _ => "png"
+        };
+
+        var relativePath = $"corps-icons/{id}.{ext}";
+        var uploadsDir = Path.Combine(env.ContentRootPath, "uploads", "corps-icons");
+        Directory.CreateDirectory(uploadsDir);
+        var filePath = Path.Combine(uploadsDir, $"{id}.{ext}");
+
+        await using (var stream = System.IO.File.Create(filePath))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        var (found, oldIconPath) = await adminService.SetCorpsIconAsync(id, relativePath);
+
+        if (!found)
+        {
+            System.IO.File.Delete(filePath);
+
+            return NotFound();
+        }
+
+        if (oldIconPath != null && oldIconPath != relativePath)
+        {
+            var oldFilePath = Path.Combine(env.ContentRootPath, "uploads", oldIconPath);
+
+            if (System.IO.File.Exists(oldFilePath))
+            {
+                System.IO.File.Delete(oldFilePath);
+            }
+        }
+
+        return Ok(new { iconUrl = $"/uploads/{relativePath}" });
     }
 
     [HttpPut("seasons/{seasonId}/corps")]

@@ -4,7 +4,9 @@ using DCF.Api.Services;
 using DCF.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -64,6 +66,16 @@ builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
 builder.Services.AddHttpClient();
 
 var app = builder.Build();
+
+var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
+Directory.CreateDirectory(Path.Combine(uploadsPath, "corps-icons"));
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads"
+});
+
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
