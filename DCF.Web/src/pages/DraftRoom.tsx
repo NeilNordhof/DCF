@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { useMqtt } from '../mqtt/useMqtt';
 import { useDraftPresence } from '../mqtt/useDraftPresence';
 import { useUser } from '../context/UserContext';
+import { CorpsIcon } from '../components/CorpsIcon';
 import type { Corps, DraftState, League, PickPreview } from '../types/api';
 
 export function DraftRoom() {
@@ -179,7 +180,6 @@ export function DraftRoom() {
         <table style={{ borderCollapse: 'separate', borderSpacing: 2 }}>
           <thead>
             <tr>
-              <th style={{ width: 80 }} />
               {captions.map(cap => (
                 <th key={cap} style={{ width: cellWidth, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', paddingBottom: 6, textAlign: 'center', fontWeight: 600 }}>
                   {cap}
@@ -190,9 +190,6 @@ export function DraftRoom() {
           <tbody>
             {corps.map(c => (
               <tr key={c.id}>
-                <td style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-h)', textAlign: 'right', paddingRight: 8, whiteSpace: 'nowrap' }}>
-                  {c.name}
-                </td>
                 {captions.map(cap => {
                   const taken = isTaken(c.id, cap);
                   const selected = !gridLocked && selectedCell?.corpsId === c.id && selectedCell?.caption === cap;
@@ -203,31 +200,34 @@ export function DraftRoom() {
                   let border = '1px solid var(--green-border)';
                   let boxShadow = 'none';
                   const cursor = gridLocked || taken ? 'not-allowed' : 'pointer';
-                  let content: ReactNode = <span style={{ color: 'var(--green)', fontSize: 10 }}>●</span>;
+                  let content: ReactNode;
 
                   if (taken) {
                     bg = '#12141a';
                     border = '1px solid var(--border-subtle)';
-                    content = <span style={{ color: 'var(--border)', fontSize: 12 }}>—</span>;
+                    content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={36} style={{ opacity: 0.25 }} />;
                   }
                   else if (selected) {
                     bg = 'var(--accent-bg)';
                     border = '2px solid var(--accent)';
                     boxShadow = '0 0 10px var(--accent-bg)';
-                    content = <span style={{ color: 'var(--accent)', fontSize: 16 }}>★</span>;
+                    content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={34} style={{ outline: '1px solid var(--accent)', outlineOffset: 2 }} />;
                   }
                   else if (previewed) {
                     const drafter = draftState.members.find(m => m.userId === validPreview!.userId);
                     bg = '#1e1430';
                     border = '1px dashed var(--accent-border)';
                     content = (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                        <span style={{ color: 'var(--green)', fontSize: 10 }}>●</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                        <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={26} />
                         <span style={{ color: 'var(--text-muted)', fontSize: 7, lineHeight: 1 }}>
                           {drafter?.displayName.split(' ')[0] ?? ''}
                         </span>
                       </div>
                     );
+                  }
+                  else {
+                    content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={36} />;
                   }
 
                   return (
