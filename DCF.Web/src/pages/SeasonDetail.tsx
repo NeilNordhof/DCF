@@ -4,10 +4,22 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Corps, SeasonDetail as SeasonDetailType, Show } from '../types/api';
 
+const TZ_OFFSETS: Record<string, string> = { PT: '-07:00', MT: '-06:00', CT: '-05:00', ET: '-04:00' };
+
+function buildDateTime(date: string, time: string, tz: string): string {
+  return `${date}T${time}:00${TZ_OFFSETS[tz]}`;
+}
+
 const inputStyle: CSSProperties = {
   width: '100%', padding: '7px 10px', borderRadius: 5,
   background: 'var(--bg)', border: '1px solid var(--border-input)',
   color: 'var(--text-heading)', fontSize: 11, outline: 'none',
+};
+
+const labelStyle: CSSProperties = {
+  fontSize: 9, fontWeight: 700, color: 'var(--text-faint)',
+  textTransform: 'uppercase', letterSpacing: '0.5px',
+  minWidth: 48, textAlign: 'right', flexShrink: 0,
 };
 
 function Chip({ label, selected, onClick, disabled }: { label: string; selected: boolean; onClick: () => void; disabled?: boolean }) {
@@ -43,11 +55,19 @@ export function SeasonDetail() {
   const [showName, setShowName] = useState('');
   const [showUrl, setShowUrl] = useState('');
   const [showDate, setShowDate] = useState('');
+  const [showTz, setShowTz] = useState('ET');
+  const [showStartTime, setShowStartTime] = useState('');
   const [showScoresTime, setShowScoresTime] = useState('');
+  const [addShowOpen, setAddShowOpen] = useState(false);
   const [showCorpsIds, setShowCorpsIds] = useState<Set<string>>(new Set());
   const [addingShow, setAddingShow] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+
+  const [editingDates, setEditingDates] = useState(false);
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [savingDates, setSavingDates] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -126,18 +146,40 @@ export function SeasonDetail() {
     setError(null);
 
     try {
-      await api.adminCreateShow(id, showName, showUrl, showDate, new Date(showScoresTime).toISOString(), Array.from(showCorpsIds));
+      const startTimeIso = showStartTime ? buildDateTime(showDate, showStartTime, showTz) : null;
+      const scoresTimeIso = buildDateTime(showDate, showScoresTime, showTz);
+
+      await api.adminCreateShow(id, showName, showUrl, showDate, startTimeIso, scoresTimeIso, Array.from(showCorpsIds));
       const updated = await api.adminGetShows(id);
       setShows(updated);
       setShowName('');
       setShowUrl('');
       setShowDate('');
+      setShowStartTime('');
       setShowScoresTime('');
       setShowCorpsIds(new Set());
+      setAddShowOpen(false);
     } catch {
       setError('Failed to add show.');
     } finally {
       setAddingShow(false);
+    }
+  };
+
+  const saveDates = async () => {
+    if (!id || savingDates) return;
+    setSavingDates(true);
+    setError(null);
+
+    try {
+      await api.adminUpdateSeasonDates(id, editStartDate, editEndDate);
+      const updated = await api.adminGetSeason(id);
+      setSeason(updated);
+      setEditingDates(false);
+    } catch {
+      setError('Failed to update season dates.');
+    } finally {
+      setSavingDates(false);
     }
   };
 
@@ -194,7 +236,31 @@ export function SeasonDetail() {
             <Link to="/admin" style={{ fontSize: 10, color: 'var(--text-muted)', textDecoration: 'none' }}>← Admin</Link>
           </div>
           <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-heading)', marginBottom: 4 }}>Season {season.year}</h2>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{season.startDate} – {season.endDate} · {season.status}</div>
+          {editingDates ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} style={{ ...inputStyle, width: 130 }} />
+              <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>–</span>
+              <input type="date" value={editEndDate} onChange={e => setEditEndDate(e.target.value)} style={{ ...inputStyle, width: 130 }} />
+              <button onClick={saveDates} disabled={savingDates} style={{ padding: '5px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: 'var(--accent)', color: 'var(--bg)', border: 'none', cursor: 'pointer' }}>
+                Save
+              </button>
+              <button onClick={() => setEditingDates(false)} style={{ padding: '5px 10px', borderRadius: 4, fontSize: 10, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+              <span>{season.startDate} – {season.endDate} · {season.status}</span>
+              {!season.isPublished && (
+                <button
+                  onClick={() => { setEditingDates(true); setEditStartDate(season.startDate); setEditEndDate(season.endDate); }}
+                  style={{ fontSize: 9, background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: '2px 4px' }}
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+          )}
         </div>
         {!season.isPublished && season.corpsIds.length > 0 && (
           <button
@@ -250,6 +316,66 @@ export function SeasonDetail() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>Shows</div>
 
+          {/* Add Show — collapsible */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5 }}>
+            <button
+              type="button"
+              onClick={() => setAddShowOpen(o => !o)}
+              style={{
+                width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '10px 14px', background: 'transparent', border: 'none', cursor: 'pointer',
+                fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px',
+                color: 'var(--text-faint)',
+              }}
+            >
+              <span>Add Show</span>
+              <span style={{ fontSize: 10 }}>{addShowOpen ? '▲' : '▼'}</span>
+            </button>
+
+            {addShowOpen && (
+              <form onSubmit={addShow} style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <label style={labelStyle}>Name</label>
+                  <input value={showName} onChange={e => setShowName(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <label style={labelStyle}>URL</label>
+                  <input value={showUrl} onChange={e => setShowUrl(e.target.value)} placeholder="DCI recap URL" required style={{ ...inputStyle, flex: 1 }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <label style={{ ...labelStyle }}>Date</label>
+                  <input type="date" value={showDate} onChange={e => setShowDate(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
+                  <label style={{ ...labelStyle, marginLeft: 8 }}>TZ</label>
+                  <select value={showTz} onChange={e => setShowTz(e.target.value)} style={{ ...inputStyle, width: 62 }}>
+                    {['ET', 'CT', 'MT', 'PT'].map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <label style={labelStyle}>Start</label>
+                  <input type="time" value={showStartTime} onChange={e => setShowStartTime(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                  <label style={{ ...labelStyle, marginLeft: 8 }}>Scores</label>
+                  <input type="time" value={showScoresTime} onChange={e => setShowScoresTime(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {seasonCorps.map(c => (
+                      <Chip key={c.id} label={c.name} selected={showCorpsIds.has(c.id)} onClick={() => toggleShowCorps(c.id)} />
+                    ))}
+                  </div>
+                </div>
+                <button type="submit" disabled={addingShow} style={{
+                  padding: '7px 0', borderRadius: 5, fontSize: 11, fontWeight: 800,
+                  background: addingShow ? 'var(--border)' : 'var(--accent)',
+                  color: addingShow ? 'var(--text-faint)' : 'var(--bg)',
+                  border: 'none', cursor: addingShow ? 'not-allowed' : 'pointer',
+                }}>
+                  {addingShow ? 'Adding…' : 'Add Show'}
+                </button>
+              </form>
+            )}
+          </div>
+
           {shows.length === 0 && (
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No shows yet.</div>
           )}
@@ -266,43 +392,6 @@ export function SeasonDetail() {
               </div>
             </div>
           ))}
-
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, padding: 16 }}>
-            <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 12 }}>Add Show</div>
-            <form onSubmit={addShow} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <input value={showName} onChange={e => setShowName(e.target.value)} placeholder="Show name" required style={inputStyle} />
-              <input value={showUrl} onChange={e => setShowUrl(e.target.value)} placeholder="DCI recap URL" required style={inputStyle} />
-              <input type="date" value={showDate} onChange={e => setShowDate(e.target.value)} required style={inputStyle} />
-              <input type="datetime-local" value={showScoresTime} onChange={e => setShowScoresTime(e.target.value)} required style={inputStyle} />
-
-              <div>
-                <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {seasonCorps.map(c => (
-                    <Chip
-                      key={c.id}
-                      label={c.name}
-                      selected={showCorpsIds.has(c.id)}
-                      onClick={() => toggleShowCorps(c.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={addingShow}
-                style={{
-                  padding: '7px 0', borderRadius: 5, fontSize: 11, fontWeight: 800,
-                  background: addingShow ? 'var(--border)' : 'var(--accent)',
-                  color: addingShow ? 'var(--text-faint)' : 'var(--bg)',
-                  border: 'none', cursor: addingShow ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {addingShow ? 'Adding…' : 'Add Show'}
-              </button>
-            </form>
-          </div>
         </div>
       </div>
     </div>
