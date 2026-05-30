@@ -1,4 +1,5 @@
 import type { ComputedCaption, MemberScoreBreakdown } from '../types/api';
+import { CorpsIcon } from './CorpsIcon';
 
 interface Props {
   breakdown: MemberScoreBreakdown[];
@@ -135,10 +136,12 @@ export function LeagueScoresTab({ breakdown, captions, currentUserId }: Props) {
 
                     return [
                       <td key={`${cap}-corps`} style={{
-                        padding: '4px 8px', color: 'var(--text)',
+                        padding: '4px 8px',
                         borderBottom: isLastRow ? '1px solid var(--border)' : undefined,
                       }}>
-                        {pick?.corpsName ?? ''}
+                        {pick
+                          ? <CorpsIcon name={pick.corpsName} iconUrl={pick.iconUrl} size={22} />
+                          : ''}
                       </td>,
                       <td key={`${cap}-score`} style={{
                         padding: '4px 8px', color: 'var(--text-muted)',
