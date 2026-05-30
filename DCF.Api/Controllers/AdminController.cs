@@ -220,6 +220,30 @@ public class AdminController(IAdminService adminService, IWebHostEnvironment env
         return await adminService.SetSeasonCorpsAsync(seasonId, req.CorpsIds) ? NoContent() : NotFound();
     }
 
+    [HttpPut("seasons/{id}/corps/order")]
+    public async Task<IActionResult> SetCorpsOrder(Guid id, SetCorpsOrderRequest req)
+    {
+        if (!await adminService.IsAdminAsync(GetSub()))
+        {
+            return Forbid();
+        }
+
+        var orders = req.Orders.Select(o => (o.CorpsId, o.SortOrder)).ToList();
+        var (found, canEdit) = await adminService.SetSeasonCorpsOrderAsync(id, orders);
+
+        if (!found)
+        {
+            return NotFound();
+        }
+
+        if (!canEdit)
+        {
+            return Conflict(new { error = "Season is published and cannot be modified." });
+        }
+
+        return NoContent();
+    }
+
     // --- Shows ---
 
     [HttpGet("seasons/{seasonId}/shows")]

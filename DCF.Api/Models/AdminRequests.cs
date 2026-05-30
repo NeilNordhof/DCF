@@ -19,5 +19,7 @@ public record UpdateShowRequest(
     string? Timezone,
     List<Guid> CorpsIds);
 public record SetSeasonCorpsRequest(List<Guid> CorpsIds);
+public record CorpsOrderItem(Guid CorpsId, int? SortOrder);
+public record SetCorpsOrderRequest(List<CorpsOrderItem> Orders);
 public record RenameCorpsRequest(string Name);
 public record UpdateSeasonDatesRequest(DateOnly StartDate, DateOnly EndDate);

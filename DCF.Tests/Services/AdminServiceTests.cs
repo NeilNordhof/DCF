@@ -271,6 +271,71 @@ public class AdminServiceTests
     }
 
     [Fact]
+    public async Task SetSeasonCorpsOrderAsync_UpdatesSortOrders()
+    {
+        using var db = CreateDb("corps_sort_update");
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(), Year = 2026,
+            StartDate = new DateOnly(2026, 6, 1), EndDate = new DateOnly(2026, 8, 31)
+        };
+        var corps1 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Alpha" };
+        var corps2 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Beta" };
+        db.Seasons.Add(season);
+        db.Corps.AddRange(corps1, corps2);
+        db.SeasonCorps.AddRange(
+            new SeasonCorpsEntity { SeasonId = season.Id, CorpsId = corps1.Id },
+            new SeasonCorpsEntity { SeasonId = season.Id, CorpsId = corps2.Id }
+        );
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var orders = new List<(Guid CorpsId, int? SortOrder)>
+        {
+            (corps1.Id, 2),
+            (corps2.Id, 1)
+        };
+        var (found, canEdit) = await svc.SetSeasonCorpsOrderAsync(season.Id, orders);
+
+        Assert.True(found);
+        Assert.True(canEdit);
+        Assert.Equal(2, db.SeasonCorps.Single(sc => sc.CorpsId == corps1.Id).SortOrder);
+        Assert.Equal(1, db.SeasonCorps.Single(sc => sc.CorpsId == corps2.Id).SortOrder);
+    }
+
+    [Fact]
+    public async Task SetSeasonCorpsOrderAsync_PublishedSeason_ReturnsCanEditFalse()
+    {
+        using var db = CreateDb("corps_sort_published");
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(), Year = 2026,
+            StartDate = new DateOnly(2026, 6, 1), EndDate = new DateOnly(2026, 8, 31),
+            IsPublished = true
+        };
+        db.Seasons.Add(season);
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var (found, canEdit) = await svc.SetSeasonCorpsOrderAsync(season.Id, []);
+
+        Assert.True(found);
+        Assert.False(canEdit);
+    }
+
+    [Fact]
+    public async Task SetSeasonCorpsOrderAsync_MissingSeason_ReturnsFoundFalse()
+    {
+        using var db = CreateDb("corps_sort_missing");
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+
+        var (found, canEdit) = await svc.SetSeasonCorpsOrderAsync(Guid.NewGuid(), []);
+
+        Assert.False(found);
+        Assert.False(canEdit);
+    }
+
+    [Fact]
     public async Task DeleteShow_ExistingShow_DeletesAndReturnsTrue()
     {
         using var db = CreateDb("show_delete");

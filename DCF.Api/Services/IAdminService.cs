@@ -10,6 +10,7 @@ public interface IAdminService
     Task<IReadOnlyList<CorpsSummary>> GetCorpsAsync();
     Task<CorpsSummary> CreateCorpsAsync(string name);
     Task<bool> SetSeasonCorpsAsync(Guid seasonId, List<Guid> corpsIds);
+    Task<(bool Found, bool CanEdit)> SetSeasonCorpsOrderAsync(Guid seasonId, List<(Guid CorpsId, int? SortOrder)> orders);
     Task<IReadOnlyList<ShowSummary>> GetShowsAsync(Guid seasonId);
     Task<ShowBrief> CreateShowAsync(Guid seasonId, string name, string url, DateOnly date, DateTimeOffset? startTime, DateTimeOffset scoresAnnouncedTime, string? timezone, List<Guid> corpsIds);
     Task<bool> UpdateShowAsync(Guid id, string name, string url, DateOnly date, DateTimeOffset? startTime, DateTimeOffset scoresAnnouncedTime, string? timezone, List<Guid> corpsIds);

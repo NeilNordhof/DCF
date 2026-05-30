@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DCF.Api.Services;
 
 public record SeasonSummary(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished);
-public record SeasonDetail(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished, IEnumerable<Guid> CorpsIds);
+public record SeasonDetail(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished, IEnumerable<Guid> CorpsIds, IReadOnlyDictionary<Guid, int> CorpsSortOrders);
 public record CorpsSummary(Guid Id, string Name, string? IconUrl);
 public record ShowSummary(Guid Id, string Name, string Url, DateOnly Date, DateTimeOffset? StartTime, DateTimeOffset ScoresAnnouncedTime, string? Timezone, IEnumerable<Guid> CorpsIds);
 public record ShowBrief(Guid Id, string Name);
@@ -60,10 +60,20 @@ public class AdminService(
             return null;
         }
 
+        var orderedCorpsIds = season.SeasonCorps
+            .OrderBy(sc => sc.SortOrder == null)
+            .ThenBy(sc => sc.SortOrder)
+            .Select(sc => sc.CorpsId);
+
+        var sortOrders = season.SeasonCorps
+            .Where(sc => sc.SortOrder.HasValue)
+            .ToDictionary(sc => sc.CorpsId, sc => sc.SortOrder!.Value);
+
         return new SeasonDetail(
             season.Id, season.Year, season.StartDate, season.EndDate,
             season.Status, season.IsPublished,
-            season.SeasonCorps.Select(sc => sc.CorpsId));
+            orderedCorpsIds,
+            sortOrders);
     }
 
     public async Task<bool> PublishSeasonAsync(Guid id)
@@ -302,6 +312,39 @@ public class AdminService(
         seasonStatus.ScheduleSeason(season);
 
         return true;
+    }
+
+    public async Task<(bool Found, bool CanEdit)> SetSeasonCorpsOrderAsync(Guid seasonId, List<(Guid CorpsId, int? SortOrder)> orders)
+    {
+        var season = await db.Seasons.FindAsync(seasonId);
+
+        if (season is null)
+        {
+            return (false, false);
+        }
+
+        if (season.IsPublished)
+        {
+            return (true, false);
+        }
+
+        var seasonCorps = await db.SeasonCorps
+            .Where(sc => sc.SeasonId == seasonId)
+            .ToListAsync();
+
+        var orderMap = orders.ToDictionary(o => o.CorpsId, o => o.SortOrder);
+
+        foreach (var sc in seasonCorps)
+        {
+            if (orderMap.TryGetValue(sc.CorpsId, out var order))
+            {
+                sc.SortOrder = order;
+            }
+        }
+
+        await db.SaveChangesAsync();
+
+        return (true, true);
     }
 
     public async Task<bool> DeleteShowAsync(Guid id)
