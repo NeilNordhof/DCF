@@ -1,10 +1,13 @@
 import type { CSSProperties } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useDevAuth } from '../context/DevAuthContext';
 import { useUser } from '../context/UserContext';
 
 export function Nav() {
   const { user } = useUser();
+  const { logout } = useDevAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const isAdmin = location.pathname.startsWith('/admin');
 
   const initials = user?.displayName
@@ -54,21 +57,27 @@ export function Nav() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
         <Link to="/leagues" style={linkStyle('/leagues')}>LEAGUES</Link>
         <Link to="/profile" style={linkStyle('/profile')}>PROFILE</Link>
-        <div style={{
-          width: 28,
-          height: 28,
-          borderRadius: '50%',
-          background: 'var(--accent)',
-          color: 'var(--bg)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 11,
-          fontWeight: 700,
-          flexShrink: 0,
-        }}>
+        <button
+          onClick={() => { logout(); navigate('/'); }}
+          title="Switch user"
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            background: 'var(--accent)',
+            color: 'var(--bg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 11,
+            fontWeight: 700,
+            flexShrink: 0,
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
           {initials}
-        </div>
+        </button>
       </div>
     </nav>
   );

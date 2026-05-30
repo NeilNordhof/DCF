@@ -1,6 +1,8 @@
+using DCF.Api;
 using DCF.Api.Scraping;
 using DCF.Api.Services;
 using DCF.Data;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
@@ -10,12 +12,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<DcfDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(opt =>
-    {
-        opt.Authority = $"https://{builder.Configuration["Auth0:Domain"]}/";
-        opt.Audience = builder.Configuration["Auth0:Audience"];
-    });
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddScheme<AuthenticationSchemeOptions, DevAuthHandler>(JwtBearerDefaults.AuthenticationScheme, null);
+}
+else
+{
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(opt =>
+        {
+            opt.Authority = $"https://{builder.Configuration["Auth0:Domain"]}/";
+            opt.Audience = builder.Configuration["Auth0:Audience"];
+        });
+}
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllers()

@@ -1,24 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth0 } from '@auth0/auth0-react';
-import { Auth0LockPasswordless } from 'auth0-lock';
 import { api } from '../api/client';
+import { DEV_USERS, useDevAuth } from '../context/DevAuthContext';
 import { useUser } from '../context/UserContext';
 
-type Panel = 'lock' | 'loading' | 'onboarding';
+type Panel = 'signin' | 'loading' | 'onboarding';
 
 export function Home() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { isAuthenticated, getAccessTokenSilently, user: auth0User } = useAuth0();
+  const { isAuthenticated, user: devUser, login } = useDevAuth();
   const { setUser } = useUser();
   const navigate = useNavigate();
-  const [panel, setPanel] = useState<Panel>('lock');
+  const [panel, setPanel] = useState<Panel>('signin');
   const [displayName, setDisplayName] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  const getTokenRef = useRef(getAccessTokenSilently);
-  getTokenRef.current = getAccessTokenSilently;
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -30,48 +25,13 @@ export function Home() {
         setUser(profile);
         navigate('/leagues');
       } else {
-        setDisplayName(auth0User?.name ?? '');
+        setDisplayName(devUser?.name ?? '');
         setPanel('onboarding');
       }
     }).catch(() => {
-      setPanel('lock');
+      setPanel('signin');
     });
-  }, [isAuthenticated, auth0User, navigate, setUser]);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const lock = new Auth0LockPasswordless(
-      import.meta.env.VITE_AUTH0_CLIENT_ID as string,
-      import.meta.env.VITE_AUTH0_DOMAIN as string,
-      {
-        allowedConnections: ['google-oauth2', 'email'],
-        passwordlessMethod: 'code',
-        container: 'lock-container',
-        auth: {
-          params: {
-            audience: import.meta.env.VITE_AUTH0_AUDIENCE as string,
-            scope: 'openid profile email',
-          },
-        },
-        theme: { primaryColor: '#c084fc' },
-        languageDictionary: { title: '' },
-        closable: false,
-      }
-    );
-
-    lock.on('authenticated', async () => {
-      try {
-        await getTokenRef.current();
-      } catch {
-        // Silent auth failed — isAuthenticated won't update.
-      }
-    });
-
-    lock.show();
-
-    return () => { lock.hide(); };
-  }, []);
+  }, [isAuthenticated, devUser, navigate, setUser]);
 
   async function handleOnboard(e: React.FormEvent) {
     e.preventDefault();
@@ -79,7 +39,7 @@ export function Home() {
     setSubmitError(null);
 
     try {
-      const profile = await api.upsertUser(displayName, auth0User?.email ?? '');
+      const profile = await api.upsertUser(displayName, devUser?.email ?? '');
       setUser(profile);
       navigate('/leagues');
     } catch {
@@ -183,14 +143,60 @@ export function Home() {
           borderLeft: '1px solid var(--border)',
           display: 'flex',
           flexDirection: 'column',
+          justifyContent: 'center',
           minHeight: 480,
         }}>
-          {/* Lock container — always in DOM so the widget initialises once */}
-          <div
-            id="lock-container"
-            ref={containerRef}
-            style={{ flex: 1, minHeight: 480, display: panel === 'lock' ? 'block' : 'none' }}
-          />
+          {panel === 'signin' && (
+            <div style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-heading)', marginBottom: 6 }}>
+                  Dev login
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text)' }}>
+                  Choose a test user to continue.
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {DEV_USERS.map(u => (
+                  <button
+                    key={u.sub}
+                    onClick={() => login(u.sub)}
+                    style={{
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 6,
+                      padding: '12px 16px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      background: 'var(--accent)',
+                      color: 'var(--bg)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      flexShrink: 0,
+                    }}>
+                      {u.displayName[0]}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-heading)' }}>{u.displayName}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{u.email}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {panel === 'loading' && (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

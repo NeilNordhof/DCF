@@ -17,7 +17,7 @@ Tab state is driven by a URL query param (`/leagues?tab=join`). This enables dee
 
 ### My Leagues Tab
 
-All leagues the user is a member of are displayed as uniform cards (no featured/promoted card). Cards are sorted by draft status: live first, then scheduled, then not started, then completed.
+All leagues the user is a member of are displayed as uniform cards (no featured/promoted card). Cards are displayed in the order returned by the API (order joined).
 
 Each card shows:
 
