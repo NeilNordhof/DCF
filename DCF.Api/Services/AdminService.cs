@@ -8,7 +8,7 @@ namespace DCF.Api.Services;
 public record SeasonSummary(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished);
 public record SeasonDetail(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished, IEnumerable<Guid> CorpsIds);
 public record CorpsSummary(Guid Id, string Name, string? IconUrl);
-public record ShowSummary(Guid Id, string Name, string Url, DateOnly Date, DateTimeOffset ScoresAnnouncedTime, IEnumerable<Guid> CorpsIds);
+public record ShowSummary(Guid Id, string Name, string Url, DateOnly Date, DateTimeOffset? StartTime, DateTimeOffset ScoresAnnouncedTime, IEnumerable<Guid> CorpsIds);
 public record ShowBrief(Guid Id, string Name);
 
 public class AdminService(
@@ -127,20 +127,34 @@ public class AdminService(
             .Where(s => s.SeasonId == seasonId)
             .Include(s => s.ShowCorps)
             .OrderBy(s => s.Date)
-            .Select(s => new ShowSummary(s.Id, s.Name, s.Url, s.Date, s.ScoresAnnouncedTime,
+            .Select(s => new ShowSummary(s.Id, s.Name, s.Url, s.Date, s.StartTime, s.ScoresAnnouncedTime,
                 s.ShowCorps.Select(sc => sc.CorpsId)))
             .ToListAsync();
     }
 
     public async Task<ShowBrief> CreateShowAsync(Guid seasonId, string name, string url,
-        DateOnly date, DateTimeOffset scoresAnnouncedTime, List<Guid> corpsIds)
+        DateOnly date, DateTimeOffset? startTime, DateTimeOffset scoresAnnouncedTime, List<Guid> corpsIds)
     {
+        var season = await db.Seasons.FindAsync(seasonId)
+            ?? throw new InvalidOperationException("Season not found.");
+
+        if (date < season.StartDate || date > season.EndDate)
+        {
+            throw new InvalidOperationException($"Show date must be within the season range ({season.StartDate}–{season.EndDate}).");
+        }
+
+        if (date < DateOnly.FromDateTime(DateTime.UtcNow))
+        {
+            throw new InvalidOperationException("Show date cannot be in the past.");
+        }
+
         var show = new ShowEntity
         {
             Id = Guid.NewGuid(),
             Name = name,
             Url = url,
             Date = date,
+            StartTime = startTime,
             ScoresAnnouncedTime = scoresAnnouncedTime,
             SeasonId = seasonId
         };
@@ -156,7 +170,7 @@ public class AdminService(
     }
 
     public async Task<bool> UpdateShowAsync(Guid id, string name, string url,
-        DateOnly date, DateTimeOffset scoresAnnouncedTime, List<Guid> corpsIds)
+        DateOnly date, DateTimeOffset? startTime, DateTimeOffset scoresAnnouncedTime, List<Guid> corpsIds)
     {
         var show = await db.Shows.FindAsync(id);
 
@@ -165,9 +179,15 @@ public class AdminService(
             return false;
         }
 
+        if (show.StartTime.HasValue && show.StartTime.Value <= DateTimeOffset.UtcNow)
+        {
+            return false;
+        }
+
         show.Name = name;
         show.Url = url;
         show.Date = date;
+        show.StartTime = startTime;
         show.ScoresAnnouncedTime = scoresAnnouncedTime;
 
         var existing = await db.ShowCorps.Where(sc => sc.ShowId == id).ToListAsync();

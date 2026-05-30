@@ -180,10 +180,17 @@ public class AdminController(IAdminService adminService) : ControllerBase
             return Forbid();
         }
 
-        var result = await adminService.CreateShowAsync(seasonId, req.Name, req.Url,
-            req.Date, req.ScoresAnnouncedTime, req.CorpsIds);
+        try
+        {
+            var result = await adminService.CreateShowAsync(seasonId, req.Name, req.Url,
+                req.Date, req.StartTime, req.ScoresAnnouncedTime, req.CorpsIds);
 
-        return Ok(result);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPut("shows/{id}")]
@@ -195,7 +202,7 @@ public class AdminController(IAdminService adminService) : ControllerBase
         }
 
         return await adminService.UpdateShowAsync(id, req.Name, req.Url,
-            req.Date, req.ScoresAnnouncedTime, req.CorpsIds) ? NoContent() : NotFound();
+            req.Date, req.StartTime, req.ScoresAnnouncedTime, req.CorpsIds) ? NoContent() : NotFound();
     }
 
     [HttpDelete("shows/{id}")]
