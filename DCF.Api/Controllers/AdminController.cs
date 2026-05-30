@@ -244,7 +244,7 @@ public class AdminController(IAdminService adminService, IWebHostEnvironment env
         try
         {
             var result = await adminService.CreateShowAsync(seasonId, req.Name, req.Url,
-                req.Date, req.StartTime, req.ScoresAnnouncedTime, req.CorpsIds);
+                req.Date, req.StartTime, req.ScoresAnnouncedTime, req.Timezone, req.CorpsIds);
 
             return Ok(result);
         }
@@ -263,7 +263,7 @@ public class AdminController(IAdminService adminService, IWebHostEnvironment env
         }
 
         return await adminService.UpdateShowAsync(id, req.Name, req.Url,
-            req.Date, req.StartTime, req.ScoresAnnouncedTime, req.CorpsIds) ? NoContent() : NotFound();
+            req.Date, req.StartTime, req.ScoresAnnouncedTime, req.Timezone, req.CorpsIds) ? NoContent() : NotFound();
     }
 
     [HttpDelete("shows/{id}")]

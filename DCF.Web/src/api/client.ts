@@ -102,11 +102,12 @@ export const api = {
     date: string,
     startTime: string | null,
     scoresAnnouncedTime: string,
+    timezone: string,
     corpsIds: string[]
   ) =>
     request<{ id: string; name: string }>(`/api/admin/seasons/${seasonId}/shows`, {
       method: 'POST',
-      body: JSON.stringify({ name, url, date, startTime, scoresAnnouncedTime, corpsIds }),
+      body: JSON.stringify({ name, url, date, startTime, scoresAnnouncedTime, timezone, corpsIds }),
     }),
   adminUpdateSeasonDates: (id: string, startDate: string, endDate: string) =>
     request<void>(`/api/admin/seasons/${id}/dates`, { method: 'PATCH', body: JSON.stringify({ startDate, endDate }) }),
@@ -116,6 +117,7 @@ export const api = {
     date: string;
     startTime: string | null;
     scoresAnnouncedTime: string;
+    timezone: string;
     corpsIds: string[];
   }) =>
     request<void>(`/api/admin/shows/${id}`, { method: 'PUT', body: JSON.stringify(body) }),

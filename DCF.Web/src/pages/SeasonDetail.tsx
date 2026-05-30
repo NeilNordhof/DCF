@@ -164,7 +164,7 @@ export function SeasonDetail() {
       const startTimeIso = showStartTime ? buildDateTime(showDate, showStartTime, showTz) : null;
       const scoresTimeIso = buildDateTime(showDate, showScoresTime, showTz);
 
-      await api.adminCreateShow(id, showName, showUrl, showDate, startTimeIso, scoresTimeIso, Array.from(showCorpsIds));
+      await api.adminCreateShow(id, showName, showUrl, showDate, startTimeIso, scoresTimeIso, showTz, Array.from(showCorpsIds));
       const updated = await api.adminGetShows(id);
       setShows(updated);
       setShowName('');
@@ -204,9 +204,10 @@ export function SeasonDetail() {
       setEditShow(null);
       return;
     }
+    const tz = show.timezone ?? 'ET';
     const toHHMM = (iso: string) => {
       const d = new Date(iso);
-      d.setUTCHours(d.getUTCHours() - (TZ_HOURS['ET'] ?? 4));
+      d.setUTCHours(d.getUTCHours() - (TZ_HOURS[tz] ?? 4));
       return d.toISOString().slice(11, 16);
     };
     setExpandedShowId(show.id);
@@ -216,7 +217,7 @@ export function SeasonDetail() {
       date: show.date,
       startTime: show.startTime ? toHHMM(show.startTime) : '',
       scoresTime: toHHMM(show.scoresAnnouncedTime),
-      tz: 'ET',
+      tz,
       corpsIds: new Set(show.corpsIds),
     });
   }
@@ -238,6 +239,7 @@ export function SeasonDetail() {
         date: editShow.date,
         startTime: startTimeIso,
         scoresAnnouncedTime: scoresTimeIso,
+        timezone: editShow.tz,
         corpsIds: Array.from(editShow.corpsIds),
       });
 

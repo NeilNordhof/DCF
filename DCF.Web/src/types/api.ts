@@ -131,6 +131,7 @@ export interface Show {
   date: string;
   startTime?: string;
   scoresAnnouncedTime: string;
+  timezone?: string;
   corpsIds: string[];
 }
 

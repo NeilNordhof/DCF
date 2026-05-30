@@ -8,6 +8,7 @@ public class ShowEntity
     public DateOnly Date { get; set; }
     public DateTimeOffset? StartTime { get; set; }
     public DateTimeOffset ScoresAnnouncedTime { get; set; }
+    public string? Timezone { get; set; }
     public Guid SeasonId { get; set; }
     public SeasonEntity Season { get; set; } = null!;
 

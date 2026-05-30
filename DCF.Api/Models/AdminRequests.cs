@@ -8,6 +8,7 @@ public record CreateShowRequest(
     DateOnly Date,
     DateTimeOffset? StartTime,
     DateTimeOffset ScoresAnnouncedTime,
+    string? Timezone,
     List<Guid> CorpsIds);
 public record UpdateShowRequest(
     string Name,
@@ -15,6 +16,7 @@ public record UpdateShowRequest(
     DateOnly Date,
     DateTimeOffset? StartTime,
     DateTimeOffset ScoresAnnouncedTime,
+    string? Timezone,
     List<Guid> CorpsIds);
 public record SetSeasonCorpsRequest(List<Guid> CorpsIds);
 public record RenameCorpsRequest(string Name);

@@ -8,7 +8,7 @@ namespace DCF.Api.Services;
 public record SeasonSummary(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished);
 public record SeasonDetail(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished, IEnumerable<Guid> CorpsIds);
 public record CorpsSummary(Guid Id, string Name, string? IconUrl);
-public record ShowSummary(Guid Id, string Name, string Url, DateOnly Date, DateTimeOffset? StartTime, DateTimeOffset ScoresAnnouncedTime, IEnumerable<Guid> CorpsIds);
+public record ShowSummary(Guid Id, string Name, string Url, DateOnly Date, DateTimeOffset? StartTime, DateTimeOffset ScoresAnnouncedTime, string? Timezone, IEnumerable<Guid> CorpsIds);
 public record ShowBrief(Guid Id, string Name);
 
 public class AdminService(
@@ -127,13 +127,13 @@ public class AdminService(
             .Where(s => s.SeasonId == seasonId)
             .Include(s => s.ShowCorps)
             .OrderBy(s => s.Date)
-            .Select(s => new ShowSummary(s.Id, s.Name, s.Url, s.Date, s.StartTime, s.ScoresAnnouncedTime,
+            .Select(s => new ShowSummary(s.Id, s.Name, s.Url, s.Date, s.StartTime, s.ScoresAnnouncedTime, s.Timezone,
                 s.ShowCorps.Select(sc => sc.CorpsId)))
             .ToListAsync();
     }
 
     public async Task<ShowBrief> CreateShowAsync(Guid seasonId, string name, string url,
-        DateOnly date, DateTimeOffset? startTime, DateTimeOffset scoresAnnouncedTime, List<Guid> corpsIds)
+        DateOnly date, DateTimeOffset? startTime, DateTimeOffset scoresAnnouncedTime, string? timezone, List<Guid> corpsIds)
     {
         var season = await db.Seasons.FindAsync(seasonId)
             ?? throw new InvalidOperationException("Season not found.");
@@ -156,6 +156,7 @@ public class AdminService(
             Date = date,
             StartTime = startTime,
             ScoresAnnouncedTime = scoresAnnouncedTime,
+            Timezone = timezone,
             SeasonId = seasonId
         };
         db.Shows.Add(show);
@@ -170,7 +171,7 @@ public class AdminService(
     }
 
     public async Task<bool> UpdateShowAsync(Guid id, string name, string url,
-        DateOnly date, DateTimeOffset? startTime, DateTimeOffset scoresAnnouncedTime, List<Guid> corpsIds)
+        DateOnly date, DateTimeOffset? startTime, DateTimeOffset scoresAnnouncedTime, string? timezone, List<Guid> corpsIds)
     {
         var show = await db.Shows.FindAsync(id);
 
@@ -189,6 +190,7 @@ public class AdminService(
         show.Date = date;
         show.StartTime = startTime;
         show.ScoresAnnouncedTime = scoresAnnouncedTime;
+        show.Timezone = timezone;
 
         var existing = await db.ShowCorps.Where(sc => sc.ShowId == id).ToListAsync();
         db.ShowCorps.RemoveRange(existing);
