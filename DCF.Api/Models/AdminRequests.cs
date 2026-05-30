@@ -15,3 +15,4 @@ public record UpdateShowRequest(
     DateTimeOffset ScoresAnnouncedTime,
     List<Guid> CorpsIds);
 public record SetSeasonCorpsRequest(List<Guid> CorpsIds);
+public record RenameCorpsRequest(string Name);

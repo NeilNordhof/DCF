@@ -94,6 +94,47 @@ public class AdminController(IAdminService adminService) : ControllerBase
         return Ok(await adminService.CreateCorpsAsync(req.Name));
     }
 
+    [HttpPatch("corps/{id}")]
+    public async Task<IActionResult> RenameCorps(Guid id, RenameCorpsRequest req)
+    {
+        if (!await adminService.IsAdminAsync(GetSub()))
+        {
+            return Forbid();
+        }
+
+        var result = await adminService.RenameCorpsAsync(id, req.Name);
+
+        if (result is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(result);
+    }
+
+    [HttpDelete("corps/{id}")]
+    public async Task<IActionResult> DeleteCorps(Guid id)
+    {
+        if (!await adminService.IsAdminAsync(GetSub()))
+        {
+            return Forbid();
+        }
+
+        var (found, deletable) = await adminService.DeleteCorpsAsync(id);
+
+        if (!found)
+        {
+            return NotFound();
+        }
+
+        if (!deletable)
+        {
+            return Conflict(new { error = "Corps belongs to a published season and cannot be deleted." });
+        }
+
+        return NoContent();
+    }
+
     [HttpPut("seasons/{seasonId}/corps")]
     public async Task<IActionResult> SetSeasonCorps(Guid seasonId, SetSeasonCorpsRequest req)
     {

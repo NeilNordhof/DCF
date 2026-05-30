@@ -117,4 +117,71 @@ public class AdminServiceTests
         var season = await db.Seasons.FindAsync(seasonId);
         Assert.True(season!.IsPublished);
     }
+
+    [Fact]
+    public async Task RenameCorps_UpdatesName()
+    {
+        using var db = CreateDb("corps_rename");
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Old Name" };
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var result = await svc.RenameCorpsAsync(corps.Id, "New Name");
+
+        Assert.NotNull(result);
+        Assert.Equal("New Name", result!.Name);
+        Assert.Equal("New Name", db.Corps.Single(c => c.Id == corps.Id).Name);
+    }
+
+    [Fact]
+    public async Task RenameCorps_MissingId_ReturnsNull()
+    {
+        using var db = CreateDb("corps_rename_missing");
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+
+        var result = await svc.RenameCorpsAsync(Guid.NewGuid(), "Anything");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task DeleteCorps_NotInPublishedSeason_DeletesAndReturnsTrue()
+    {
+        using var db = CreateDb("corps_delete_ok");
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var (found, deletable) = await svc.DeleteCorpsAsync(corps.Id);
+
+        Assert.True(found);
+        Assert.True(deletable);
+        Assert.False(db.Corps.Any(c => c.Id == corps.Id));
+    }
+
+    [Fact]
+    public async Task DeleteCorps_InPublishedSeason_ReturnsDeletableFalse()
+    {
+        using var db = CreateDb("corps_delete_blocked");
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Cavaliers" };
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(), Year = 2026,
+            StartDate = new DateOnly(2026, 6, 1), EndDate = new DateOnly(2026, 8, 31),
+            IsPublished = true
+        };
+        db.Corps.Add(corps);
+        db.Seasons.Add(season);
+        db.SeasonCorps.Add(new SeasonCorpsEntity { SeasonId = season.Id, CorpsId = corps.Id });
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var (found, deletable) = await svc.DeleteCorpsAsync(corps.Id);
+
+        Assert.True(found);
+        Assert.False(deletable);
+        Assert.True(db.Corps.Any(c => c.Id == corps.Id));
+    }
 }

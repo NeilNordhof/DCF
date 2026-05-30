@@ -194,4 +194,51 @@ public class AdminService(
 
         return true;
     }
+
+    public async Task<CorpsSummary?> RenameCorpsAsync(Guid id, string name)
+    {
+        var corps = await db.Corps.FindAsync(id);
+
+        if (corps is null)
+        {
+            return null;
+        }
+
+        corps.Name = name;
+
+        await db.SaveChangesAsync();
+
+        return new CorpsSummary(corps.Id, corps.Name);
+    }
+
+    public async Task<(bool Found, bool Deletable)> DeleteCorpsAsync(Guid id)
+    {
+        var corps = await db.Corps.FindAsync(id);
+
+        if (corps is null)
+        {
+            return (false, false);
+        }
+
+        var seasonIds = await db.SeasonCorps
+            .Where(sc => sc.CorpsId == id)
+            .Select(sc => sc.SeasonId)
+            .ToListAsync();
+
+        var inPublishedSeason = await db.Seasons
+            .AnyAsync(s => seasonIds.Contains(s.Id) && s.IsPublished);
+
+        if (inPublishedSeason)
+        {
+            return (true, false);
+        }
+
+        var unpublishedSeasonCorps = await db.SeasonCorps.Where(sc => sc.CorpsId == id).ToListAsync();
+        db.SeasonCorps.RemoveRange(unpublishedSeasonCorps);
+        db.Corps.Remove(corps);
+
+        await db.SaveChangesAsync();
+
+        return (true, true);
+    }
 }
