@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import type { CSSProperties, FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent, CSSProperties, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
+import { CorpsIcon } from '../components/CorpsIcon';
 import type { Corps, Season } from '../types/api';
 
 type Tab = 'seasons' | 'corps';
@@ -55,6 +56,12 @@ export function Admin() {
   const [newCorpsName, setNewCorpsName] = useState('');
   const [addingCorps, setAddingCorps] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingCorpsId, setEditingCorpsId] = useState<string | null>(null);
+  const [editingCorpsName, setEditingCorpsName] = useState('');
+  const [savingCorpsEdit, setSavingCorpsEdit] = useState(false);
+  const [deletingCorpsId, setDeletingCorpsId] = useState<string | null>(null);
+  const [uploadingIconId, setUploadingIconId] = useState<string | null>(null);
+  const iconInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -107,6 +114,63 @@ export function Admin() {
       setError('Failed to add corps.');
     } finally {
       setAddingCorps(false);
+    }
+  };
+
+  const saveCorpsRename = async (id: string) => {
+    if (savingCorpsEdit) return;
+    setSavingCorpsEdit(true);
+    setError(null);
+
+    try {
+      await api.adminRenameCorps(id, editingCorpsName);
+      const updated = await api.adminGetCorps();
+      setCorps(updated);
+      setEditingCorpsId(null);
+    } catch {
+      setError('Failed to rename corps.');
+    } finally {
+      setSavingCorpsEdit(false);
+    }
+  };
+
+  const deleteCorps = async (id: string) => {
+    if (deletingCorpsId) return;
+    setDeletingCorpsId(id);
+    setError(null);
+
+    try {
+      await api.adminDeleteCorps(id);
+      const updated = await api.adminGetCorps();
+      setCorps(updated);
+    } catch {
+      setError('Cannot delete: corps belongs to a published season.');
+    } finally {
+      setDeletingCorpsId(null);
+    }
+  };
+
+  const triggerIconUpload = (id: string) => {
+    iconInputRefs.current[id]?.click();
+  };
+
+  const handleIconFileChange = async (id: string, e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+
+    if (!file || uploadingIconId) return;
+
+    setUploadingIconId(id);
+    setError(null);
+
+    try {
+      await api.adminUploadCorpsIcon(id, file);
+      const updated = await api.adminGetCorps();
+      setCorps(updated);
+    } catch {
+      setError('Failed to upload icon.');
+    } finally {
+      setUploadingIconId(null);
     }
   };
 
@@ -190,11 +254,73 @@ export function Admin() {
               )}
               {corps.map(c => (
                 <div key={c.id} style={{
-                  padding: '9px 14px', background: 'var(--surface)',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '7px 14px', background: 'var(--surface)',
                   border: '1px solid var(--border)', borderRadius: 5,
-                  fontSize: 11, color: 'var(--text-heading)',
                 }}>
-                  {c.name}
+                  <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={28} />
+                  {editingCorpsId === c.id ? (
+                    <>
+                      <input
+                        value={editingCorpsName}
+                        onChange={e => setEditingCorpsName(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { saveCorpsRename(c.id); }
+                          if (e.key === 'Escape') { setEditingCorpsId(null); }
+                        }}
+                        autoFocus
+                        style={{ ...inputStyle, flex: 1 }}
+                      />
+                      <button
+                        onClick={() => saveCorpsRename(c.id)}
+                        disabled={savingCorpsEdit || !editingCorpsName.trim()}
+                        style={savingCorpsEdit ? disabledBtn : primaryBtn}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingCorpsId(null)}
+                        style={{ ...primaryBtn, background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 11, color: 'var(--text-heading)', flex: 1 }}>{c.name}</span>
+                      <button
+                        onClick={() => triggerIconUpload(c.id)}
+                        disabled={uploadingIconId === c.id}
+                        style={{
+                          fontSize: 9, background: 'transparent', border: '1px solid var(--border)',
+                          color: 'var(--text-muted)', cursor: uploadingIconId === c.id ? 'not-allowed' : 'pointer',
+                          padding: '3px 8px', borderRadius: 3, opacity: uploadingIconId === c.id ? 0.5 : 1,
+                        }}
+                      >
+                        {uploadingIconId === c.id ? 'Uploading…' : c.iconUrl ? 'Replace Icon' : 'Upload Icon'}
+                      </button>
+                      <button
+                        onClick={() => { setEditingCorpsId(c.id); setEditingCorpsName(c.name); }}
+                        style={{ fontSize: 10, background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px 8px' }}
+                      >
+                        Rename
+                      </button>
+                      <button
+                        onClick={() => deleteCorps(c.id)}
+                        disabled={!!deletingCorpsId}
+                        style={{ fontSize: 10, background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: '4px 8px', opacity: deletingCorpsId === c.id ? 0.5 : 1 }}
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
+                  <input
+                    ref={el => { iconInputRefs.current[c.id] = el; }}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    style={{ display: 'none' }}
+                    onChange={e => handleIconFileChange(c.id, e)}
+                  />
                 </div>
               ))}
             </div>
