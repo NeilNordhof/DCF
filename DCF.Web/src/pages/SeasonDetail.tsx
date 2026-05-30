@@ -38,6 +38,7 @@ export function SeasonDetail() {
   const [selectedCorpsIds, setSelectedCorpsIds] = useState<Set<string>>(new Set());
   const [savingCorps, setSavingCorps] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
 
   const [showName, setShowName] = useState('');
   const [showUrl, setShowUrl] = useState('');
@@ -148,6 +149,45 @@ export function SeasonDetail() {
 
   return (
     <div>
+      {showPublishConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+        }}>
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 8, padding: 28, maxWidth: 360, width: '90%',
+          }}>
+            <h2 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-heading)', marginBottom: 10 }}>
+              Publish Season {season.year}?
+            </h2>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 20 }}>
+              Once published, the corps roster is locked and cannot be changed.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setShowPublishConfirm(false)}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 5, fontSize: 11, fontWeight: 700,
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  color: 'var(--text-heading)', cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowPublishConfirm(false); publish(); }}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 5, fontSize: 11, fontWeight: 800,
+                  background: 'var(--accent)', color: 'var(--bg)', border: 'none', cursor: 'pointer',
+                }}
+              >
+                Publish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -158,7 +198,7 @@ export function SeasonDetail() {
         </div>
         {!season.isPublished && season.corpsIds.length > 0 && (
           <button
-            onClick={publish}
+            onClick={() => setShowPublishConfirm(true)}
             disabled={publishing}
             style={{
               padding: '7px 16px', borderRadius: 5, fontSize: 11, fontWeight: 800,

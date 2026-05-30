@@ -52,6 +52,7 @@ export function Admin() {
   const [newStartDate, setNewStartDate] = useState('');
   const [newEndDate, setNewEndDate] = useState('');
   const [addingSeason, setAddingSeason] = useState(false);
+  const [addSeasonOpen, setAddSeasonOpen] = useState(false);
   const [corps, setCorps] = useState<Corps[]>([]);
   const [newCorpsName, setNewCorpsName] = useState('');
   const [addingCorps, setAddingCorps] = useState(false);
@@ -92,6 +93,7 @@ export function Admin() {
       setNewYear('');
       setNewStartDate('');
       setNewEndDate('');
+      setAddSeasonOpen(false);
     } catch {
       setError('Failed to add season.');
     } finally {
@@ -211,7 +213,38 @@ export function Admin() {
         {error && <div style={{ fontSize: 10, color: 'var(--red)', marginBottom: 12 }}>{error}</div>}
 
         {tab === 'seasons' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* Add Season — collapsible, at top */}
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5 }}>
+              <button
+                type="button"
+                onClick={() => setAddSeasonOpen(o => !o)}
+                style={{
+                  width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '10px 16px', background: 'transparent', border: 'none', cursor: 'pointer',
+                  fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px',
+                  color: 'var(--text-faint)',
+                }}
+              >
+                <span>Add Season</span>
+                <span style={{ fontSize: 10 }}>{addSeasonOpen ? '▲' : '▼'}</span>
+              </button>
+              {addSeasonOpen && (
+                <div style={{ padding: '0 16px 16px' }}>
+                  <form onSubmit={addSeason} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                    <input type="number" value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="Year" required style={{ ...inputStyle, width: 80 }} />
+                    <input type="date" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} required style={{ ...inputStyle, width: 140 }} />
+                    <input type="date" value={newEndDate} onChange={e => setNewEndDate(e.target.value)} required style={{ ...inputStyle, width: 140 }} />
+                    <button type="submit" disabled={addingSeason} style={addingSeason ? disabledBtn : primaryBtn}>
+                      Add Season
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+
+            {/* Season list */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {seasons.length === 0 && (
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '12px 0' }}>No seasons yet.</div>
@@ -230,18 +263,6 @@ export function Admin() {
                   </Link>
                 </div>
               ))}
-            </div>
-
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, padding: 16 }}>
-              <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 12 }}>Add Season</div>
-              <form onSubmit={addSeason} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <input type="number" value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="Year" required style={{ ...inputStyle, width: 80 }} />
-                <input type="date" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} required style={{ ...inputStyle, width: 140 }} />
-                <input type="date" value={newEndDate} onChange={e => setNewEndDate(e.target.value)} required style={{ ...inputStyle, width: 140 }} />
-                <button type="submit" disabled={addingSeason} style={addingSeason ? disabledBtn : primaryBtn}>
-                  Add Season
-                </button>
-              </form>
             </div>
           </div>
         )}
