@@ -4,10 +4,12 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Corps, SeasonDetail as SeasonDetailType, Show } from '../types/api';
 
-const TZ_OFFSETS: Record<string, string> = { PT: '-07:00', MT: '-06:00', CT: '-05:00', ET: '-04:00' };
+const TZ_HOURS: Record<string, number> = { PT: 7, MT: 6, CT: 5, ET: 4 };
 
 function buildDateTime(date: string, time: string, tz: string): string {
-  return `${date}T${time}:00${TZ_OFFSETS[tz]}`;
+  const d = new Date(`${date}T${time}:00Z`);
+  d.setUTCHours(d.getUTCHours() + (TZ_HOURS[tz] ?? 4));
+  return d.toISOString();
 }
 
 function hasStarted(show: Show): boolean {
