@@ -204,7 +204,11 @@ export function SeasonDetail() {
       setEditShow(null);
       return;
     }
-    const toHHMM = (iso: string) => new Date(iso).toISOString().slice(11, 16);
+    const toHHMM = (iso: string) => {
+      const d = new Date(iso);
+      d.setUTCHours(d.getUTCHours() - (TZ_HOURS['ET'] ?? 4));
+      return d.toISOString().slice(11, 16);
+    };
     setExpandedShowId(show.id);
     setEditShow({
       name: show.name,
