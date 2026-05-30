@@ -16,3 +16,4 @@ public record UpdateShowRequest(
     List<Guid> CorpsIds);
 public record SetSeasonCorpsRequest(List<Guid> CorpsIds);
 public record RenameCorpsRequest(string Name);
+public record UpdateSeasonDatesRequest(DateOnly StartDate, DateOnly EndDate);

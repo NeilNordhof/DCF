@@ -228,4 +228,72 @@ public class AdminServiceTests
         Assert.False(found);
         Assert.Null(oldPath);
     }
+
+    [Fact]
+    public async Task UpdateSeasonDates_WhenNotPublished_UpdatesDates()
+    {
+        using var db = CreateDb("season_update_dates");
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(), Year = 2026,
+            StartDate = new DateOnly(2026, 6, 1), EndDate = new DateOnly(2026, 8, 31)
+        };
+        db.Seasons.Add(season);
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var result = await svc.UpdateSeasonDatesAsync(season.Id, new DateOnly(2026, 6, 15), new DateOnly(2026, 9, 1));
+
+        Assert.True(result);
+        var updated = db.Seasons.Single(s => s.Id == season.Id);
+        Assert.Equal(new DateOnly(2026, 6, 15), updated.StartDate);
+        Assert.Equal(new DateOnly(2026, 9, 1), updated.EndDate);
+    }
+
+    [Fact]
+    public async Task UpdateSeasonDates_WhenPublished_ReturnsFalse()
+    {
+        using var db = CreateDb("season_update_dates_published");
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(), Year = 2026,
+            StartDate = new DateOnly(2026, 6, 1), EndDate = new DateOnly(2026, 8, 31),
+            IsPublished = true
+        };
+        db.Seasons.Add(season);
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var result = await svc.UpdateSeasonDatesAsync(season.Id, new DateOnly(2026, 6, 15), new DateOnly(2026, 9, 1));
+
+        Assert.False(result);
+        Assert.Equal(new DateOnly(2026, 6, 1), db.Seasons.Single(s => s.Id == season.Id).StartDate);
+    }
+
+    [Fact]
+    public async Task DeleteShow_ExistingShow_DeletesAndReturnsTrue()
+    {
+        using var db = CreateDb("show_delete");
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(), Year = 2026,
+            StartDate = new DateOnly(2026, 6, 1), EndDate = new DateOnly(2026, 8, 31)
+        };
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(), Name = "Regionals", Url = "https://x",
+            Date = new DateOnly(2026, 7, 1),
+            ScoresAnnouncedTime = DateTimeOffset.UtcNow.AddDays(30),
+            SeasonId = season.Id
+        };
+        db.Seasons.Add(season);
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var result = await svc.DeleteShowAsync(show.Id);
+
+        Assert.True(result);
+        Assert.False(db.Shows.Any(s => s.Id == show.Id));
+    }
 }

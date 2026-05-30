@@ -17,4 +17,6 @@ public interface IAdminService
     Task<CorpsSummary?> RenameCorpsAsync(Guid id, string name);
     Task<(bool Found, string? OldIconPath)> SetCorpsIconAsync(Guid id, string iconPath);
     Task<(bool Found, bool Deletable)> DeleteCorpsAsync(Guid id);
+    Task<bool> UpdateSeasonDatesAsync(Guid id, DateOnly startDate, DateOnly endDate);
+    Task<bool> DeleteShowAsync(Guid id);
 }

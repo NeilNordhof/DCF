@@ -262,4 +262,41 @@ public class AdminService(
 
         return (true, true);
     }
+
+    public async Task<bool> UpdateSeasonDatesAsync(Guid id, DateOnly startDate, DateOnly endDate)
+    {
+        var season = await db.Seasons.FindAsync(id);
+
+        if (season is null || season.IsPublished)
+        {
+            return false;
+        }
+
+        season.StartDate = startDate;
+        season.EndDate = endDate;
+
+        await db.SaveChangesAsync();
+
+        seasonStatus.ScheduleSeason(season);
+
+        return true;
+    }
+
+    public async Task<bool> DeleteShowAsync(Guid id)
+    {
+        var show = await db.Shows.FindAsync(id);
+
+        if (show is null)
+        {
+            return false;
+        }
+
+        var showCorps = await db.ShowCorps.Where(sc => sc.ShowId == id).ToListAsync();
+        db.ShowCorps.RemoveRange(showCorps);
+        db.Shows.Remove(show);
+
+        await db.SaveChangesAsync();
+
+        return true;
+    }
 }

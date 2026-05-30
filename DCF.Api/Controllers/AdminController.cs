@@ -70,6 +70,19 @@ public class AdminController(IAdminService adminService) : ControllerBase
         return await adminService.PublishSeasonAsync(id) ? NoContent() : NotFound();
     }
 
+    [HttpPatch("seasons/{id}/dates")]
+    public async Task<IActionResult> UpdateSeasonDates(Guid id, UpdateSeasonDatesRequest req)
+    {
+        if (!await adminService.IsAdminAsync(GetSub()))
+        {
+            return Forbid();
+        }
+
+        return await adminService.UpdateSeasonDatesAsync(id, req.StartDate, req.EndDate)
+            ? NoContent()
+            : NotFound();
+    }
+
     // --- Corps ---
 
     [HttpGet("corps")]
@@ -183,6 +196,17 @@ public class AdminController(IAdminService adminService) : ControllerBase
 
         return await adminService.UpdateShowAsync(id, req.Name, req.Url,
             req.Date, req.ScoresAnnouncedTime, req.CorpsIds) ? NoContent() : NotFound();
+    }
+
+    [HttpDelete("shows/{id}")]
+    public async Task<IActionResult> DeleteShow(Guid id)
+    {
+        if (!await adminService.IsAdminAsync(GetSub()))
+        {
+            return Forbid();
+        }
+
+        return await adminService.DeleteShowAsync(id) ? NoContent() : NotFound();
     }
 
     // --- Manual scrape trigger ---
