@@ -7,7 +7,7 @@ namespace DCF.Api.Services;
 
 public record SeasonSummary(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished);
 public record SeasonDetail(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished, IEnumerable<Guid> CorpsIds);
-public record CorpsSummary(Guid Id, string Name);
+public record CorpsSummary(Guid Id, string Name, string? IconUrl);
 public record ShowSummary(Guid Id, string Name, string Url, DateOnly Date, DateTimeOffset ScoresAnnouncedTime, IEnumerable<Guid> CorpsIds);
 public record ShowBrief(Guid Id, string Name);
 
@@ -84,10 +84,14 @@ public class AdminService(
 
     public async Task<IReadOnlyList<CorpsSummary>> GetCorpsAsync()
     {
-        return await db.Corps
+        var corps = await db.Corps
             .OrderBy(c => c.Name)
-            .Select(c => new CorpsSummary(c.Id, c.Name))
+            .Select(c => new { c.Id, c.Name, c.IconPath })
             .ToListAsync();
+
+        return corps
+            .Select(c => new CorpsSummary(c.Id, c.Name, c.IconPath != null ? $"/uploads/{c.IconPath}" : null))
+            .ToList();
     }
 
     public async Task<CorpsSummary> CreateCorpsAsync(string name)
@@ -97,7 +101,7 @@ public class AdminService(
 
         await db.SaveChangesAsync();
 
-        return new CorpsSummary(corps.Id, corps.Name);
+        return new CorpsSummary(corps.Id, corps.Name, null);
     }
 
     public async Task<bool> SetSeasonCorpsAsync(Guid seasonId, List<Guid> corpsIds)
@@ -208,7 +212,24 @@ public class AdminService(
 
         await db.SaveChangesAsync();
 
-        return new CorpsSummary(corps.Id, corps.Name);
+        return new CorpsSummary(corps.Id, corps.Name, corps.IconPath != null ? $"/uploads/{corps.IconPath}" : null);
+    }
+
+    public async Task<(bool Found, string? OldIconPath)> SetCorpsIconAsync(Guid id, string iconPath)
+    {
+        var corps = await db.Corps.FindAsync(id);
+
+        if (corps is null)
+        {
+            return (false, null);
+        }
+
+        var oldPath = corps.IconPath;
+        corps.IconPath = iconPath;
+
+        await db.SaveChangesAsync();
+
+        return (true, oldPath);
     }
 
     public async Task<(bool Found, bool Deletable)> DeleteCorpsAsync(Guid id)

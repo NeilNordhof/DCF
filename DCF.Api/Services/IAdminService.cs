@@ -15,5 +15,6 @@ public interface IAdminService
     Task<bool> UpdateShowAsync(Guid id, string name, string url, DateOnly date, DateTimeOffset scoresAnnouncedTime, List<Guid> corpsIds);
     Task<bool> TriggerScrapeAsync(Guid showId);
     Task<CorpsSummary?> RenameCorpsAsync(Guid id, string name);
+    Task<(bool Found, string? OldIconPath)> SetCorpsIconAsync(Guid id, string iconPath);
     Task<(bool Found, bool Deletable)> DeleteCorpsAsync(Guid id);
 }

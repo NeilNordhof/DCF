@@ -184,4 +184,48 @@ public class AdminServiceTests
         Assert.False(deletable);
         Assert.True(db.Corps.Any(c => c.Id == corps.Id));
     }
+
+    [Fact]
+    public async Task SetCorpsIconAsync_ExistingCorps_UpdatesPathAndReturnsOldPath()
+    {
+        using var db = CreateDb("corps_icon_update");
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils", IconPath = "corps-icons/old.png" };
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var (found, oldPath) = await svc.SetCorpsIconAsync(corps.Id, "corps-icons/new.jpg");
+
+        Assert.True(found);
+        Assert.Equal("corps-icons/old.png", oldPath);
+        Assert.Equal("corps-icons/new.jpg", db.Corps.Single(c => c.Id == corps.Id).IconPath);
+    }
+
+    [Fact]
+    public async Task SetCorpsIconAsync_NoExistingIcon_ReturnsNullOldPath()
+    {
+        using var db = CreateDb("corps_icon_no_existing");
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Cavaliers" };
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var (found, oldPath) = await svc.SetCorpsIconAsync(corps.Id, "corps-icons/cav.png");
+
+        Assert.True(found);
+        Assert.Null(oldPath);
+        Assert.Equal("corps-icons/cav.png", db.Corps.Single(c => c.Id == corps.Id).IconPath);
+    }
+
+    [Fact]
+    public async Task SetCorpsIconAsync_MissingCorps_ReturnsFalse()
+    {
+        using var db = CreateDb("corps_icon_missing");
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+
+        var (found, oldPath) = await svc.SetCorpsIconAsync(Guid.NewGuid(), "corps-icons/x.png");
+
+        Assert.False(found);
+        Assert.Null(oldPath);
+    }
 }
