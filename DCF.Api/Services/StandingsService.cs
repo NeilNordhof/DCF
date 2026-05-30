@@ -7,7 +7,7 @@ namespace DCF.Api.Services;
 
 public record MemberStanding(Guid UserId, string DisplayName, double Score, Dictionary<ComputedCaption, CaptionBreakdown> Captions);
 
-public record PickScore(string CorpsName, double? Score);
+public record PickScore(string CorpsName, double? Score, string? IconUrl);
 
 public record CaptionBreakdown(double Avg, List<PickScore> Picks);
 
@@ -25,7 +25,14 @@ public class StandingsService(DcfDbContext db) : IStandingsService
             .Where(m => m.LeagueId == leagueId)
             .ToListAsync();
 
-        var corpsNames = await db.Corps.ToDictionaryAsync(c => c.Id, c => c.Name);
+        var corpsList = await db.Corps
+            .Select(c => new { c.Id, c.Name, c.IconPath })
+            .ToListAsync();
+        var corpsNames = corpsList.ToDictionary(c => c.Id, c => c.Name);
+        var corpsIcons = corpsList
+            .Where(c => c.IconPath != null)
+            .ToDictionary(c => c.Id, c => $"/uploads/{c.IconPath!}");
+
         var latestByCorps = await LoadLatestComputedScoresAsync(league.SeasonId);
 
         var standings = new List<MemberStanding>();
@@ -33,7 +40,7 @@ public class StandingsService(DcfDbContext db) : IStandingsService
         foreach (var member in members)
         {
             var (totalScore, captions) = await ComputeMemberScoreAsync(
-                leagueId, member.UserId, league, latestByCorps, corpsNames);
+                leagueId, member.UserId, league, latestByCorps, corpsNames, corpsIcons);
 
             standings.Add(new MemberStanding(member.UserId, member.User.DisplayName, totalScore, captions));
         }
@@ -51,7 +58,14 @@ public class StandingsService(DcfDbContext db) : IStandingsService
             .Where(m => m.LeagueId == leagueId)
             .ToListAsync();
 
-        var corpsNames = await db.Corps.ToDictionaryAsync(c => c.Id, c => c.Name);
+        var corpsList = await db.Corps
+            .Select(c => new { c.Id, c.Name, c.IconPath })
+            .ToListAsync();
+        var corpsNames = corpsList.ToDictionary(c => c.Id, c => c.Name);
+        var corpsIcons = corpsList
+            .Where(c => c.IconPath != null)
+            .ToDictionary(c => c.Id, c => $"/uploads/{c.IconPath!}");
+
         var latestByCorps = await LoadLatestComputedScoresAsync(league.SeasonId);
 
         var result = new List<MemberScoreBreakdown>();
@@ -59,7 +73,7 @@ public class StandingsService(DcfDbContext db) : IStandingsService
         foreach (var member in members)
         {
             var (totalScore, captions) = await ComputeMemberScoreAsync(
-                leagueId, member.UserId, league, latestByCorps, corpsNames);
+                leagueId, member.UserId, league, latestByCorps, corpsNames, corpsIcons);
 
             result.Add(new MemberScoreBreakdown(
                 member.UserId, member.User.DisplayName, totalScore, captions));
@@ -107,7 +121,8 @@ public class StandingsService(DcfDbContext db) : IStandingsService
             Guid userId,
             LeagueEntity league,
             Dictionary<Guid, ComputedScoreEntity> latestByCorps,
-            Dictionary<Guid, string> corpsNames)
+            Dictionary<Guid, string> corpsNames,
+            Dictionary<Guid, string> corpsIcons)
     {
         double totalScore = 0;
         var captions = new Dictionary<ComputedCaption, CaptionBreakdown>();
@@ -126,16 +141,17 @@ public class StandingsService(DcfDbContext db) : IStandingsService
             foreach (var pick in picks)
             {
                 var corpsName = corpsNames.GetValueOrDefault(pick.CorpsId, "Unknown");
+                corpsIcons.TryGetValue(pick.CorpsId, out var iconUrl);
 
                 if (latestByCorps.TryGetValue(pick.CorpsId, out var cs))
                 {
                     var score = GetCaptionValue(cs, caption);
-                    pickScores.Add(new PickScore(corpsName, score));
+                    pickScores.Add(new PickScore(corpsName, score, iconUrl));
                     captionScores.Add(score);
                 }
                 else
                 {
-                    pickScores.Add(new PickScore(corpsName, null));
+                    pickScores.Add(new PickScore(corpsName, null, iconUrl));
                 }
             }
 
