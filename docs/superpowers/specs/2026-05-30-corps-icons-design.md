@@ -58,9 +58,9 @@ No delete/clear endpoint — icons are replaced, not removed.
 
 ## Initials Fallback
 
-Computed on the frontend from the corps name: take the first letter of each word, uppercase, capped at 3 characters.
+Computed on the frontend from the corps name: strip a leading "The " (case-insensitive), then take the first letter of each remaining word, uppercase, capped at 3 characters.
 
-Examples: `"Blue Devils"` → `"BD"`, `"Santa Clara Vanguard"` → `"SCV"`, `"The Cadets"` → `"TC"`.
+Examples: `"Blue Devils"` → `"BD"`, `"Santa Clara Vanguard"` → `"SCV"`, `"The Cadets"` → `"CAD"`.
 
 Rendered as a square `<div>` with background `#3a3a4a`, white text, the same border-radius as an icon image.
 
