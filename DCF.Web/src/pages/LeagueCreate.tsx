@@ -150,13 +150,18 @@ export function LeagueCreate() {
   const [maxPlayers, setMaxPlayers] = useState(8);
   const [draftStartTime, setDraftStartTime] = useState('');
   const [corpsCount, setCorpsCount] = useState<number | null>(null);
+  const [seasonLoaded, setSeasonLoaded] = useState(false);
+  const [hasActiveSeason, setHasActiveSeason] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [showDiscardForCancel, setShowDiscardForCancel] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getActiveSeason().then(s => setCorpsCount(s.corpsCount)).catch(() => {});
+    api.getActiveSeason()
+      .then(s => { setCorpsCount(s.corpsCount); setHasActiveSeason(true); })
+      .catch(() => { setHasActiveSeason(false); })
+      .finally(() => setSeasonLoaded(true));
   }, []);
 
   const maxCorpsPerCaption = corpsCount != null ? Math.floor(corpsCount / 4) : 99;
@@ -225,6 +230,26 @@ export function LeagueCreate() {
     fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px',
     color: 'var(--text-faint)', marginBottom: 6,
   };
+
+  if (!seasonLoaded) {
+    return <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Loading…</div>;
+  }
+
+  if (!hasActiveSeason) {
+    return (
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--border)',
+        borderRadius: 8, padding: 32, textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-heading)', marginBottom: 8 }}>
+          No active season
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          Leagues can only be created during an active season.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 480 }}>

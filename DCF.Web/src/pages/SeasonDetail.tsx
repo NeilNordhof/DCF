@@ -10,6 +10,10 @@ function buildDateTime(date: string, time: string, tz: string): string {
   return `${date}T${time}:00${TZ_OFFSETS[tz]}`;
 }
 
+function hasStarted(show: Show): boolean {
+  return !!show.startTime && new Date(show.startTime) <= new Date();
+}
+
 const inputStyle: CSSProperties = {
   width: '100%', padding: '7px 10px', borderRadius: 5,
   background: 'var(--bg)', border: '1px solid var(--border-input)',
@@ -61,6 +65,15 @@ export function SeasonDetail() {
   const [addShowOpen, setAddShowOpen] = useState(false);
   const [showCorpsIds, setShowCorpsIds] = useState<Set<string>>(new Set());
   const [addingShow, setAddingShow] = useState(false);
+
+  const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
+  const [editShow, setEditShow] = useState<{
+    name: string; url: string; date: string;
+    startTime: string; scoresTime: string; tz: string;
+    corpsIds: Set<string>;
+  } | null>(null);
+  const [savingShowEdit, setSavingShowEdit] = useState(false);
+  const [deletingShowId, setDeletingShowId] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -180,6 +193,74 @@ export function SeasonDetail() {
       setError('Failed to update season dates.');
     } finally {
       setSavingDates(false);
+    }
+  };
+
+  function expandShow(show: Show) {
+    if (expandedShowId === show.id) {
+      setExpandedShowId(null);
+      setEditShow(null);
+      return;
+    }
+    const toHHMM = (iso: string) => new Date(iso).toISOString().slice(11, 16);
+    setExpandedShowId(show.id);
+    setEditShow({
+      name: show.name,
+      url: show.url,
+      date: show.date,
+      startTime: show.startTime ? toHHMM(show.startTime) : '',
+      scoresTime: toHHMM(show.scoresAnnouncedTime),
+      tz: 'ET',
+      corpsIds: new Set(show.corpsIds),
+    });
+  }
+
+  const saveShowEdit = async (showId: string) => {
+    if (!editShow || savingShowEdit) return;
+    setSavingShowEdit(true);
+    setError(null);
+
+    try {
+      const startTimeIso = editShow.startTime
+        ? buildDateTime(editShow.date, editShow.startTime, editShow.tz)
+        : null;
+      const scoresTimeIso = buildDateTime(editShow.date, editShow.scoresTime, editShow.tz);
+
+      await api.adminUpdateShow(showId, {
+        name: editShow.name,
+        url: editShow.url,
+        date: editShow.date,
+        startTime: startTimeIso,
+        scoresAnnouncedTime: scoresTimeIso,
+        corpsIds: Array.from(editShow.corpsIds),
+      });
+
+      const updated = await api.adminGetShows(id!);
+      setShows(updated);
+      setExpandedShowId(null);
+      setEditShow(null);
+    } catch {
+      setError('Failed to save show.');
+    } finally {
+      setSavingShowEdit(false);
+    }
+  };
+
+  const deleteShow = async (showId: string) => {
+    if (deletingShowId) return;
+    setDeletingShowId(showId);
+    setError(null);
+
+    try {
+      await api.adminDeleteShow(showId);
+      const updated = await api.adminGetShows(id!);
+      setShows(updated);
+      setExpandedShowId(null);
+      setEditShow(null);
+    } catch {
+      setError('Failed to delete show.');
+    } finally {
+      setDeletingShowId(null);
     }
   };
 
@@ -380,18 +461,123 @@ export function SeasonDetail() {
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No shows yet.</div>
           )}
 
-          {shows.map(s => (
-            <div key={s.id} style={{
-              padding: '12px 14px', background: 'var(--surface)',
-              border: '1px solid var(--border)', borderRadius: 5,
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-heading)', marginBottom: 3 }}>{s.name}</div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{s.date}</div>
-              <div style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 2 }}>
-                Scores at {new Date(s.scoresAnnouncedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {shows.map(s => {
+            const expanded = expandedShowId === s.id;
+            const started = hasStarted(s);
+
+            return (
+              <div key={s.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, overflow: 'hidden' }}>
+                <div
+                  onClick={() => expandShow(s)}
+                  style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', cursor: 'pointer', gap: 8 }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-heading)' }}>{s.name}</div>
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>
+                      {s.date}
+                      {s.startTime && ` · starts ${new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                      {started && <span style={{ color: 'var(--accent)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>STARTED</span>}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{expanded ? '▲' : '▼'}</span>
+                </div>
+
+                {expanded && editShow && (
+                  <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {!started ? (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                          <label style={labelStyle}>Name</label>
+                          <input value={editShow.name} onChange={e => setEditShow(p => p && ({ ...p, name: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <label style={labelStyle}>URL</label>
+                          <input value={editShow.url} onChange={e => setEditShow(p => p && ({ ...p, url: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <label style={labelStyle}>Date</label>
+                          <input type="date" value={editShow.date} onChange={e => setEditShow(p => p && ({ ...p, date: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                          <label style={{ ...labelStyle, marginLeft: 8 }}>TZ</label>
+                          <select value={editShow.tz} onChange={e => setEditShow(p => p && ({ ...p, tz: e.target.value }))} style={{ ...inputStyle, width: 62 }}>
+                            {['ET', 'CT', 'MT', 'PT'].map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                          </select>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <label style={labelStyle}>Start</label>
+                          <input type="time" value={editShow.startTime} onChange={e => setEditShow(p => p && ({ ...p, startTime: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                          <label style={{ ...labelStyle, marginLeft: 8 }}>Scores</label>
+                          <input type="time" value={editShow.scoresTime} onChange={e => setEditShow(p => p && ({ ...p, scoresTime: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {seasonCorps.map(c => (
+                              <Chip
+                                key={c.id}
+                                label={c.name}
+                                selected={editShow.corpsIds.has(c.id)}
+                                onClick={() => setEditShow(p => {
+                                  if (!p) return p;
+                                  const next = new Set(p.corpsIds);
+                                  if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                                  return { ...p, corpsIds: next };
+                                })}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
+                            type="button"
+                            onClick={() => deleteShow(s.id)}
+                            disabled={!!deletingShowId}
+                            style={{
+                              flex: 1, padding: '7px 0', borderRadius: 5, fontSize: 11, fontWeight: 700,
+                              background: 'transparent', border: '1px solid var(--red)', color: 'var(--red)',
+                              cursor: deletingShowId ? 'not-allowed' : 'pointer',
+                              opacity: deletingShowId === s.id ? 0.5 : 1,
+                            }}
+                          >
+                            {deletingShowId === s.id ? 'Deleting…' : 'Delete Show'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => saveShowEdit(s.id)}
+                            disabled={savingShowEdit}
+                            style={{
+                              flex: 2, padding: '7px 0', borderRadius: 5, fontSize: 11, fontWeight: 800,
+                              background: savingShowEdit ? 'var(--border)' : 'var(--accent)',
+                              color: savingShowEdit ? 'var(--text-faint)' : 'var(--bg)',
+                              border: 'none', cursor: savingShowEdit ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            {savingShowEdit ? 'Saving…' : 'Save'}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ marginTop: 10 }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            api.adminTriggerScrape(s.id)
+                              .then(() => setError(null))
+                              .catch(() => setError('Scrape trigger failed.'));
+                          }}
+                          style={{
+                            width: '100%', padding: '7px 0', borderRadius: 5, fontSize: 11, fontWeight: 800,
+                            background: 'var(--accent)', color: 'var(--bg)', border: 'none', cursor: 'pointer',
+                          }}
+                        >
+                          Trigger Score Scrape
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
