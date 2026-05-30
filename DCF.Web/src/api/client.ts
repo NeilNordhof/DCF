@@ -65,6 +65,22 @@ export const api = {
   adminGetCorps: () => request<Corps[]>('/api/admin/corps'),
   adminCreateCorps: (name: string) =>
     request<Corps>('/api/admin/corps', { method: 'POST', body: JSON.stringify({ name }) }),
+  adminRenameCorps: (id: string, name: string) =>
+    request<Corps>(`/api/admin/corps/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
+  adminDeleteCorps: (id: string) =>
+    request<void>(`/api/admin/corps/${id}`, { method: 'DELETE' }),
+  adminUploadCorpsIcon: async (id: string, file: File): Promise<{ iconUrl: string }> => {
+    const token = getToken ? await getToken() : null;
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${API_URL}/api/admin/corps/${id}/icon`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json() as Promise<{ iconUrl: string }>;
+  },
   adminTriggerScrape: (showId: string) =>
     request<void>(`/api/admin/shows/${showId}/scrape`, { method: 'POST' }),
   adminGetSeasons: () =>
@@ -84,11 +100,25 @@ export const api = {
     name: string,
     url: string,
     date: string,
+    startTime: string | null,
     scoresAnnouncedTime: string,
     corpsIds: string[]
   ) =>
     request<{ id: string; name: string }>(`/api/admin/seasons/${seasonId}/shows`, {
       method: 'POST',
-      body: JSON.stringify({ name, url, date, scoresAnnouncedTime, corpsIds }),
+      body: JSON.stringify({ name, url, date, startTime, scoresAnnouncedTime, corpsIds }),
     }),
+  adminUpdateSeasonDates: (id: string, startDate: string, endDate: string) =>
+    request<void>(`/api/admin/seasons/${id}/dates`, { method: 'PATCH', body: JSON.stringify({ startDate, endDate }) }),
+  adminUpdateShow: (id: string, body: {
+    name: string;
+    url: string;
+    date: string;
+    startTime: string | null;
+    scoresAnnouncedTime: string;
+    corpsIds: string[];
+  }) =>
+    request<void>(`/api/admin/shows/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  adminDeleteShow: (id: string) =>
+    request<void>(`/api/admin/shows/${id}`, { method: 'DELETE' }),
 };
