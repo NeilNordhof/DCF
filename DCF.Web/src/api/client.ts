@@ -1,4 +1,4 @@
-import type { ActiveSeason, Corps, CreateLeagueRequest, League, MemberScoreBreakdown, PublicLeague, Season, SeasonDetail, Show, Standing, UserProfile } from '../types/api';
+import type { ActiveSeason, Corps, CreateLeagueRequest, League, MemberScoreBreakdown, PublicLeague, Season, SeasonCorps, SeasonDetail, Show, Standing, UserProfile } from '../types/api';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -93,6 +93,10 @@ export const api = {
     request<void>(`/api/admin/seasons/${id}/publish`, { method: 'POST' }),
   adminSetSeasonCorps: (id: string, corpsIds: string[]) =>
     request<void>(`/api/admin/seasons/${id}/corps`, { method: 'PUT', body: JSON.stringify({ corpsIds }) }),
+  adminSetCorpsOrder: (seasonId: string, orders: { corpsId: string; sortOrder: number | null }[]) =>
+    request<void>(`/api/admin/seasons/${seasonId}/corps/order`, { method: 'PUT', body: JSON.stringify({ orders }) }),
+  getSeasonCorps: (seasonId: string) =>
+    request<SeasonCorps[]>(`/api/seasons/${seasonId}/corps`),
   adminGetShows: (seasonId: string) =>
     request<Show[]>(`/api/admin/seasons/${seasonId}/shows`),
   adminCreateShow: (

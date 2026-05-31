@@ -25,6 +25,7 @@ export interface League {
   corpsPerCaption?: number;
   draftableCaptions?: ComputedCaption[];
   seasonYear?: number;
+  seasonId?: string;
   maxPlayers: number;
   memberCount: number;
   isMember?: boolean;
@@ -76,6 +77,13 @@ export interface Corps {
   iconUrl?: string;
 }
 
+export interface SeasonCorps {
+  id: string;
+  name: string;
+  iconUrl?: string;
+  sortOrder?: number;
+}
+
 export interface DraftState {
   status: DraftStatus;
   draftStartTime?: string;
@@ -122,6 +130,7 @@ export interface Season {
 
 export interface SeasonDetail extends Season {
   corpsIds: string[];
+  corpsSortOrders: Record<string, number>;
 }
 
 export interface Show {
