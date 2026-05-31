@@ -35,30 +35,32 @@ export function Nav() {
       gap: 20,
       flexShrink: 0,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-        <Link to="/leagues" style={{ color: 'var(--accent)', fontWeight: 700, fontSize: 13, letterSpacing: '0.5px', textDecoration: 'none' }}>
-          DCF FANTASY
-        </Link>
-        {isAdmin && (
-          <span style={{
-            fontSize: 8,
-            padding: '2px 6px',
-            background: 'var(--surface-elevated)',
-            color: 'var(--text-muted)',
-            borderRadius: 4,
-            fontWeight: 700,
-            letterSpacing: '0.5px',
-            textTransform: 'uppercase',
-          }}>
-            ADMIN
-          </span>
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Link to="/leagues" style={{ color: 'var(--accent)', fontWeight: 700, fontSize: 13, letterSpacing: '0.5px', textDecoration: 'none' }}>
+            DCF FANTASY
+          </Link>
+          {isAdmin && (
+            <span style={{
+              fontSize: 8,
+              padding: '2px 6px',
+              background: 'var(--surface-elevated)',
+              color: 'var(--text-muted)',
+              borderRadius: 4,
+              fontWeight: 700,
+              letterSpacing: '0.5px',
+              textTransform: 'uppercase',
+            }}>
+              ADMIN
+            </span>
+          )}
+        </div>
+        <Link to="/leagues" style={linkStyle('/leagues')}>LEAGUES</Link>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
         {user?.isAdmin && (
           <Link to="/admin" style={linkStyle('/admin')}>ADMIN</Link>
         )}
-        <Link to="/leagues" style={linkStyle('/leagues')}>LEAGUES</Link>
         <Link to="/profile" style={linkStyle('/profile')}>PROFILE</Link>
         <button
           onClick={() => { logout(); navigate('/'); }}
