@@ -56,7 +56,8 @@ export function LeagueDetail() {
   const handleJoin = async () => {
     try {
       await api.joinLeague(league.id, code);
-      navigate(`/leagues/${league.id}`);
+      window.location.reload();
+      //navigate(`/leagues/${league.id}`);
     } catch {
       setError('Failed to join league. Check your invite code.');
     }
@@ -338,6 +339,18 @@ export function LeagueDetail() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {statusBadge()}
+          {league.isMember && (
+            <Link
+              to="/leagues"
+              style={{
+                fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 5,
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                color: 'var(--text-muted)', textDecoration: 'none',
+              }}
+            >
+              ← Leagues
+            </Link>
+          )}
           {!league.isMember && (
             <Link
               to="/leagues?tab=join"
