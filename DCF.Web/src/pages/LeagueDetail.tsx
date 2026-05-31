@@ -433,7 +433,11 @@ export function LeagueDetail() {
             : <LeagueScoresTab breakdown={breakdown} captions={league.draftableCaptions!} currentUserId={user?.id} />
         )}
         {activeTab === 'members' && renderMembersTab()}
-        {activeTab === 'picks' && renderPicksTab()}
+        {activeTab === 'picks' && (
+          effectiveStatus === 'NotStarted' || effectiveStatus === 'Scheduled'
+            ? <div style={{ color: 'var(--text-muted)', fontSize: 11, padding: '20px 0' }}>Picks will appear once the draft begins.</div>
+            : renderPicksTab()
+        )}
         {activeTab === 'info' && renderInfoTab()}
       </div>
     </div>
