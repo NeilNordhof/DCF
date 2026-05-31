@@ -3,6 +3,7 @@ import type { CSSProperties, FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Corps, SeasonDetail as SeasonDetailType, Show } from '../types/api';
+import { CorpsIcon } from '../components/CorpsIcon';
 
 const TZ_HOURS: Record<string, number> = { PT: 7, MT: 6, CT: 5, ET: 4 };
 
@@ -84,6 +85,9 @@ export function SeasonDetail() {
   const [editEndDate, setEditEndDate] = useState('');
   const [savingDates, setSavingDates] = useState(false);
 
+  const [corpsSortInputs, setCorpsSortInputs] = useState<Record<string, string>>({});
+  const [savingOrder, setSavingOrder] = useState(false);
+
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
@@ -98,6 +102,11 @@ export function SeasonDetail() {
       setAllCorps(c);
       setShows(sh);
       setSelectedCorpsIds(new Set(s.corpsIds));
+      setCorpsSortInputs(
+        Object.fromEntries(
+          Object.entries(s.corpsSortOrders ?? {}).map(([corpsId, order]) => [corpsId, String(order)])
+        )
+      );
     }).catch(() => { if (!cancelled) setError('Failed to load season.'); });
 
     return () => { cancelled = true; };
@@ -126,6 +135,31 @@ export function SeasonDetail() {
       setError('Failed to save corps.');
     } finally {
       setSavingCorps(false);
+    }
+  };
+
+  const saveCorpsOrder = async () => {
+    if (!id || savingOrder) return;
+    setSavingOrder(true);
+    setError(null);
+
+    try {
+      const orders = Object.entries(corpsSortInputs).map(([corpsId, val]) => ({
+        corpsId,
+        sortOrder: parseInt(val) > 0 ? parseInt(val) : null,
+      }));
+      await api.adminSetCorpsOrder(id, orders);
+      const updated = await api.adminGetSeason(id);
+      setSeason(updated);
+      setCorpsSortInputs(
+        Object.fromEntries(
+          Object.entries(updated.corpsSortOrders ?? {}).map(([corpsId, order]) => [corpsId, String(order)])
+        )
+      );
+    } catch {
+      setError('Failed to save order.');
+    } finally {
+      setSavingOrder(false);
     }
   };
 
@@ -278,6 +312,17 @@ export function SeasonDetail() {
 
   const seasonCorps = allCorps.filter(c => season.corpsIds.includes(c.id));
 
+  const sortedSeasonCorps = [...seasonCorps].sort((a, b) => {
+    const aVal = parseInt(corpsSortInputs[a.id] ?? '');
+    const bVal = parseInt(corpsSortInputs[b.id] ?? '');
+    const aRanked = !isNaN(aVal) && aVal > 0;
+    const bRanked = !isNaN(bVal) && bVal > 0;
+    if (aRanked && bRanked) return aVal - bVal;
+    if (aRanked) return -1;
+    if (bRanked) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
   return (
     <div>
       {showPublishConfirm && (
@@ -400,6 +445,66 @@ export function SeasonDetail() {
               {season.isPublished ? 'Locked (published)' : savingCorps ? 'Saving…' : 'Save Corps'}
             </button>
           </form>
+          {seasonCorps.length > 0 && (
+            <>
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0 12px' }} />
+              <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 4 }}>Draft Order</div>
+              {!season.isPublished && (
+                <div style={{ fontSize: 9, color: 'var(--text-faint)', marginBottom: 10 }}>
+                  Enter prior season placements. List re-sorts as you type.
+                </div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+                {sortedSeasonCorps.map(c => {
+                  const val = corpsSortInputs[c.id] ?? '';
+                  const isUnranked = val === '' || !(parseInt(val) > 0);
+                  return (
+                    <div key={c.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '5px 10px', background: 'var(--surface)',
+                      border: '1px solid var(--border)', borderRadius: 4,
+                    }}>
+                      <input
+                        type="number"
+                        min={1}
+                        value={val}
+                        onChange={e => setCorpsSortInputs(prev => ({ ...prev, [c.id]: e.target.value }))}
+                        disabled={season.isPublished}
+                        placeholder="–"
+                        style={{
+                          width: 36, background: 'var(--bg)',
+                          border: `1px ${isUnranked ? 'dashed' : 'solid'} var(--border-input)`,
+                          borderRadius: 3, padding: '3px 5px',
+                          color: isUnranked ? 'var(--text-faint)' : 'var(--text-heading)',
+                          fontSize: 10, textAlign: 'center',
+                          opacity: season.isPublished ? 0.5 : 1,
+                          outline: 'none',
+                        }}
+                      />
+                      <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={22} />
+                      <span style={{ fontSize: 11, color: isUnranked ? 'var(--text-muted)' : 'var(--text-heading)', flex: 1 }}>
+                        {c.name}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {!season.isPublished && (
+                <button
+                  onClick={saveCorpsOrder}
+                  disabled={savingOrder}
+                  style={{
+                    padding: '7px 14px', borderRadius: 5, fontSize: 11, fontWeight: 800,
+                    background: savingOrder ? 'var(--border)' : 'var(--accent)',
+                    color: savingOrder ? 'var(--text-faint)' : 'var(--bg)',
+                    border: 'none', cursor: savingOrder ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {savingOrder ? 'Saving…' : 'Save Order'}
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
