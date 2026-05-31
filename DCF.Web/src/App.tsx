@@ -20,9 +20,7 @@ export default function App() {
   const { getAccessTokenSilently, isAuthenticated } = useDevAuth();
   const { setUser } = useUser();
 
-  useEffect(() => {
-    setTokenGetter(() => getAccessTokenSilently());
-  }, [getAccessTokenSilently]);
+  setTokenGetter(() => getAccessTokenSilently());
 
   useEffect(() => {
     if (!isAuthenticated) return;
