@@ -6,7 +6,7 @@ import { useMqtt } from '../mqtt/useMqtt';
 import { useDraftPresence } from '../mqtt/useDraftPresence';
 import { useUser } from '../context/UserContext';
 import { CorpsIcon } from '../components/CorpsIcon';
-import type { Corps, DraftState, League, PickPreview } from '../types/api';
+import type { SeasonCorps, DraftState, League, PickPreview } from '../types/api';
 
 export function DraftRoom() {
   const { id } = useParams<{ id: string }>();
@@ -14,7 +14,7 @@ export function DraftRoom() {
   const navigate = useNavigate();
 
   const [league, setLeague] = useState<League | null>(null);
-  const [corps, setCorps] = useState<Corps[]>([]);
+  const [corps, setCorps] = useState<SeasonCorps[]>([]);
   const [selectedCell, setSelectedCell] = useState<{ corpsId: string; caption: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'order' | 'picks'>('order');
@@ -28,8 +28,14 @@ export function DraftRoom() {
 
   useEffect(() => {
     if (!id) return;
-    api.getLeague(id).then(setLeague).catch(() => setError('Failed to load league.'));
-    api.adminGetCorps().then(setCorps).catch(() => {});
+    api.getLeague(id)
+      .then(l => {
+        setLeague(l);
+        if (l.seasonId) {
+          api.getSeasonCorps(l.seasonId).then(setCorps).catch(() => {});
+        }
+      })
+      .catch(() => setError('Failed to load league.'));
   }, [id]);
 
   // Redirect guard — only allow Open, InProgress, Completed
