@@ -26,4 +26,32 @@ public class SeasonsController(DcfDbContext db) : ControllerBase
 
         return Ok(new { id = season.Id, year = season.Year, corpsCount = season.SeasonCorps.Count });
     }
+
+    [HttpGet("{id}/corps")]
+    public async Task<IActionResult> GetCorps(Guid id)
+    {
+        var exists = await db.Seasons.AnyAsync(s => s.Id == id);
+
+        if (!exists)
+        {
+            return NotFound();
+        }
+
+        var corps = await db.SeasonCorps
+            .Where(sc => sc.SeasonId == id)
+            .Include(sc => sc.Corps)
+            .OrderBy(sc => sc.SortOrder == null)
+            .ThenBy(sc => sc.SortOrder)
+            .ThenBy(sc => sc.Corps.Name)
+            .Select(sc => new
+            {
+                id = sc.CorpsId,
+                name = sc.Corps.Name,
+                iconUrl = sc.Corps.IconPath != null ? "/uploads/" + sc.Corps.IconPath : null,
+                sortOrder = sc.SortOrder
+            })
+            .ToListAsync();
+
+        return Ok(corps);
+    }
 }
