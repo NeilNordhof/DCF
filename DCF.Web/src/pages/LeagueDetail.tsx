@@ -120,7 +120,11 @@ export function LeagueDetail() {
   const renderHomeTab = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {standings.length === 0 && (
-        <div style={{ color: 'var(--text-muted)', fontSize: 11, padding: '20px 0' }}>No standings yet.</div>
+        <div style={{ color: 'var(--text-muted)', fontSize: 11, padding: '20px 0' }}>
+          {effectiveStatus === 'NotStarted' || effectiveStatus === 'Scheduled'
+            ? 'Standings will appear once the draft begins.'
+            : 'No standings yet.'}
+        </div>
       )}
       {standings.map((s, i) => {
         const isMe = s.userId === user?.id;
@@ -423,7 +427,11 @@ export function LeagueDetail() {
         minHeight: 200,
       }}>
         {activeTab === 'home' && renderHomeTab()}
-        {activeTab === 'scores' && <LeagueScoresTab breakdown={breakdown} captions={league.draftableCaptions!} currentUserId={user?.id} />}
+        {activeTab === 'scores' && (
+          effectiveStatus === 'NotStarted' || effectiveStatus === 'Scheduled'
+            ? <div style={{ color: 'var(--text-muted)', fontSize: 11, padding: '20px 0' }}>Scores will appear once the draft begins.</div>
+            : <LeagueScoresTab breakdown={breakdown} captions={league.draftableCaptions!} currentUserId={user?.id} />
+        )}
         {activeTab === 'members' && renderMembersTab()}
         {activeTab === 'picks' && renderPicksTab()}
         {activeTab === 'info' && renderInfoTab()}
