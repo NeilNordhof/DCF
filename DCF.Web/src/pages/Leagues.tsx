@@ -139,10 +139,16 @@ function JoinTab() {
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
   const [publicLeagues, setPublicLeagues] = useState<PublicLeague[]>([]);
+  const [myLeagueIds, setMyLeagueIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getPublicLeagues().then(setPublicLeagues).finally(() => setLoading(false));
+    Promise.all([api.getPublicLeagues(), api.getLeagues()])
+      .then(([pub, mine]) => {
+        setPublicLeagues(pub);
+        setMyLeagueIds(new Set(mine.map(l => l.id)));
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   async function handleLookup() {
@@ -193,14 +199,22 @@ function JoinTab() {
       <div style={{ marginTop: 20 }}>
         {loading ? (
           <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Loading…</p>
-        ) : publicLeagues.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-            There are no public leagues to join.{' '}
-            <Link to="/leagues/create" style={{ color: 'var(--accent)' }}>Create one now!</Link>
-          </p>
-        ) : (
+        ) : (() => {
+          const joinable = publicLeagues.filter(l => !myLeagueIds.has(l.id));
+
+          if (joinable.length === 0) {
+            return (
+              <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                {publicLeagues.length === 0
+                  ? <>There are no public leagues to join.{' '}<Link to="/leagues/create" style={{ color: 'var(--accent)' }}>Create one now!</Link></>
+                  : "You've already joined all public leagues."}
+              </p>
+            );
+          }
+
+          return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {publicLeagues.map(l => (
+            {joinable.map(l => (
               <Link
                 key={l.id}
                 to={`/leagues/${l.id}`}
@@ -221,7 +235,8 @@ function JoinTab() {
               </Link>
             ))}
           </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
