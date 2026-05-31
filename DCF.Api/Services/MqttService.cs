@@ -15,6 +15,8 @@ public class MqttService : IMqttService, IHostedService
     private readonly ILogger<MqttService> _logger;
     private readonly IPresenceService _presenceService;
     private readonly SemaphoreSlim _lock = new(1, 1);
+    private readonly CancellationTokenSource _cts = new();
+    private MqttClientOptions? _options;
 
     public MqttService(IConfiguration config, ILogger<MqttService> logger, IPresenceService presenceService)
     {
@@ -27,35 +29,32 @@ public class MqttService : IMqttService, IHostedService
 
     public async Task StartAsync(CancellationToken ct)
     {
-        var options = new MqttClientOptionsBuilder()
+        _options = new MqttClientOptionsBuilder()
             .WithTcpServer(_host, _port)
             .WithCleanStart()
             .Build();
 
+        _client.ApplicationMessageReceivedAsync += OnMessageReceivedAsync;
+        _client.DisconnectedAsync += OnDisconnectedAsync;
+
         try
         {
-            _client.ApplicationMessageReceivedAsync += OnMessageReceivedAsync;
+            await _client.ConnectAsync(_options, ct);
 
-            await _client.ConnectAsync(options, ct);
-
-            await _client.SubscribeAsync(
-                new MqttClientSubscribeOptionsBuilder()
-                    .WithTopicFilter(f => f
-                        .WithTopic("dcf/leagues/+/draft/presence")
-                        .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce))
-                    .Build(),
-                ct);
+            await SubscribePresenceAsync(ct);
 
             _logger.LogInformation("MQTT connected to {Host}:{Port}", _host, _port);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "MQTT connection failed — publishing will be silently skipped");
+            _logger.LogWarning(ex, "MQTT connection failed — will retry in background");
         }
     }
 
     public async Task StopAsync(CancellationToken ct)
     {
+        _cts.Cancel();
+
         if (_client.IsConnected)
         {
             await _client.DisconnectAsync(cancellationToken: ct);
@@ -66,6 +65,8 @@ public class MqttService : IMqttService, IHostedService
     {
         if (!_client.IsConnected)
         {
+            _logger.LogWarning("MQTT publish skipped — not connected (topic: {Topic})", topic);
+
             return;
         }
 
@@ -94,6 +95,49 @@ public class MqttService : IMqttService, IHostedService
         finally
         {
             _lock.Release();
+        }
+    }
+
+    private async Task SubscribePresenceAsync(CancellationToken ct)
+    {
+        await _client.SubscribeAsync(
+            new MqttClientSubscribeOptionsBuilder()
+                .WithTopicFilter(f => f
+                    .WithTopic("dcf/leagues/+/draft/presence")
+                    .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce))
+                .Build(),
+            ct);
+    }
+
+    private async Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs e)
+    {
+        if (_cts.IsCancellationRequested)
+        {
+            return;
+        }
+
+        _logger.LogWarning("MQTT disconnected, reconnecting...");
+
+        while (!_cts.IsCancellationRequested && !_client.IsConnected)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), _cts.Token);
+
+                await _client.ConnectAsync(_options!, _cts.Token);
+
+                await SubscribePresenceAsync(_cts.Token);
+
+                _logger.LogInformation("MQTT reconnected to {Host}:{Port}", _host, _port);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "MQTT reconnect attempt failed, retrying in 5s...");
+            }
         }
     }
 
