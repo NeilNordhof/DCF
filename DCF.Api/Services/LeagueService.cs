@@ -16,7 +16,7 @@ public record LeagueDetail(
     Guid Id, string Name, bool IsPublic, string? InviteCode,
     DraftStatus DraftStatus, DateTimeOffset? DraftStartTime,
     int CorpsPerCaption, Guid CommissionerUserId,
-    IEnumerable<string> DraftableCaptions, int SeasonYear,
+    IEnumerable<string> DraftableCaptions, int SeasonYear, Guid SeasonId,
     IEnumerable<MemberSummary> Members,
     IEnumerable<PickSummary> Picks,
     bool IsMember, int MaxPlayers);
@@ -226,6 +226,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             league.CommissionerUserId,
             league.DraftableCaptions.Select(c => c.ToString()),
             league.Season.Year,
+            league.SeasonId,
             league.Members.Select(m => new MemberSummary(m.UserId, m.User.DisplayName)),
             league.DraftPicks.Select(p => new PickSummary(
                 p.UserId, p.CorpsId, p.Corps.Name,
