@@ -308,6 +308,15 @@ export function LeagueDetail() {
 
   return (
     <div>
+      <Link
+        to={league.isMember ? '/leagues' : '/leagues?tab=join'}
+        style={{
+          display: 'inline-block', marginBottom: 12,
+          fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textDecoration: 'none',
+        }}
+      >
+        ← Leagues
+      </Link>
       {/* Header bar */}
       <div style={{
         background: 'var(--surface)',
@@ -339,30 +348,6 @@ export function LeagueDetail() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {statusBadge()}
-          {league.isMember && (
-            <Link
-              to="/leagues"
-              style={{
-                fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 5,
-                background: 'var(--surface)', border: '1px solid var(--border)',
-                color: 'var(--text-muted)', textDecoration: 'none',
-              }}
-            >
-              ← Leagues
-            </Link>
-          )}
-          {!league.isMember && (
-            <Link
-              to="/leagues?tab=join"
-              style={{
-                fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 5,
-                background: 'var(--surface)', border: '1px solid var(--border)',
-                color: 'var(--text-muted)', textDecoration: 'none',
-              }}
-            >
-              ← Browse
-            </Link>
-          )}
           {!league.isMember &&
             (league.memberCount ?? 0) < league.maxPlayers &&
             (effectiveStatus === 'NotStarted' || effectiveStatus === 'Scheduled') && (
