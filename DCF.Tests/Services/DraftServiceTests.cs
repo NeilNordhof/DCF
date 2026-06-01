@@ -379,3 +379,70 @@ public class PublishStateTests
         Assert.Contains(user2.ToString(), ids);
     }
 }
+
+public class SubmitPickTests
+{
+    private static DcfDbContext CreateDb() =>
+        new(new DbContextOptionsBuilder<DcfDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options);
+
+    private static (DcfDbContext Db, DraftService Service, Guid PlayerId, Guid LeagueId, Guid Corps1Id, Guid Corps2Id) Seed()
+    {
+        var db = CreateDb();
+        var player = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|player", DisplayName = "Player", Email = "p@test.com" };
+        var corps1 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        var corps2 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Bluecoats" };
+        var draftOrder = JsonSerializer.Serialize(new[] { player.Id.ToString() });
+        var league = new LeagueEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test League",
+            CommissionerUserId = player.Id,
+            DraftStatus = DraftStatus.InProgress,
+            DraftOrderJson = draftOrder,
+            CurrentPickNumber = 0,
+            InviteCode = "TESTCODE",
+            DraftableCaptions = [ComputedCaption.Brass],
+            CorpsPerCaption = 1
+        };
+        db.Users.Add(player);
+        db.Corps.AddRange(corps1, corps2);
+        db.Leagues.Add(league);
+        db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = player.Id });
+        db.SaveChanges();
+        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService()), player.Id, league.Id, corps1.Id, corps2.Id);
+    }
+
+    [Fact]
+    public async Task SubmitPick_ThrowsWhenCaptionQuotaExceeded()
+    {
+        var (db, svc, playerId, leagueId, corps1Id, corps2Id) = Seed();
+
+        // Pre-seed a pick for corps1+Brass, filling the quota of 1
+        db.DraftPicks.Add(new DraftPickEntity
+        {
+            Id = Guid.NewGuid(), LeagueId = leagueId, UserId = playerId,
+            CorpsId = corps1Id, Caption = ComputedCaption.Brass,
+            PickNumber = 0, RoundNumber = 0
+        });
+        await db.SaveChangesAsync();
+
+        // Attempt to pick corps2+Brass (not taken, but quota already met)
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => svc.SubmitPickAsync(leagueId, "auth|player", corps2Id, ComputedCaption.Brass));
+
+        Assert.Contains("maximum", ex.Message);
+    }
+
+    [Fact]
+    public async Task SubmitPick_SucceedsWhenWithinQuota()
+    {
+        var (db, svc, _, leagueId, corps1Id, _) = Seed();
+
+        var (id, pickNumber) = await svc.SubmitPickAsync(leagueId, "auth|player", corps1Id, ComputedCaption.Brass);
+
+        Assert.NotEqual(Guid.Empty, id);
+        Assert.Equal(0, pickNumber);
+    }
+}

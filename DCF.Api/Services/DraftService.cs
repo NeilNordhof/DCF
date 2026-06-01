@@ -157,6 +157,13 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
             throw new InvalidOperationException("That corps+caption is already drafted in this league");
         }
 
+        var picksForCaption = league.DraftPicks.Count(p => p.UserId == user.Id && p.Caption == caption);
+
+        if (picksForCaption >= league.CorpsPerCaption)
+        {
+            throw new InvalidOperationException($"You have already drafted the maximum {league.CorpsPerCaption} corps for this caption");
+        }
+
         int totalPicks = league.Members.Count * league.DraftableCaptions.Length * league.CorpsPerCaption;
         int round = league.CurrentPickNumber / draftOrder.Length;
         var pick = new DraftPickEntity
