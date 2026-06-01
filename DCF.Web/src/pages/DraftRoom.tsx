@@ -6,6 +6,7 @@ import { useMqtt } from '../mqtt/useMqtt';
 import { useDraftPresence } from '../mqtt/useDraftPresence';
 import { useUser } from '../context/UserContext';
 import { CorpsIcon } from '../components/CorpsIcon';
+import { Nav } from '../components/Nav';
 import type { SeasonCorps, DraftState, League, PickPreview } from '../types/api';
 
 export function DraftRoom() {
@@ -473,37 +474,40 @@ export function DraftRoom() {
   // ── Layout ────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 92px)', background: 'var(--bg)', color: 'var(--text)', overflow: 'hidden' }}>
-      {renderTopBar()}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Left — grid + submit bar */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {renderGrid()}
-          {renderSubmitBar()}
-        </div>
-        {/* Right — side panel */}
-        <div style={{ width: 280, background: 'var(--surface-2)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
-            {(['order', 'picks'] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  flex: 1, padding: '10px 0', fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                  background: 'transparent', border: 'none',
-                  color: activeTab === tab ? 'var(--accent)' : 'var(--text-muted)',
-                  borderBottom: activeTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
-                }}
-              >
-                {tab === 'order' ? 'Draft Order' : 'Picks'}
-              </button>
-            ))}
+    <>
+      <Nav />
+      <div style={{ height: 'calc(100vh - 44px)', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
+        <div style={{ maxWidth: 1200, width: '100%', height: '100%', margin: '0 auto', padding: '0 20px', boxSizing: 'border-box', display: 'flex' }}>
+          {/* Left — bar + grid */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {renderTopBar()}
+            {renderGrid()}
+            {renderSubmitBar()}
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
-            {activeTab === 'order' ? renderDraftOrderTab() : renderPicksTab()}
+          {/* Right — side panel */}
+          <div style={{ width: 280, background: 'var(--surface-2)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+              {(['order', 'picks'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    flex: 1, padding: '10px 0', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                    background: 'transparent', border: 'none',
+                    color: activeTab === tab ? 'var(--accent)' : 'var(--text-muted)',
+                    borderBottom: activeTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
+                  }}
+                >
+                  {tab === 'order' ? 'Draft Order' : 'Picks'}
+                </button>
+              ))}
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
+              {activeTab === 'order' ? renderDraftOrderTab() : renderPicksTab()}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
