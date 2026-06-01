@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useMqtt } from '../mqtt/useMqtt';
 import { useDraftPresence } from '../mqtt/useDraftPresence';
@@ -129,58 +129,157 @@ export function DraftRoom() {
     return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
   };
 
-  // ── Top bar ──────────────────────────────────────────────────────────────
+  // ── Bar ───────────────────────────────────────────────────────────────────
 
-  const renderTopBar = () => {
-    if (status === 'Open' || (status !== 'InProgress' && status !== 'Completed' && league.draftStatus === 'Scheduled')) {
-      return (
-        <div style={{ background: 'linear-gradient(90deg, #0f1a0f, #101810)', borderBottom: '2px solid var(--green-border)', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div>
-            <div style={{ fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--green)', fontWeight: 700 }}>Draft Begins In</div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--text-h)', fontVariantNumeric: 'tabular-nums' }}>{getCountdown()}</div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ textAlign: 'right' }}>
-              {league.draftStartTime && (
-                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{new Date(league.draftStartTime).toLocaleString()}</div>
+  const renderBar = () => {
+    const hasScheduledTime = !!league.draftStartTime;
+    const commissionerName = draftState.members.find(m => m.userId === league.commissionerUserId)?.displayName ?? 'the commissioner';
+    const round = Math.floor(draftState.currentPickNumber / draftState.members.length) + 1;
+    const pick = (draftState.currentPickNumber % draftState.members.length) + 1;
+    const selectedCorps = corps.find(c => c.id === selectedCell?.corpsId);
+    const canSubmit = isMyTurn && !!selectedCell && !submitting;
+    const selectionLabel = selectedCorps
+      ? `${selectedCorps.name} · ${CAPTION_SHORT[selectedCell!.caption] ?? selectedCell!.caption}`
+      : '— · —';
+
+    let barBg: string;
+    let barAccent: string;
+
+    if (status === 'Open') {
+      barBg = 'linear-gradient(90deg, #0f1a0f, #101810)';
+      barAccent = 'var(--green)';
+    }
+    else if (status === 'InProgress') {
+      barBg = 'linear-gradient(90deg, #2e1065, #1a1535)';
+      barAccent = 'var(--accent)';
+    }
+    else {
+      barBg = 'var(--surface)';
+      barAccent = 'var(--border)';
+    }
+
+    const renderStatus = () => {
+      if (status === 'Open') {
+        if (hasScheduledTime) {
+          return (
+            <>
+              <div style={{ flexShrink: 0 }}>
+                <div style={{ fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--green)', fontWeight: 700 }}>Draft Begins In</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-heading)', fontVariantNumeric: 'tabular-nums' }}>{getCountdown()}</div>
+                {league.draftStartTime && (
+                  <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>{new Date(league.draftStartTime).toLocaleString()}</div>
+                )}
+              </div>
+              {league.isCommissioner && (
+                <button
+                  onClick={startDraft}
+                  style={{ border: '1px solid var(--green-border)', color: 'var(--green)', background: 'transparent', borderRadius: 5, padding: '5px 12px', fontSize: 10, cursor: 'pointer', fontWeight: 700, flexShrink: 0 }}
+                >
+                  Start Early
+                </button>
               )}
-              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{league.name}</div>
+            </>
+          );
+        }
+
+        if (league.isCommissioner) {
+          return (
+            <button
+              onClick={startDraft}
+              style={{ border: '1px solid var(--green-border)', color: 'var(--green)', background: 'transparent', borderRadius: 5, padding: '5px 12px', fontSize: 10, cursor: 'pointer', fontWeight: 700, flexShrink: 0 }}
+            >
+              Start Draft
+            </button>
+          );
+        }
+
+        return (
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            Waiting for {commissionerName} to start the draft
+          </span>
+        );
+      }
+
+      if (status === 'InProgress') {
+        return (
+          <>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 700 }}>
+                {isMyTurn ? 'On the Clock' : 'Now Picking'}
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-heading)' }}>
+                {isMyTurn ? (user?.displayName ?? '—') : (currentDrafter?.displayName ?? '—')}
+                <span style={{ fontSize: 9, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>· Round {round} · Pick {pick}</span>
+              </div>
             </div>
-            {league.isCommissioner && (
-              <button onClick={startDraft} style={{ border: '1px solid var(--green-border)', color: 'var(--green)', background: 'transparent', borderRadius: 5, padding: '4px 10px', fontSize: 10, cursor: 'pointer', fontWeight: 600 }}>
-                Start Early
+            {isMyTurn && (
+              <>
+                <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
+                <div style={{ flexShrink: 0 }}>
+                  <div style={{ fontSize: 7, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>Selected</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{selectionLabel}</div>
+                </div>
+                <button
+                  onClick={submitPick}
+                  disabled={!canSubmit}
+                  style={{
+                    background: canSubmit ? 'var(--accent)' : 'var(--border)',
+                    color: canSubmit ? '#0d0f14' : 'var(--text-faint)',
+                    border: 'none', borderRadius: 5, padding: '5px 14px',
+                    fontSize: 10, fontWeight: 800, letterSpacing: '0.5px',
+                    textTransform: 'uppercase', cursor: canSubmit ? 'pointer' : 'not-allowed',
+                    flexShrink: 0,
+                  }}
+                >
+                  Submit Pick
+                </button>
+              </>
+            )}
+            {!isMyTurn && league.isCommissioner && (
+              <button
+                onClick={skipPick}
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 5, padding: '5px 10px', fontSize: 10, cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}
+              >
+                Skip Pick
               </button>
             )}
-          </div>
-        </div>
-      );
-    }
+          </>
+        );
+      }
 
-    if (status === 'InProgress') {
       return (
-        <div style={{ background: 'linear-gradient(90deg, #2e1065, #1a1535)', borderBottom: '2px solid var(--accent)', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div>
-            <div style={{ fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 700 }}>
-              {isMyTurn ? 'On the Clock' : 'Now Picking'}
-            </div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-h)' }}>
-              {isMyTurn ? (user?.displayName ?? '—') : (currentDrafter?.displayName ?? '—')}
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-              Round {Math.floor(draftState.currentPickNumber / draftState.members.length) + 1} · Pick {(draftState.currentPickNumber % draftState.members.length) + 1}
-            </div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{league.name}</div>
-          </div>
-        </div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>Draft Complete</div>
       );
-    }
+    };
 
     return (
-      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Draft Complete</div>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{league.name}</div>
+      <div style={{
+        background: barBg,
+        borderBottom: `2px solid ${barAccent}`,
+        padding: '10px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        flexShrink: 0,
+      }}>
+        <Link
+          to={`/leagues/${id}`}
+          style={{
+            fontSize: 10, fontWeight: 600, color: 'var(--text-muted)',
+            background: 'rgba(255,255,255,0.07)', border: '1px solid var(--border)',
+            borderRadius: 4, padding: '3px 9px', textDecoration: 'none', flexShrink: 0,
+          }}
+        >
+          ← League
+        </Link>
+        <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-heading)', flexShrink: 0 }}>
+          {league.name}
+        </div>
+        <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+          {renderStatus()}
+        </div>
       </div>
     );
   };
@@ -282,50 +381,6 @@ export function DraftRoom() {
             ))}
           </tbody>
         </table>
-      </div>
-    );
-  };
-
-  // ── Submit bar ────────────────────────────────────────────────────────────
-
-  const renderSubmitBar = () => {
-    if (status === 'Completed') return null;
-
-    const selectedCorps = corps.find(c => c.id === selectedCell?.corpsId);
-    const selectionLabel = isMyTurn && selectedCell
-      ? `${selectedCorps?.name ?? '—'} · ${selectedCell.caption}`
-      : '— · —';
-    const canSubmit = isMyTurn && !!selectedCell && !submitting;
-
-    return (
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--accent-border)', borderRadius: 6, padding: '8px 12px', margin: '0 12px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexShrink: 0 }}>
-        <div>
-          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>Selected</div>
-          <div style={{ fontSize: 11, color: canSubmit ? 'var(--text-h)' : 'var(--text-muted)' }}>{selectionLabel}</div>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {league.isCommissioner && status === 'InProgress' && !isMyTurn && (
-            <button
-              onClick={skipPick}
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 5, padding: '5px 10px', fontSize: 10, cursor: 'pointer', fontWeight: 600 }}
-            >
-              Skip Pick
-            </button>
-          )}
-          <button
-            onClick={submitPick}
-            disabled={!canSubmit}
-            style={{
-              background: canSubmit ? 'var(--accent)' : 'var(--border)',
-              color: canSubmit ? '#0d0f14' : 'var(--text-faint)',
-              border: 'none', borderRadius: 5, padding: '5px 14px',
-              fontSize: 10, fontWeight: 800, letterSpacing: '0.5px',
-              textTransform: 'uppercase', cursor: canSubmit ? 'pointer' : 'not-allowed',
-            }}
-          >
-            Submit Pick
-          </button>
-        </div>
       </div>
     );
   };
@@ -497,9 +552,8 @@ export function DraftRoom() {
         <div style={{ maxWidth: 1200, width: '100%', height: '100%', margin: '0 auto', padding: '0 20px', boxSizing: 'border-box', display: 'flex' }}>
           {/* Left — bar + grid */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {renderTopBar()}
+            {renderBar()}
             {renderGrid()}
-            {renderSubmitBar()}
           </div>
           {/* Right — side panel */}
           <div style={{ width: 280, background: 'var(--surface-2)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
