@@ -9,10 +9,14 @@ export function useMqtt<T>(topic: string) {
   const clientRef = useRef<MqttClient | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const client = mqtt.connect(MQTT_URL);
     clientRef.current = client;
 
-    client.on('connect', () => client.subscribe(topic));
+    client.on('connect', () => {
+      if (cancelled) return;
+      client.subscribe(topic);
+    });
     client.on('message', (_topic, payload) => {
       try {
         setMessage(JSON.parse(payload.toString()) as T);
@@ -20,9 +24,12 @@ export function useMqtt<T>(topic: string) {
         // ignore malformed messages
       }
     });
-    client.on('error', () => { /* ignore connection errors */ });
+    client.on('error', () => { /* connection errors are non-fatal */ });
 
-    return () => { client.end(); };
+    return () => {
+      cancelled = true;
+      client.end();
+    };
   }, [topic]);
 
   return message;
