@@ -293,6 +293,13 @@ export function DraftRoom() {
     const cellWidth = captions.length <= 3 ? Math.min(88, Math.floor(176 / captions.length)) : 44;
     const hGap = H_GAP[captions.length] ?? 2;
 
+    const myPicksByCaption: Record<string, number> = {};
+    draftState.picks
+      .filter(p => p.userId === user?.id)
+      .forEach(p => { myPicksByCaption[p.caption] = (myPicksByCaption[p.caption] ?? 0) + 1; });
+    const isCaptionFull = (cap: string) =>
+      (myPicksByCaption[cap] ?? 0) >= (league.corpsPerCaption ?? 0);
+
     return (
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {status === 'Open' && (
@@ -304,8 +311,25 @@ export function DraftRoom() {
           <thead>
             <tr>
               {captions.map(cap => (
-                <th key={cap} style={{ width: cellWidth, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', paddingBottom: 6, textAlign: 'center', fontWeight: 600 }}>
+                <th key={cap} style={{
+                  width: cellWidth,
+                  fontSize: 10,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  color: 'var(--text-muted)',
+                  paddingTop: 4,
+                  paddingBottom: 6,
+                  textAlign: 'center',
+                  fontWeight: 600,
+                  position: 'sticky',
+                  top: 0,
+                  background: 'var(--bg)',
+                  zIndex: 1,
+                }}>
                   {CAPTION_SHORT[cap] ?? cap}
+                  <div style={{ fontSize: 7, color: 'var(--text-faint)', marginTop: 1, fontWeight: 400, textTransform: 'none', letterSpacing: 'normal' }}>
+                    {myPicksByCaption[cap] ?? 0}/{league.corpsPerCaption}
+                  </div>
                 </th>
               ))}
             </tr>
@@ -318,11 +342,12 @@ export function DraftRoom() {
                   const selected = !gridLocked && selectedCell?.corpsId === c.id && selectedCell?.caption === cap;
                   const previewed = !taken && !selected && validPreview?.corpsId === c.id && validPreview?.caption === cap;
                   const isLobby = status === 'Open';
+                  const captionFull = isCaptionFull(cap) && !taken;
 
                   let bg = '#1c1f2c';
                   let border = '1px solid var(--border)';
                   let boxShadow = 'none';
-                  const cursor = gridLocked || taken ? 'not-allowed' : 'pointer';
+                  const cursor = gridLocked || taken || captionFull ? 'not-allowed' : 'pointer';
                   let content: ReactNode;
 
                   if (taken) {
@@ -335,6 +360,11 @@ export function DraftRoom() {
                     border = '2px solid var(--accent)';
                     boxShadow = '0 0 10px var(--accent-bg)';
                     content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={34} style={{ outline: '1px solid var(--accent)', outlineOffset: 2 }} />;
+                  }
+                  else if (captionFull) {
+                    bg = '#12141a';
+                    border = '1px solid var(--border-subtle)';
+                    content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={36} style={{ opacity: 0.25 }} />;
                   }
                   else if (previewed) {
                     const drafter = draftState.members.find(m => m.userId === validPreview!.userId);
@@ -371,7 +401,7 @@ export function DraftRoom() {
                           opacity: isLobby ? 0.45 : 1,
                           userSelect: 'none',
                           transition: 'background 0.1s',
-                          pointerEvents: gridLocked ? 'none' : 'auto',
+                          pointerEvents: (gridLocked || captionFull) ? 'none' : 'auto',
                         }}
                       >
                         {content}
