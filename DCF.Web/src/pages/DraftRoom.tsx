@@ -24,7 +24,7 @@ const CAPTION_SHORT: Record<string, string> = {
   MusicAnalysis:         'MA',
 };
 
-const H_GAP: Record<number, number> = { 3: 18, 4: 12, 5: 7 };
+const H_GAP: Partial<Record<number, number>> = { 3: 18, 4: 12, 5: 7 };
 
 export function DraftRoom() {
   const { id } = useParams<{ id: string }>();
@@ -294,9 +294,9 @@ export function DraftRoom() {
     const hGap = H_GAP[captions.length] ?? 2;
 
     return (
-      <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {status === 'Open' && (
-          <div style={{ position: 'absolute', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>
+          <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 8, alignSelf: 'flex-start' }}>
             Pick board locks until the draft begins
           </div>
         )}
