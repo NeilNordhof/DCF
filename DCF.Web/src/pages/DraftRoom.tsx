@@ -26,9 +26,6 @@ export function DraftRoom() {
   const pickPreview = useMqtt<PickPreview>(`dcf/leagues/${id}/draft/pick`);
   const { publishPickPreview } = useDraftPresence(id!, user?.id);
 
-  console.log('League:', league);
-  console.log('Draft state:', draftState);
-
   useEffect(() => {
     if (!id) return;
     api.getLeague(id)
@@ -476,7 +473,7 @@ export function DraftRoom() {
   // ── Layout ────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 92px)', background: 'var(--bg)', color: 'var(--text)', overflow: 'hidden' }}>
       {renderTopBar()}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Left — grid + submit bar */}

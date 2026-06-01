@@ -26,7 +26,7 @@ const router = createBrowserRouter([
       { path: '/leagues', element: <ProtectedRoute><AuthenticatedLayout><Leagues /></AuthenticatedLayout></ProtectedRoute> },
       { path: '/leagues/create', element: <ProtectedRoute><AuthenticatedLayout><LeagueCreate /></AuthenticatedLayout></ProtectedRoute> },
       { path: '/leagues/:id', element: <ProtectedRoute><AuthenticatedLayout><LeagueDetail /></AuthenticatedLayout></ProtectedRoute> },
-      { path: '/leagues/:id/draft', element: <ProtectedRoute><DraftRoom /></ProtectedRoute> },
+      { path: '/leagues/:id/draft', element: <ProtectedRoute><AuthenticatedLayout><DraftRoom /></AuthenticatedLayout></ProtectedRoute> },
       { path: '/admin', element: <AdminRoute><AuthenticatedLayout><Admin /></AuthenticatedLayout></AdminRoute> },
       { path: '/admin/seasons/:id', element: <AdminRoute><AuthenticatedLayout><SeasonDetail /></AuthenticatedLayout></AdminRoute> },
       { path: '/profile', element: <ProtectedRoute><AuthenticatedLayout><Profile /></AuthenticatedLayout></ProtectedRoute> },
