@@ -291,20 +291,21 @@ export function DraftRoom() {
     const captions = league.draftableCaptions!;
     const gridLocked = status !== 'InProgress' || !isMyTurn;
     const cellWidth = captions.length <= 3 ? Math.min(88, Math.floor(176 / captions.length)) : 44;
+    const hGap = H_GAP[captions.length] ?? 2;
 
     return (
-      <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
         {status === 'Open' && (
-          <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 8 }}>
+          <div style={{ position: 'absolute', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>
             Pick board locks until the draft begins
           </div>
         )}
-        <table style={{ borderCollapse: 'separate', borderSpacing: 2 }}>
+        <table style={{ borderCollapse: 'separate', borderSpacing: `${hGap}px 3px` }}>
           <thead>
             <tr>
               {captions.map(cap => (
-                <th key={cap} style={{ width: cellWidth, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', paddingBottom: 6, textAlign: 'center', fontWeight: 600 }}>
-                  {cap}
+                <th key={cap} style={{ width: cellWidth, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', paddingBottom: 6, textAlign: 'center', fontWeight: 600 }}>
+                  {CAPTION_SHORT[cap] ?? cap}
                 </th>
               ))}
             </tr>
@@ -318,8 +319,8 @@ export function DraftRoom() {
                   const previewed = !taken && !selected && validPreview?.corpsId === c.id && validPreview?.caption === cap;
                   const isLobby = status === 'Open';
 
-                  let bg = 'var(--green-bg)';
-                  let border = '1px solid var(--green-border)';
+                  let bg = '#1c1f2c';
+                  let border = '1px solid var(--border)';
                   let boxShadow = 'none';
                   const cursor = gridLocked || taken ? 'not-allowed' : 'pointer';
                   let content: ReactNode;
