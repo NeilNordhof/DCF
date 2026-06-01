@@ -298,7 +298,7 @@ export function DraftRoom() {
       .filter(p => p.userId === user?.id)
       .forEach(p => { myPicksByCaption[p.caption] = (myPicksByCaption[p.caption] ?? 0) + 1; });
     const isCaptionFull = (cap: string) =>
-      (myPicksByCaption[cap] ?? 0) >= (league.corpsPerCaption ?? 0);
+      (myPicksByCaption[cap] ?? 0) >= league.corpsPerCaption!;
 
     return (
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
