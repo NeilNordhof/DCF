@@ -29,6 +29,7 @@ export interface League {
   maxPlayers: number;
   memberCount: number;
   isMember?: boolean;
+  isCommissioner?: boolean;
   userRank?: number;
   userScore?: number;
   members?: Member[];

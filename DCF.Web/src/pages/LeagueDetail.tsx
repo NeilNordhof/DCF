@@ -50,7 +50,6 @@ export function LeagueDetail() {
     return <div style={{ color: 'var(--text-muted)', padding: 16 }}>Loading…</div>;
   }
 
-  const isCommissioner = user?.id !== undefined && user.id === league.commissionerUserId;
   const effectiveStatus = draftState?.status ?? league.draftStatus;
 
   const handleJoin = async () => {
@@ -64,7 +63,7 @@ export function LeagueDetail() {
   };
 
   const openDraft = () => {
-    if (id) api.openDraft(id).catch(() => {});
+    if (id) api.openDraft(id).then(() => {navigate(`/leagues/${id}/draft`)}).catch(() => {});
   };
 
   const copyInviteCode = () => {
@@ -377,12 +376,12 @@ export function LeagueDetail() {
               Join Draft Room →
             </button>
           )}
-          {isCommissioner && league.draftStatus === 'NotStarted' && !draftState && (
+          {league.isCommissioner && league.draftStatus === 'NotStarted' && !draftState && (
             <button
               onClick={openDraft}
               style={{
                 fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 5,
-                background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)',
+                background: 'var(--accent)', border: '1px solid var(--border)', color: '#fff)',
                 cursor: 'pointer',
               }}
             >

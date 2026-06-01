@@ -19,7 +19,7 @@ public record LeagueDetail(
     IEnumerable<string> DraftableCaptions, int SeasonYear, Guid SeasonId,
     IEnumerable<MemberSummary> Members,
     IEnumerable<PickSummary> Picks,
-    bool IsMember, int MaxPlayers);
+    bool IsMember, bool IsCommissioner, int MaxPlayers);
 
 public record MemberSummary(Guid UserId, string DisplayName);
 
@@ -202,6 +202,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             : null;
 
         var isMember = user is not null && league.Members.Any(m => m.UserId == user.Id);
+        var isCommissioner = user is not null && league.CommissionerUserId == user.Id;
 
         if (!isMember && !league.IsPublic)
         {
@@ -232,6 +233,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
                 p.UserId, p.CorpsId, p.Corps.Name,
                 p.Caption.ToString(), p.PickNumber, p.RoundNumber)),
             isMember,
+            isCommissioner,
             league.MaxPlayers);
     }
 

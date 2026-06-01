@@ -26,6 +26,9 @@ export function DraftRoom() {
   const pickPreview = useMqtt<PickPreview>(`dcf/leagues/${id}/draft/pick`);
   const { publishPickPreview } = useDraftPresence(id!, user?.id);
 
+  console.log('League:', league);
+  console.log('Draft state:', draftState);
+
   useEffect(() => {
     if (!id) return;
     api.getLeague(id)
@@ -59,8 +62,6 @@ export function DraftRoom() {
 
   const status = draftState.status;
   const isMyTurn = status === 'InProgress' && draftState.currentDrafterId === user?.id;
-  const isCommissioner = user?.id !== undefined && user.id === league.commissionerUserId;
-
   const takenSet = new Set(draftState.picks.map(p => `${p.corpsId}|${p.caption}`));
   const isTaken = (corpsId: string, caption: string) => takenSet.has(`${corpsId}|${caption}`);
   const isOnline = (userId: string) => (draftState.onlineUserIds ?? []).includes(userId);
@@ -130,7 +131,7 @@ export function DraftRoom() {
               )}
               <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{league.name}</div>
             </div>
-            {isCommissioner && (
+            {league.isCommissioner && (
               <button onClick={startDraft} style={{ border: '1px solid var(--green-border)', color: 'var(--green)', background: 'transparent', borderRadius: 5, padding: '4px 10px', fontSize: 10, cursor: 'pointer', fontWeight: 600 }}>
                 Start Early
               </button>
@@ -288,7 +289,7 @@ export function DraftRoom() {
           <div style={{ fontSize: 11, color: canSubmit ? 'var(--text-h)' : 'var(--text-muted)' }}>{selectionLabel}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {isCommissioner && status === 'InProgress' && !isMyTurn && (
+          {league.isCommissioner && status === 'InProgress' && !isMyTurn && (
             <button
               onClick={skipPick}
               style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 5, padding: '5px 10px', fontSize: 10, cursor: 'pointer', fontWeight: 600 }}
