@@ -463,7 +463,11 @@ export function SeasonDetail() {
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '5px 10px', background: 'var(--surface)',
                       border: '1px solid var(--border)', borderRadius: 4,
-                    }}>
+                    }}>                      
+                      <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={22} />
+                      <span style={{ fontSize: 11, color: isUnranked ? 'var(--text-muted)' : 'var(--text-heading)', flex: 1 }}>
+                        {c.name}
+                      </span>
                       <input
                         type="number"
                         min={1}
@@ -472,7 +476,7 @@ export function SeasonDetail() {
                         disabled={season.isPublished}
                         placeholder="–"
                         style={{
-                          width: 36, background: 'var(--bg)',
+                          width: 60, background: 'var(--bg)',
                           border: `1px ${isUnranked ? 'dashed' : 'solid'} var(--border-input)`,
                           borderRadius: 3, padding: '3px 5px',
                           color: isUnranked ? 'var(--text-faint)' : 'var(--text-heading)',
@@ -481,10 +485,6 @@ export function SeasonDetail() {
                           outline: 'none',
                         }}
                       />
-                      <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={22} />
-                      <span style={{ fontSize: 11, color: isUnranked ? 'var(--text-muted)' : 'var(--text-heading)', flex: 1 }}>
-                        {c.name}
-                      </span>
                     </div>
                   );
                 })}
