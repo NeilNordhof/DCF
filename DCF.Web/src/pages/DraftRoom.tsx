@@ -9,6 +9,23 @@ import { CorpsIcon } from '../components/CorpsIcon';
 import { Nav } from '../components/Nav';
 import type { SeasonCorps, DraftState, League, PickPreview } from '../types/api';
 
+const CAPTION_SHORT: Record<string, string> = {
+  GeneralEffectCombined: 'GE',
+  GeneralEffect1:        'GE-Vis',
+  GeneralEffect2:        'GE-Mus',
+  VisualCombined:        'Vis',
+  Visual:                'Vis',
+  Colorguard:            'CG',
+  VisualProficiency:     'VP',
+  VisualAnalysis:        'VA',
+  MusicCombined:         'Mus',
+  Brass:                 'Br',
+  Percussion:            'Perc',
+  MusicAnalysis:         'MA',
+};
+
+const H_GAP: Record<number, number> = { 3: 18, 4: 12, 5: 7 };
+
 export function DraftRoom() {
   const { id } = useParams<{ id: string }>();
   const { user } = useUser();
