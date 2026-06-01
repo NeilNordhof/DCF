@@ -269,6 +269,9 @@ namespace DCF.Data.Migrations
                     b.Property<Guid>("CorpsId")
                         .HasColumnType("uuid");
 
+                    b.Property<int?>("SortOrder")
+                        .HasColumnType("integer");
+
                     b.HasKey("SeasonId", "CorpsId");
 
                     b.HasIndex("CorpsId");
