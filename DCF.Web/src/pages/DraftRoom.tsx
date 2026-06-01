@@ -134,12 +134,13 @@ export function DraftRoom() {
   const renderBar = () => {
     const hasScheduledTime = !!league.draftStartTime;
     const commissionerName = draftState.members.find(m => m.userId === league.commissionerUserId)?.displayName ?? 'the commissioner';
-    const round = Math.floor(draftState.currentPickNumber / draftState.members.length) + 1;
-    const pick = (draftState.currentPickNumber % draftState.members.length) + 1;
+    const memberCount = draftState.members.length || 1;
+    const round = Math.floor(draftState.currentPickNumber / memberCount) + 1;
+    const pick = (draftState.currentPickNumber % memberCount) + 1;
     const selectedCorps = corps.find(c => c.id === selectedCell?.corpsId);
     const canSubmit = isMyTurn && !!selectedCell && !submitting;
-    const selectionLabel = selectedCorps
-      ? `${selectedCorps.name} · ${CAPTION_SHORT[selectedCell!.caption] ?? selectedCell!.caption}`
+    const selectionLabel = (selectedCorps && selectedCell)
+      ? `${selectedCorps.name} · ${CAPTION_SHORT[selectedCell.caption] ?? selectedCell.caption}`
       : '— · —';
 
     let barBg: string;
