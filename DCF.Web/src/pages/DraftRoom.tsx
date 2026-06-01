@@ -134,7 +134,7 @@ export function DraftRoom() {
   const renderBar = () => {
     const hasScheduledTime = !!league.draftStartTime;
     const commissionerName = draftState.members.find(m => m.userId === league.commissionerUserId)?.displayName ?? 'the commissioner';
-    const memberCount = draftState.members.length || 1;
+    const memberCount = draftState.draftOrder.length || 1;
     const round = Math.floor(draftState.currentPickNumber / memberCount) + 1;
     const pick = (draftState.currentPickNumber % memberCount) + 1;
     const selectedCorps = corps.find(c => c.id === selectedCell?.corpsId);
@@ -404,7 +404,7 @@ export function DraftRoom() {
               <span style={{ fontSize: 7, color: isOnline(m.userId) ? 'var(--green)' : 'var(--text-faint)', flexShrink: 0 }}>
                 {isOnline(m.userId) ? '●' : '○'}
               </span>
-              <span style={{ fontSize: 11, color: 'var(--text-h)' }}>{m.displayName}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-heading)' }}>{m.displayName}</span>
             </div>
           ))}
           <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 8 }}>
@@ -448,7 +448,7 @@ export function DraftRoom() {
             <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--accent-bg)', border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: 'var(--accent)', flexShrink: 0 }}>
               {draftState.currentPickNumber + 1}
             </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-h)' }}>{currentDrafter.displayName}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-heading)' }}>{currentDrafter.displayName}</span>
           </div>
         )}
         {upcomingOrder.length > 0 && (
@@ -525,7 +525,7 @@ export function DraftRoom() {
                         #{pick.pickNumber + 1}
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-h)' }}>{pick.corpsName}</div>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-heading)' }}>{pick.corpsName}</div>
                         <div style={{ fontSize: 8, color: 'var(--text-muted)' }}>Pick #{pick.pickNumber + 1} overall</div>
                       </div>
                     </div>
