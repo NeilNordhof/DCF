@@ -142,11 +142,33 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
         }
 
         var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson)!;
-        var currentDrafterId = GetCurrentDrafter(draftOrder, league.CurrentPickNumber);
+        int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
+        var completedPickNumbers = new HashSet<int>(league.DraftPicks.Select(p => p.PickNumber));
+        bool inMakeupPhase = league.CurrentPickNumber >= mainTotalPicks;
 
-        if (currentDrafterId != user.Id.ToString())
+        List<string>? makeupQueue = null;
+
+        if (inMakeupPhase)
         {
-            throw new InvalidOperationException("Not your turn");
+            makeupQueue = Enumerable
+                .Range(0, mainTotalPicks)
+                .Where(i => !completedPickNumbers.Contains(i))
+                .Select(i => GetCurrentDrafter(draftOrder, i))
+                .ToList();
+
+            if (!makeupQueue.Contains(user.Id.ToString()))
+            {
+                throw new InvalidOperationException("You have no makeup picks remaining");
+            }
+        }
+        else
+        {
+            var currentDrafterId = GetCurrentDrafter(draftOrder, league.CurrentPickNumber);
+
+            if (currentDrafterId != user.Id.ToString())
+            {
+                throw new InvalidOperationException("Not your turn");
+            }
         }
 
         var alreadyPicked = await db.DraftPicks.AnyAsync(p =>
@@ -164,21 +186,53 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
             throw new InvalidOperationException($"You have already drafted the maximum {league.CorpsPerCaption} corps for this caption");
         }
 
-        int totalPicks = league.Members.Count * league.DraftableCaptions.Length * league.CorpsPerCaption;
-        int round = league.CurrentPickNumber / draftOrder.Length;
-        var pick = new DraftPickEntity
-        {
-            Id = Guid.NewGuid(), LeagueId = leagueId, UserId = user.Id,
-            CorpsId = corpsId, Caption = caption,
-            PickNumber = league.CurrentPickNumber, RoundNumber = round
-        };
-        db.DraftPicks.Add(pick);
+        DraftPickEntity pick;
 
-        league.CurrentPickNumber++;
-
-        if (league.CurrentPickNumber >= totalPicks)
+        if (!inMakeupPhase)
         {
-            league.DraftStatus = DraftStatus.Completed;
+            int round = league.CurrentPickNumber / draftOrder.Length;
+
+            pick = new DraftPickEntity
+            {
+                Id = Guid.NewGuid(), LeagueId = leagueId, UserId = user.Id,
+                CorpsId = corpsId, Caption = caption,
+                PickNumber = league.CurrentPickNumber, RoundNumber = round
+            };
+
+            db.DraftPicks.Add(pick);
+
+            league.CurrentPickNumber++;
+
+            if (league.CurrentPickNumber >= mainTotalPicks)
+            {
+                completedPickNumbers.Add(pick.PickNumber);
+                bool noMakeupPicks = !Enumerable.Range(0, mainTotalPicks).Any(i => !completedPickNumbers.Contains(i));
+
+                if (noMakeupPicks)
+                {
+                    league.DraftStatus = DraftStatus.Completed;
+                }
+            }
+        }
+        else
+        {
+            int gapSlot = Enumerable
+                .Range(0, mainTotalPicks)
+                .First(i => !completedPickNumbers.Contains(i) && GetCurrentDrafter(draftOrder, i) == user.Id.ToString());
+
+            pick = new DraftPickEntity
+            {
+                Id = Guid.NewGuid(), LeagueId = leagueId, UserId = user.Id,
+                CorpsId = corpsId, Caption = caption,
+                PickNumber = gapSlot, RoundNumber = gapSlot / draftOrder.Length
+            };
+
+            db.DraftPicks.Add(pick);
+
+            if (makeupQueue!.Count == 1)
+            {
+                league.DraftStatus = DraftStatus.Completed;
+            }
         }
 
         await db.SaveChangesAsync();

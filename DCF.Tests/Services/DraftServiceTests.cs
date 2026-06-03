@@ -509,3 +509,160 @@ public class SkipCurrentPickTests
         Assert.Contains("makeup", ex.Message);
     }
 }
+
+public class SubmitPickMakeupTests
+{
+    private static DcfDbContext CreateDb() =>
+        new(new DbContextOptionsBuilder<DcfDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options);
+
+    // Seeds a league where slot 0 was skipped (Player1) and slot 1 was picked by Player2.
+    // CurrentPickNumber = 2 = mainTotalPicks → draft is in makeup phase.
+    // Player1 still needs a makeup pick; corps1 is taken; corps2 is free.
+    private static (DcfDbContext Db, DraftService Service, Guid Player1Id, Guid Player2Id, Guid LeagueId, Guid Corps1Id, Guid Corps2Id) SeedMakeupPhase()
+    {
+        var db = CreateDb();
+        var player1 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|p1", DisplayName = "Player1", Email = "p1@test.com" };
+        var player2 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|p2", DisplayName = "Player2", Email = "p2@test.com" };
+        var corps1 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        var corps2 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Bluecoats" };
+        var draftOrder = JsonSerializer.Serialize(new[] { player1.Id.ToString(), player2.Id.ToString() });
+        var league = new LeagueEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test League",
+            CommissionerUserId = player1.Id,
+            DraftStatus = DraftStatus.InProgress,
+            DraftOrderJson = draftOrder,
+            CurrentPickNumber = 2,
+            InviteCode = "TESTCODE",
+            DraftableCaptions = [ComputedCaption.Brass],
+            CorpsPerCaption = 1
+        };
+        db.Users.AddRange(player1, player2);
+        db.Corps.AddRange(corps1, corps2);
+        db.Leagues.Add(league);
+        db.LeagueMembers.AddRange(
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = player1.Id },
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = player2.Id }
+        );
+        // Slot 0 has no pick (Player1 was skipped). Slot 1 was picked by Player2.
+        db.DraftPicks.Add(new DraftPickEntity
+        {
+            Id = Guid.NewGuid(), LeagueId = league.Id, UserId = player2.Id,
+            CorpsId = corps1.Id, Caption = ComputedCaption.Brass,
+            PickNumber = 1, RoundNumber = 0
+        });
+        db.SaveChanges();
+        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService()),
+            player1.Id, player2.Id, league.Id, corps1.Id, corps2.Id);
+    }
+
+    // Seeds a league where slot 0 was skipped (Player1) and the main draft is still
+    // in progress at slot 1 (Player2's turn). CurrentPickNumber = 1.
+    private static (DcfDbContext Db, DraftService Service, Guid Player1Id, Guid Player2Id, Guid LeagueId, Guid Corps1Id, Guid Corps2Id) SeedLastMainPickPending()
+    {
+        var db = CreateDb();
+        var player1 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|p1", DisplayName = "Player1", Email = "p1@test.com" };
+        var player2 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|p2", DisplayName = "Player2", Email = "p2@test.com" };
+        var corps1 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        var corps2 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Bluecoats" };
+        var draftOrder = JsonSerializer.Serialize(new[] { player1.Id.ToString(), player2.Id.ToString() });
+        var league = new LeagueEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test League",
+            CommissionerUserId = player1.Id,
+            DraftStatus = DraftStatus.InProgress,
+            DraftOrderJson = draftOrder,
+            CurrentPickNumber = 1,
+            InviteCode = "TESTCODE",
+            DraftableCaptions = [ComputedCaption.Brass],
+            CorpsPerCaption = 1
+        };
+        db.Users.AddRange(player1, player2);
+        db.Corps.AddRange(corps1, corps2);
+        db.Leagues.Add(league);
+        db.LeagueMembers.AddRange(
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = player1.Id },
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = player2.Id }
+        );
+        // No DraftPick at slot 0 — Player1 was skipped. Slot 1 is pending (Player2's turn).
+        db.SaveChanges();
+        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService()),
+            player1.Id, player2.Id, league.Id, corps1.Id, corps2.Id);
+    }
+
+    [Fact]
+    public async Task LastMainPick_WithPendingSkip_DraftStaysInProgress()
+    {
+        var (db, svc, _, _, leagueId, corps1Id, _) = SeedLastMainPickPending();
+
+        await svc.SubmitPickAsync(leagueId, "auth|p2", corps1Id, ComputedCaption.Brass);
+
+        var league = await db.Leagues.FindAsync(leagueId);
+        Assert.Equal(DraftStatus.InProgress, league!.DraftStatus);
+    }
+
+    [Fact]
+    public async Task MakeupPick_CreatesPickAtGapSlot_AndCompletesDraft()
+    {
+        var (db, svc, _, _, leagueId, _, corps2Id) = SeedMakeupPhase();
+
+        var (id, pickNumber) = await svc.SubmitPickAsync(leagueId, "auth|p1", corps2Id, ComputedCaption.Brass);
+
+        Assert.NotEqual(Guid.Empty, id);
+        Assert.Equal(0, pickNumber); // gap was at slot 0
+
+        var league = await db.Leagues.FindAsync(leagueId);
+        Assert.Equal(DraftStatus.Completed, league!.DraftStatus);
+    }
+
+    [Fact]
+    public async Task MakeupPick_NonSkippedUser_Throws()
+    {
+        var (_, svc, _, _, leagueId, _, corps2Id) = SeedMakeupPhase();
+        // Player2 was not skipped — they have no makeup picks
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => svc.SubmitPickAsync(leagueId, "auth|p2", corps2Id, ComputedCaption.Brass));
+
+        Assert.Contains("no makeup picks", ex.Message);
+    }
+
+    [Fact]
+    public async Task MakeupPick_UserSkippedTwice_FirstPickFillsEarliestGap_DraftStaysInProgress()
+    {
+        // 1 player, 2 captions, 1 corps per caption → mainTotalPicks = 2
+        // Skip both slots (slot 0 and slot 1) → 2 makeup picks for Player1
+        var db = CreateDb();
+        var player1 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|p1", DisplayName = "P1", Email = "p1@t.com" };
+        var corps1 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        var corps2 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Bluecoats" };
+        var draftOrder = JsonSerializer.Serialize(new[] { player1.Id.ToString() });
+        var league = new LeagueEntity
+        {
+            Id = Guid.NewGuid(), Name = "T", CommissionerUserId = player1.Id,
+            DraftStatus = DraftStatus.InProgress,
+            DraftOrderJson = draftOrder, CurrentPickNumber = 2,
+            InviteCode = "T", DraftableCaptions = [ComputedCaption.Brass, ComputedCaption.Percussion],
+            CorpsPerCaption = 1
+        };
+        db.Users.Add(player1);
+        db.Corps.AddRange(corps1, corps2);
+        db.Leagues.Add(league);
+        db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = player1.Id });
+        // Slots 0 and 1 both skipped — no DraftPicks
+        db.SaveChanges();
+        var svc = new DraftService(db, new NullMqtt(), new NullPresenceService());
+
+        await svc.SubmitPickAsync(league.Id, "auth|p1", corps1.Id, ComputedCaption.Brass);
+
+        var updatedLeague = await db.Leagues.FindAsync(league.Id);
+        Assert.Equal(DraftStatus.InProgress, updatedLeague!.DraftStatus); // one gap still remains
+
+        var pick = await db.DraftPicks.SingleAsync(p => p.LeagueId == league.Id);
+        Assert.Equal(0, pick.PickNumber); // filled earliest gap
+    }
+}
