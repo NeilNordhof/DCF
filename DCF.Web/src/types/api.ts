@@ -94,6 +94,8 @@ export interface DraftState {
   draftOrder: { userId: string; displayName: string }[];
   members: Member[];
   picks: DraftPick[];
+  makeupQueue: string[];
+  mainTotalPicks: number;
 }
 
 export interface PickPreview {
