@@ -76,7 +76,13 @@ export function DraftRoom() {
   if (!league || !draftState) return <div style={{ padding: 16, color: 'var(--text-muted)' }}>Loading…</div>;
 
   const status = draftState.status;
-  const isMyTurn = status === 'InProgress' && draftState.currentDrafterId === user?.id;
+  const mainTotalPicks = draftState.mainTotalPicks ?? 0;
+  const inMakeupPhase = status === 'InProgress' && mainTotalPicks > 0 && draftState.currentPickNumber >= mainTotalPicks;
+  const isMyTurn = status === 'InProgress' && (
+    inMakeupPhase
+      ? (draftState.makeupQueue ?? []).includes(user?.id ?? '')
+      : draftState.currentDrafterId === user?.id
+  );
   const takenSet = new Set(draftState.picks.map(p => `${p.corpsId}|${p.caption}`));
   const isTaken = (corpsId: string, caption: string) => takenSet.has(`${corpsId}|${caption}`);
   const isOnline = (userId: string) => (draftState.onlineUserIds ?? []).includes(userId);
@@ -202,6 +208,55 @@ export function DraftRoom() {
       }
 
       if (status === 'InProgress') {
+        if (inMakeupPhase) {
+          const makeupCounts: Record<string, number> = {};
+          (draftState.makeupQueue ?? []).forEach(userId => {
+            makeupCounts[userId] = (makeupCounts[userId] ?? 0) + 1;
+          });
+          const pendingPlayers = Object.entries(makeupCounts).map(([userId, count]) => {
+            const member = draftState.members.find(m => m.userId === userId);
+            return { userId, displayName: member?.displayName ?? 'Unknown', count };
+          });
+
+          return (
+            <>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 700 }}>
+                  Makeup Picks
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  {pendingPlayers.map(p =>
+                    p.count > 1 ? `${p.displayName} ×${p.count}` : p.displayName
+                  ).join(', ')} still to pick
+                </div>
+              </div>
+              {isMyTurn && (
+                <>
+                  <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
+                  <div style={{ flexShrink: 0 }}>
+                    <div style={{ fontSize: 7, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>Selected</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{selectionLabel}</div>
+                  </div>
+                  <button
+                    onClick={submitPick}
+                    disabled={!canSubmit}
+                    style={{
+                      background: canSubmit ? 'var(--accent)' : 'var(--border)',
+                      color: canSubmit ? '#0d0f14' : 'var(--text-faint)',
+                      border: 'none', borderRadius: 5, padding: '5px 14px',
+                      fontSize: 10, fontWeight: 800, letterSpacing: '0.5px',
+                      textTransform: 'uppercase', cursor: canSubmit ? 'pointer' : 'not-allowed',
+                      flexShrink: 0,
+                    }}
+                  >
+                    Submit Pick
+                  </button>
+                </>
+              )}
+            </>
+          );
+        }
+
         return (
           <>
             <div style={{ flex: 1 }}>
@@ -236,7 +291,7 @@ export function DraftRoom() {
                 </button>
               </>
             )}
-            {!isMyTurn && league.isCommissioner && (
+            {!isMyTurn && !inMakeupPhase && league.isCommissioner && (
               <button
                 onClick={skipPick}
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 5, padding: '5px 10px', fontSize: 10, cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}
