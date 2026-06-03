@@ -378,6 +378,47 @@ public class PublishStateTests
         Assert.Contains(user1.ToString(), ids);
         Assert.Contains(user2.ToString(), ids);
     }
+
+    [Fact]
+    public async Task PublishStateAsync_WithSkip_IncludesMakeupQueueAndMainTotalPicks()
+    {
+        var db = CreateDb();
+        var mqtt = new CapturingMqtt();
+        var user1 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "a1", DisplayName = "U1", Email = "u1@t.com" };
+        var user2 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "a2", DisplayName = "U2", Email = "u2@t.com" };
+        var svc = new DraftService(db, mqtt, new NullPresenceService());
+        var draftOrder = JsonSerializer.Serialize(new[] { user1.Id.ToString(), user2.Id.ToString() });
+
+        var league = new LeagueEntity
+        {
+            Id = Guid.NewGuid(), Name = "T", CommissionerUserId = user1.Id,
+            DraftStatus = DraftStatus.InProgress,
+            DraftOrderJson = draftOrder, CurrentPickNumber = 1,
+            InviteCode = "ABCD",
+            DraftableCaptions = [ComputedCaption.Brass], CorpsPerCaption = 1
+        };
+
+        db.Users.AddRange(user1, user2);
+        db.Leagues.Add(league);
+        db.LeagueMembers.AddRange(
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = user1.Id },
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = user2.Id }
+        );
+        // No DraftPick at slot 0 — user1 was skipped; slot 1 is the current pick (not yet made)
+        await db.SaveChangesAsync();
+
+        await svc.PublishStateAsync(league.Id);
+
+        Assert.NotNull(mqtt.LastPayloadJson);
+        using var doc = JsonDocument.Parse(mqtt.LastPayloadJson!);
+        var mainTotalPicks = doc.RootElement.GetProperty("mainTotalPicks").GetInt32();
+        var makeupQueue = doc.RootElement.GetProperty("makeupQueue")
+            .EnumerateArray().Select(e => e.GetString()!).ToList();
+
+        Assert.Equal(2, mainTotalPicks);
+        Assert.Single(makeupQueue);
+        Assert.Equal(user1.Id.ToString(), makeupQueue[0]);
+    }
 }
 
 public class SubmitPickTests

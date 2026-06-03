@@ -305,9 +305,22 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
             .Where(m => m.LeagueId == league.Id)
             .ToListAsync();
 
-        string? currentDrafterId = league.DraftStatus == DraftStatus.InProgress && draftOrder.Length > 0
-            ? GetCurrentDrafter(draftOrder, league.CurrentPickNumber)
-            : null;
+        int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
+        bool inMakeupPhase = draftOrder.Length > 0 && league.CurrentPickNumber >= mainTotalPicks;
+
+        var completedPickNumbers = new HashSet<int>(picks.Select(p => p.PickNumber));
+        var makeupQueue = Enumerable
+            .Range(0, Math.Min(league.CurrentPickNumber, mainTotalPicks))
+            .Where(i => !completedPickNumbers.Contains(i))
+            .Select(i => GetCurrentDrafter(draftOrder, i))
+            .ToList();
+
+        string? currentDrafterId = null;
+
+        if (league.DraftStatus == DraftStatus.InProgress && draftOrder.Length > 0 && !inMakeupPhase)
+        {
+            currentDrafterId = GetCurrentDrafter(draftOrder, league.CurrentPickNumber);
+        }
 
         var membersByUserId = members.ToDictionary(m => m.UserId.ToString(), m => m.User.DisplayName);
         var draftOrderPayload = draftOrder
@@ -324,6 +337,8 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
             Status = league.DraftStatus.ToString(),
             league.DraftStartTime,
             league.CurrentPickNumber,
+            MainTotalPicks = mainTotalPicks,
+            MakeupQueue = makeupQueue,
             CurrentDrafterId = currentDrafterId,
             DraftOrder = draftOrderPayload,
             Members = members.Select(m => new { m.UserId, m.User.DisplayName }),
