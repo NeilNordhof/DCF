@@ -113,5 +113,4 @@ mainTotalPicks: number;
 ## Out of scope
 
 - Allowing the commissioner to force-complete a draft with outstanding makeup picks.
-- Per-caption constraints on makeup picks (a makeup pick is a free pick subject only to normal quota guards).
 - UI indication of which specific pick slot a makeup pick is filling.
