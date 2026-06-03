@@ -209,14 +209,14 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
         }
 
         var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson)!;
-        int totalPicks = league.Members.Count * league.DraftableCaptions.Length * league.CorpsPerCaption;
+        int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
+
+        if (league.CurrentPickNumber >= mainTotalPicks)
+        {
+            throw new InvalidOperationException("Cannot skip during the makeup phase");
+        }
 
         league.CurrentPickNumber++;
-
-        if (league.CurrentPickNumber >= totalPicks)
-        {
-            league.DraftStatus = DraftStatus.Completed;
-        }
 
         await db.SaveChangesAsync();
 

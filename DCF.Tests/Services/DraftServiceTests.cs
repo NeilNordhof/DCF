@@ -446,3 +446,66 @@ public class SubmitPickTests
         Assert.Equal(0, pickNumber);
     }
 }
+
+public class SkipCurrentPickTests
+{
+    private static DcfDbContext CreateDb() =>
+        new(new DbContextOptionsBuilder<DcfDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options);
+
+    private static (DcfDbContext Db, DraftService Service, Guid CommissionerId, Guid MemberId, Guid LeagueId) Seed(
+        int currentPickNumber = 0)
+    {
+        var db = CreateDb();
+        var commissioner = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|comm", DisplayName = "Commissioner", Email = "c@test.com" };
+        var member = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|mem", DisplayName = "Member", Email = "m@test.com" };
+        var draftOrder = JsonSerializer.Serialize(new[] { commissioner.Id.ToString(), member.Id.ToString() });
+        var league = new LeagueEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test League",
+            CommissionerUserId = commissioner.Id,
+            DraftStatus = DraftStatus.InProgress,
+            DraftOrderJson = draftOrder,
+            CurrentPickNumber = currentPickNumber,
+            InviteCode = "TESTCODE",
+            DraftableCaptions = [ComputedCaption.Brass],
+            CorpsPerCaption = 1
+        };
+        db.Users.AddRange(commissioner, member);
+        db.Leagues.Add(league);
+        db.LeagueMembers.AddRange(
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = commissioner.Id },
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = member.Id }
+        );
+        db.SaveChanges();
+        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService()), commissioner.Id, member.Id, league.Id);
+    }
+
+    [Fact]
+    public async Task Skip_LastMainPick_DraftStaysInProgress()
+    {
+        // mainTotalPicks = 2 (2 players × 1 caption × 1 corps per caption)
+        // CurrentPickNumber = 1 means we are on the last main-draft slot
+        var (db, svc, _, _, leagueId) = Seed(currentPickNumber: 1);
+
+        await svc.SkipCurrentPickAsync(leagueId, "auth|comm");
+
+        var league = await db.Leagues.FindAsync(leagueId);
+        Assert.Equal(DraftStatus.InProgress, league!.DraftStatus);
+        Assert.Equal(2, league.CurrentPickNumber);
+    }
+
+    [Fact]
+    public async Task Skip_DuringMakeupPhase_Throws()
+    {
+        // CurrentPickNumber = 2 = mainTotalPicks → already in makeup phase
+        var (_, svc, _, _, leagueId) = Seed(currentPickNumber: 2);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => svc.SkipCurrentPickAsync(leagueId, "auth|comm"));
+
+        Assert.Contains("makeup", ex.Message);
+    }
+}
