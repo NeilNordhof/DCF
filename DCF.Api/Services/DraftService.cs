@@ -229,7 +229,10 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
 
             db.DraftPicks.Add(pick);
 
-            if (makeupQueue!.Count == 1)
+            completedPickNumbers.Add(gapSlot);
+            bool noGapsRemain = !Enumerable.Range(0, mainTotalPicks).Any(i => !completedPickNumbers.Contains(i));
+
+            if (noGapsRemain)
             {
                 league.DraftStatus = DraftStatus.Completed;
             }
