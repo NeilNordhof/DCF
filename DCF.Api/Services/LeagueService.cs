@@ -124,7 +124,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             CorpsPerCaption = corpsPerCaption,
             DraftableCaptions = captions.ToArray(),
             DraftStatus = draftStartTime.HasValue ? DraftStatus.Scheduled : DraftStatus.NotStarted,
-            DraftStartTime = draftStartTime
+            DraftStartTime = draftStartTime?.ToUniversalTime()
         };
         db.Leagues.Add(league);
         db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = user.Id });
@@ -312,7 +312,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
 
             var wasScheduled = league.DraftStartTime.HasValue;
 
-            league.DraftStartTime = req.DraftStartTime.Value;
+            league.DraftStartTime = req.DraftStartTime.Value.ToUniversalTime();
             league.DraftStatus = DraftStatus.Scheduled;
 
             if (wasScheduled)
