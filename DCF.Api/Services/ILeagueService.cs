@@ -1,3 +1,4 @@
+using DCF.Api.Models;
 using DCF.Data.Entities;
 using DCF.Data.Models;
 
@@ -11,4 +12,6 @@ public interface ILeagueService
     Task<LeagueDetail?> GetAsync(Guid leagueId, string? userSub, string? inviteCode);
     Task<IReadOnlyList<PublicLeagueSummary>> GetPublicLeaguesAsync();
     Task<Guid?> LookupByCodeAsync(string code);
+    Task UpdateAsync(Guid leagueId, UpdateLeagueRequest req, string userSub);
+    Task<string> RefreshInviteCodeAsync(Guid leagueId, string userSub);
 }

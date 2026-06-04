@@ -128,4 +128,46 @@ public class LeaguesController(ILeagueService leagueService, IStandingsService s
 
         return Ok(league);
     }
+
+    [HttpPatch("{id}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateLeagueRequest req)
+    {
+        try
+        {
+            await leagueService.UpdateAsync(id, req, GetSub());
+
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/invite/refresh")]
+    public async Task<IActionResult> RefreshInvite(Guid id)
+    {
+        try
+        {
+            var code = await leagueService.RefreshInviteCodeAsync(id, GetSub());
+
+            return Ok(new { inviteCode = code });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (ArgumentException)
+        {
+            return NotFound();
+        }
+    }
 }

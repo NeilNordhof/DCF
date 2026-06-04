@@ -1,3 +1,4 @@
+using DCF.Api.Models;
 using DCF.Data;
 using DCF.Data.Entities;
 using DCF.Data.Models;
@@ -258,6 +259,102 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             .Where(l => l.InviteCode == code)
             .Select(l => (Guid?)l.Id)
             .FirstOrDefaultAsync();
+    }
+
+    public async Task UpdateAsync(Guid leagueId, UpdateLeagueRequest req, string userSub)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub)
+            ?? throw new UnauthorizedAccessException("User not found");
+
+        var league = await db.Leagues
+            .Include(l => l.Season).ThenInclude(s => s.SeasonCorps)
+            .FirstOrDefaultAsync(l => l.Id == leagueId)
+            ?? throw new ArgumentException("League not found");
+
+        if (league.CommissionerUserId != user.Id)
+        {
+            throw new UnauthorizedAccessException("Only the commissioner can update league settings");
+        }
+
+        if (league.DraftStatus != DraftStatus.NotStarted && league.DraftStatus != DraftStatus.Scheduled)
+        {
+            throw new InvalidOperationException("Draft settings can only be changed before the draft opens");
+        }
+
+        var corpsCount = league.Season.SeasonCorps.Count;
+        var maxCorpsPerCaption = corpsCount / 4;
+        var maxAllowedPlayers = req.CorpsPerCaption > 0 ? corpsCount / req.CorpsPerCaption : 0;
+
+        if (req.CorpsPerCaption > maxCorpsPerCaption)
+        {
+            throw new ArgumentException($"corpsPerCaption cannot exceed {maxCorpsPerCaption} for the active season");
+        }
+
+        if (league.MaxPlayers > maxAllowedPlayers)
+        {
+            throw new ArgumentException($"corpsPerCaption {req.CorpsPerCaption} would require maxPlayers ≤ {maxAllowedPlayers}");
+        }
+
+        if (req.DraftableCaptions.Length < 3)
+        {
+            throw new ArgumentException("At least three captions are required");
+        }
+
+        league.CorpsPerCaption = req.CorpsPerCaption;
+        league.DraftableCaptions = req.DraftableCaptions;
+
+        if (req.DraftStartTime.HasValue)
+        {
+            //Todo: verify timezone on this
+            if (req.DraftStartTime.Value < DateTime.Now)
+            {
+                throw new ArgumentException("Draft Start date and time can not be in the past");
+            }
+
+            var wasScheduled = league.DraftStartTime.HasValue;
+
+            league.DraftStartTime = req.DraftStartTime.Value;
+            league.DraftStatus = DraftStatus.Scheduled;
+
+            if (wasScheduled)
+            {
+                draftScheduler.CancelScheduled(league.Id);
+            }
+
+            draftScheduler.ScheduleNext(league.Id, req.DraftStartTime.Value, isAlreadyOpened: false);
+        }
+        else
+        {
+            if (league.DraftStartTime.HasValue)
+            {
+                draftScheduler.CancelScheduled(league.Id);
+            }
+
+            league.DraftStartTime = null;
+            league.DraftStatus = DraftStatus.NotStarted;
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    public async Task<string> RefreshInviteCodeAsync(Guid leagueId, string userSub)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub)
+            ?? throw new UnauthorizedAccessException("User not found");
+
+        var league = await db.Leagues.FindAsync(leagueId)
+            ?? throw new ArgumentException("League not found");
+
+        if (league.CommissionerUserId != user.Id)
+        {
+            throw new UnauthorizedAccessException("Only the commissioner can refresh the invite code");
+        }
+
+        league.InviteCode = GenerateInviteCode();
+
+        await db.SaveChangesAsync();
+
+        return league.InviteCode;
     }
 
     private static string GenerateInviteCode()

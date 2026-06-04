@@ -120,6 +120,12 @@ export interface CreateLeagueRequest {
   draftStartTime?: string | null;
 }
 
+export interface UpdateLeagueRequest {
+  corpsPerCaption: number;
+  draftableCaptions: ComputedCaption[];
+  draftStartTime: string | null;
+}
+
 export type SeasonStatus = 'Upcoming' | 'Active' | 'Completed';
 
 export interface Season {

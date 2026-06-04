@@ -24,7 +24,7 @@ const CAPTION_SHORT: Record<string, string> = {
   MusicAnalysis:         'MA',
 };
 
-const H_GAP: Partial<Record<number, number>> = { 3: 18, 4: 12, 5: 7 };
+const H_GAP: Partial<Record<number, number>> = { 3: 25, 4: 18, 5: 12 };
 
 export function DraftRoom() {
   const { id } = useParams<{ id: string }>();
@@ -157,8 +157,10 @@ export function DraftRoom() {
       barAccent = 'var(--green)';
     }
     else if (status === 'InProgress') {
-      barBg = 'linear-gradient(90deg, #2e1065, #1a1535)';
-      barAccent = 'var(--accent)';
+      barBg = isMyTurn
+        ? 'linear-gradient(90deg, #2e1065, #1a1535)'
+        : 'linear-gradient(90deg, #651010, #351515)';
+      barAccent = isMyTurn ? 'var(--accent)' : 'var(--red)';
     }
     else {
       barBg = 'var(--surface)';
@@ -221,7 +223,7 @@ export function DraftRoom() {
           return (
             <>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 700 }}>
+                <div style={{ fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', color: barAccent, fontWeight: 700 }}>
                   Makeup Picks
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -260,7 +262,7 @@ export function DraftRoom() {
         return (
           <>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 700 }}>
+              <div style={{ fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', color: barAccent, fontWeight: 700 }}>
                 {isMyTurn ? 'On the Clock' : 'Now Picking'}
               </div>
               <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-heading)' }}>
@@ -345,8 +347,8 @@ export function DraftRoom() {
   const renderGrid = () => {
     const captions = league.draftableCaptions!;
     const gridLocked = status !== 'InProgress' || !isMyTurn;
-    const cellWidth = captions.length <= 3 ? Math.min(88, Math.floor(176 / captions.length)) : 44;
-    const hGap = H_GAP[captions.length] ?? 2;
+    const cellWidth = captions.length <= 3 ? Math.min(88, Math.floor(176 / captions.length)) : 60;
+    const hGap = H_GAP[captions.length] ?? 6;
 
     const myPicksByCaption: Record<string, number> = {};
     draftState.picks
@@ -358,20 +360,20 @@ export function DraftRoom() {
     return (
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {status === 'Open' && (
-          <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 8, alignSelf: 'flex-start' }}>
-            Pick board locks until the draft begins
+          <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-heading)', marginBottom: 8, alignSelf: 'anchor-center' }}>
+            Pick board locked until the draft begins
           </div>
         )}
-        <table style={{ borderCollapse: 'separate', borderSpacing: `${hGap}px 3px` }}>
+        <table style={{ borderCollapse: 'separate', borderSpacing: `${hGap}px 4px` }}>
           <thead>
             <tr>
               {captions.map(cap => (
                 <th key={cap} style={{
                   width: cellWidth,
-                  fontSize: 10,
+                  fontSize: 14,
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
-                  color: 'var(--text-muted)',
+                  color: 'var(--text-heading)',
                   paddingTop: 4,
                   paddingBottom: 6,
                   textAlign: 'center',
@@ -382,7 +384,7 @@ export function DraftRoom() {
                   zIndex: 1,
                 }}>
                   {CAPTION_SHORT[cap] ?? cap}
-                  <div style={{ fontSize: 7, color: 'var(--text-faint)', marginTop: 1, fontWeight: 400, textTransform: 'none', letterSpacing: 'normal' }}>
+                  <div style={{ fontSize: 12, color: isCaptionFull(cap) ? 'var(--red)' : 'var(--text-heading)', marginTop: 1, fontWeight: 400, textTransform: 'none', letterSpacing: 'normal' }}>
                     {myPicksByCaption[cap] ?? 0}/{league.corpsPerCaption}
                   </div>
                 </th>
@@ -398,6 +400,7 @@ export function DraftRoom() {
                   const previewed = !taken && !selected && validPreview?.corpsId === c.id && validPreview?.caption === cap;
                   const isLobby = status === 'Open';
                   const captionFull = isCaptionFull(cap) && !taken;
+                  const iconSize = 36;
 
                   let bg = '#1c1f2c';
                   let border = '1px solid var(--border)';
@@ -408,18 +411,18 @@ export function DraftRoom() {
                   if (taken) {
                     bg = '#12141a';
                     border = '1px solid var(--border-subtle)';
-                    content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={36} style={{ opacity: 0.25 }} />;
+                    content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={iconSize} style={{ opacity: 0.25 }} />;
                   }
                   else if (selected) {
                     bg = 'var(--accent-bg)';
                     border = '2px solid var(--accent)';
                     boxShadow = '0 0 10px var(--accent-bg)';
-                    content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={34} style={{ outline: '1px solid var(--accent)', outlineOffset: 2 }} />;
+                    content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={iconSize - 2} style={{ outline: '1px solid var(--accent)', outlineOffset: 2 }} />;
                   }
                   else if (captionFull) {
                     bg = '#12141a';
                     border = '1px solid var(--border-subtle)';
-                    content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={36} style={{ opacity: 0.25 }} />;
+                    content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={iconSize} style={{ opacity: 0.25 }} />;
                   }
                   else if (previewed) {
                     const drafter = draftState.members.find(m => m.userId === validPreview!.userId);
@@ -427,7 +430,7 @@ export function DraftRoom() {
                     border = '1px dashed var(--accent-border)';
                     content = (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                        <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={26} />
+                        <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={iconSize - 10} />
                         <span style={{ color: 'var(--text-muted)', fontSize: 7, lineHeight: 1 }}>
                           {drafter?.displayName.split(' ')[0] ?? ''}
                         </span>
@@ -435,7 +438,7 @@ export function DraftRoom() {
                     );
                   }
                   else {
-                    content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={36} />;
+                    content = <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={iconSize} />;
                   }
 
                   return (
@@ -444,7 +447,7 @@ export function DraftRoom() {
                         onClick={() => handleCellClick(c.id, cap)}
                         style={{
                           width: cellWidth,
-                          height: 44,
+                          height: 56,
                           background: bg,
                           border,
                           borderRadius: 4,

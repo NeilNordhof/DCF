@@ -4,9 +4,76 @@ import { api } from '../api/client';
 import { LeagueScoresTab } from '../components/LeagueScoresTab';
 import { useMqtt } from '../mqtt/useMqtt';
 import { useUser } from '../context/UserContext';
-import type { DraftState, League, MemberScoreBreakdown, Standing } from '../types/api';
+import type { ComputedCaption, DraftState, League, MemberScoreBreakdown, Standing } from '../types/api';
 
 type Tab = 'home' | 'scores' | 'members' | 'picks' | 'info';
+type GEOption = 'combined' | 'split';
+type VisOption = 'combined' | 'partial' | 'full';
+type MusicOption = 'combined' | 'partial' | 'full';
+
+function expandCaptions(ge: GEOption, vis: VisOption, music: MusicOption): ComputedCaption[] {
+  const result: ComputedCaption[] = [];
+
+  if (ge === 'combined') {
+    result.push('GeneralEffectCombined');
+  }
+  else {
+    result.push('GeneralEffect1', 'GeneralEffect2');
+  }
+
+  if (vis === 'combined') {
+    result.push('VisualCombined');
+  }
+  else if (vis === 'partial') {
+    result.push('Visual', 'Colorguard');
+  }
+  else {
+    result.push('VisualAnalysis', 'VisualProficiency', 'Colorguard');
+  }
+
+  if (music === 'combined') {
+    result.push('MusicCombined');
+  }
+  else if (music === 'partial') {
+    result.push('Brass', 'Percussion');
+  }
+  else {
+    result.push('Brass', 'MusicAnalysis', 'Percussion');
+  }
+
+  return result;
+}
+
+function captionsToOptions(captions: ComputedCaption[]): { ge: GEOption; vis: VisOption; music: MusicOption } {
+  const set = new Set(captions);
+  const ge: GEOption = set.has('GeneralEffectCombined') ? 'combined' : 'split';
+  let vis: VisOption = 'combined';
+
+  if (set.has('VisualAnalysis') || set.has('VisualProficiency')) {
+    vis = 'full';
+  }
+  else if (set.has('Visual')) {
+    vis = 'partial';
+  }
+
+  let music: MusicOption = 'combined';
+
+  if (set.has('MusicAnalysis')) {
+    music = 'full';
+  }
+  else if (set.has('Brass') || set.has('Percussion')) {
+    music = 'partial';
+  }
+
+  return { ge, vis, music };
+}
+
+function toDatetimeLocal(iso: string | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 export function LeagueDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +88,15 @@ export function LeagueDetail() {
   const [activePicksPlayer, setActivePicksPlayer] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editGe, setEditGe] = useState<GEOption>('combined');
+  const [editVis, setEditVis] = useState<VisOption>('combined');
+  const [editMusic, setEditMusic] = useState<MusicOption>('combined');
+  const [editCorpsPerCaption, setEditCorpsPerCaption] = useState(1);
+  const [editDraftStartTime, setEditDraftStartTime] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [refreshingCode, setRefreshingCode] = useState(false);
   const draftState = useMqtt<DraftState>(`dcf/leagues/${id}/draft`);
   const scoresUpdated = useMqtt<{ showId: string }>('dcf/scores/updated');
 
@@ -71,6 +147,53 @@ export function LeagueDetail() {
       navigator.clipboard.writeText(league.inviteCode);
       setCopying(true);
       setTimeout(() => setCopying(false), 1500);
+    }
+  };
+
+  const refreshInviteCode = async () => {
+    setRefreshingCode(true);
+
+    try {
+      const result = await api.refreshInviteCode(id!);
+      setLeague(prev => prev ? { ...prev, inviteCode: result.inviteCode } : prev);
+    }
+    catch {}
+    finally {
+      setRefreshingCode(false);
+    }
+  };
+
+  const startEditing = () => {
+    const { ge, vis, music } = captionsToOptions(league.draftableCaptions!);
+    setEditGe(ge);
+    setEditVis(vis);
+    setEditMusic(music);
+    setEditCorpsPerCaption(league.corpsPerCaption!);
+    setEditDraftStartTime(toDatetimeLocal(league.draftStartTime));
+    setSaveError(null);
+    setEditing(true);
+  };
+
+  const saveEdits = async () => {
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      await api.updateLeague(id!, {
+        corpsPerCaption: editCorpsPerCaption,
+        draftableCaptions: expandCaptions(editGe, editVis, editMusic),
+        draftStartTime: editDraftStartTime || null,
+      });
+
+      const updated = await api.getLeague(id!);
+      setLeague(updated);
+      setEditing(false);
+    }
+    catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Failed to save');
+    }
+    finally {
+      setSaving(false);
     }
   };
 
@@ -262,52 +385,205 @@ export function LeagueDetail() {
     );
   };
 
-  const renderInfoTab = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {league.inviteCode && (
-        <div>
-          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 8 }}>Invite Code</div>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '10px 14px', background: 'var(--surface-2)',
-            border: '1px solid var(--border)', borderRadius: 5,
-          }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--accent)', flex: 1, letterSpacing: '0.5px' }}>
-              {league.inviteCode}
-            </span>
-            <button
-              onClick={copyInviteCode}
-              style={{
-                fontSize: 10, fontWeight: 600, padding: '4px 10px', borderRadius: 4,
-                background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)',
-              }}
-            >
-              {copying ? 'Copied!' : 'Copy'}
-            </button>
-          </div>
-        </div>
-      )}
-      <div>
-        <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 8 }}>Draft Settings</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {[
-            { label: 'Captions', value: league.draftableCaptions!.join(', ') },
-            { label: 'Corps per Caption', value: String(league.corpsPerCaption) },
-            { label: 'Draft Start', value: league.draftStartTime ? new Date(league.draftStartTime).toLocaleString() : 'Not scheduled' },
-          ].map(item => (
-            <div key={item.label} style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '8px 14px', background: 'var(--surface)',
+  const renderInfoTab = () => {
+    const draftSettingsEditable = league.isCommissioner &&
+      (effectiveStatus === 'NotStarted' || effectiveStatus === 'Scheduled');
+    const inputStyle = {
+      width: '100%', padding: '7px 10px', borderRadius: 5,
+      background: 'var(--bg)', border: '1px solid var(--border)',
+      color: 'var(--text-heading)', fontSize: 11, outline: 'none', boxSizing: 'border-box' as const,
+    };
+    const selectStyle = {
+      width: '100%', padding: '7px 10px', borderRadius: 5,
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      color: 'var(--text-heading)', fontSize: 11, outline: 'none',
+    };
+    const labelStyle = {
+      fontSize: 8, textTransform: 'uppercase' as const, letterSpacing: '0.5px',
+      color: 'var(--text-faint)', marginBottom: 6,
+    };
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {league.inviteCode && (
+          <div>
+            <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 8 }}>Invite Code</div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 14px', background: 'var(--surface-2)',
               border: '1px solid var(--border)', borderRadius: 5,
             }}>
-              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{item.label}</span>
-              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-heading)' }}>{item.value}</span>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--accent)', flex: 1, letterSpacing: '0.5px' }}>
+                {league.inviteCode}
+              </span>
+              <button
+                onClick={copyInviteCode}
+                style={{
+                  fontSize: 10, fontWeight: 600, padding: '4px 10px', borderRadius: 4,
+                  background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                }}
+              >
+                {copying ? 'Copied!' : 'Copy'}
+              </button>
+              {league.isCommissioner && (
+                <button
+                  onClick={refreshInviteCode}
+                  disabled={refreshingCode}
+                  style={{
+                    fontSize: 10, fontWeight: 600, padding: '4px 10px', borderRadius: 4,
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    color: refreshingCode ? 'var(--text-faint)' : 'var(--text-muted)',
+                    cursor: refreshingCode ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {refreshingCode ? 'Refreshing…' : 'Refresh'}
+                </button>
+              )}
             </div>
-          ))}
+          </div>
+        )}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>Draft Settings</div>
+            {draftSettingsEditable && !editing && (
+              <button
+                onClick={startEditing}
+                style={{
+                  fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: 4,
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  color: 'var(--text-muted)', cursor: 'pointer',
+                }}
+              >
+                Edit
+              </button>
+            )}
+          </div>
+          {!editing ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {[
+                { label: 'Captions', value: league.draftableCaptions!.join(', ') },
+                { label: 'Corps per Caption', value: String(league.corpsPerCaption) },
+                { label: 'Draft Start', value: league.draftStartTime ? new Date(league.draftStartTime).toLocaleString() : 'Not scheduled' },
+              ].map(item => (
+                <div key={item.label} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 14px', background: 'var(--surface)',
+                  border: '1px solid var(--border)', borderRadius: 5,
+                }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{item.label}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-heading)' }}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <div style={labelStyle}>Captions</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 9, color: 'var(--text-faint)', marginBottom: 4 }}>General Effect</div>
+                    <select style={selectStyle} value={editGe} onChange={e => setEditGe(e.target.value as GEOption)}>
+                      <option value="combined">Combined (GE Combined)</option>
+                      <option value="split">Split (GE1 Music + GE2 Visual)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: 'var(--text-faint)', marginBottom: 4 }}>Visual</div>
+                    <select style={selectStyle} value={editVis} onChange={e => setEditVis(e.target.value as VisOption)}>
+                      <option value="combined">Combined (Visual Combined)</option>
+                      <option value="partial">Partial Split (VA+VP combined, CG separate)</option>
+                      <option value="full">Full Split (VA, VP, and CG all separate)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: 'var(--text-faint)', marginBottom: 4 }}>Music</div>
+                    <select style={selectStyle} value={editMusic} onChange={e => setEditMusic(e.target.value as MusicOption)}>
+                      <option value="combined">Combined (Music Combined)</option>
+                      <option value="partial">Partial Split (Brass + Percussion)</option>
+                      <option value="full">Full Split (Brass + Music Analysis + Percussion)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div style={labelStyle}>Corps per Caption</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditCorpsPerCaption(v => Math.max(1, v - 1))}
+                    disabled={editCorpsPerCaption <= 1}
+                    style={{
+                      width: 32, height: 32, borderRadius: 5, fontSize: 16, fontWeight: 700,
+                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      color: editCorpsPerCaption <= 1 ? 'var(--text-faint)' : 'var(--text-heading)',
+                      cursor: editCorpsPerCaption <= 1 ? 'not-allowed' : 'pointer',
+                      opacity: editCorpsPerCaption <= 1 ? 0.3 : 1,
+                    }}
+                  >
+                    −
+                  </button>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-heading)', minWidth: 24, textAlign: 'center' }}>
+                    {editCorpsPerCaption}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditCorpsPerCaption(v => v + 1)}
+                    style={{
+                      width: 32, height: 32, borderRadius: 5, fontSize: 16, fontWeight: 700,
+                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      color: 'var(--text-heading)', cursor: 'pointer',
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div>
+                <div style={labelStyle}>
+                  Draft Start <span style={{ textTransform: 'none', fontWeight: 400 }}>(leave blank to remove)</span>
+                </div>
+                <input
+                  type="datetime-local"
+                  value={editDraftStartTime}
+                  onChange={e => setEditDraftStartTime(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              {saveError && (
+                <div style={{ fontSize: 10, color: '#e06c75' }}>{saveError}</div>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={saveEdits}
+                  disabled={saving}
+                  style={{
+                    padding: '8px 20px', borderRadius: 5, fontSize: 11, fontWeight: 700,
+                    background: saving ? 'var(--border)' : 'var(--accent)',
+                    color: saving ? 'var(--text-faint)' : 'var(--bg)',
+                    border: 'none', cursor: saving ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setEditing(false)}
+                  disabled={saving}
+                  style={{
+                    padding: '8px 16px', borderRadius: 5, fontSize: 11, fontWeight: 600,
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    color: 'var(--text-muted)', cursor: saving ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div>

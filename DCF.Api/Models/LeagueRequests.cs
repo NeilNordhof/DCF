@@ -12,4 +12,9 @@ public record CreateLeagueRequest(
 
 public record JoinLeagueRequest(string? InviteCode);
 
+public record UpdateLeagueRequest(
+    int CorpsPerCaption,
+    ComputedCaption[] DraftableCaptions,
+    DateTimeOffset? DraftStartTime);
+
 public record SubmitPickRequest(Guid CorpsId, ComputedCaption Caption);
