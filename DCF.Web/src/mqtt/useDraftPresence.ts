@@ -31,7 +31,18 @@ export function useDraftPresence(leagueId: string, userId: string | undefined) {
 
     client.on('error', () => { /* connection errors are non-fatal */ });
 
+    // Publish online every 30s as an application-level heartbeat.
+    // This keeps the broker connection alive independently of mqtt.js's internal
+    // PINGREQ mechanism, which Chrome may throttle after ~5 minutes of no user
+    // interaction with the tab.
+    const heartbeat = setInterval(() => {
+      if (client.connected) {
+        client.publish(presenceTopic, onlinePayload, { qos: 0 });
+      }
+    }, 30_000);
+
     return () => {
+      clearInterval(heartbeat);
       if (client.connected) {
         client.publish(presenceTopic, offlinePayload, { qos: 1 });
       }

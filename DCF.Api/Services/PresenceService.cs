@@ -11,13 +11,13 @@ public class PresenceService(IServiceScopeFactory scopeFactory, ILogger<Presence
     {
         var league = _presence.GetOrAdd(leagueId, _ => new ConcurrentDictionary<Guid, bool>());
 
-        if (online)
+        bool changed = online
+            ? league.TryAdd(userId, true)
+            : league.TryRemove(userId, out _);
+
+        if (!changed)
         {
-            league[userId] = true;
-        }
-        else
-        {
-            league.TryRemove(userId, out _);
+            return;
         }
 
         try
