@@ -95,6 +95,15 @@ function Stepper({
   );
 }
 
+function datetimeLocalToIso(value: string): string {
+  const offsetMinutes = new Date().getTimezoneOffset();
+  const sign = offsetMinutes <= 0 ? '+' : '-';
+  const abs = Math.abs(offsetMinutes);
+  const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+  const mm = String(abs % 60).padStart(2, '0');
+  return `${value}:00${sign}${hh}:${mm}`;
+}
+
 function DiscardDialog({ onKeep, onDiscard }: { onKeep: () => void; onDiscard: () => void }) {
   return (
     <div style={{
@@ -194,7 +203,7 @@ export function LeagueCreate() {
         corpsPerCaption,
         maxPlayers,
         draftableCaptions: expandCaptions(ge, vis, music),
-        draftStartTime: draftStartTime || null,
+        draftStartTime: draftStartTime ? datetimeLocalToIso(draftStartTime) : null,
       });
 
       navigate(`/leagues/${league.id}`);

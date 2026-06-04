@@ -305,8 +305,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
 
         if (req.DraftStartTime.HasValue)
         {
-            //Todo: verify timezone on this
-            if (req.DraftStartTime.Value < DateTime.Now)
+            if (req.DraftStartTime.Value < DateTimeOffset.UtcNow)
             {
                 throw new ArgumentException("Draft Start date and time can not be in the past");
             }

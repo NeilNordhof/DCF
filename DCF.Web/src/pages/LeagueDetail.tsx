@@ -75,6 +75,15 @@ function toDatetimeLocal(iso: string | undefined): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function datetimeLocalToIso(value: string): string {
+  const offsetMinutes = new Date().getTimezoneOffset();
+  const sign = offsetMinutes <= 0 ? '+' : '-';
+  const abs = Math.abs(offsetMinutes);
+  const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+  const mm = String(abs % 60).padStart(2, '0');
+  return `${value}:00${sign}${hh}:${mm}`;
+}
+
 export function LeagueDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -182,7 +191,7 @@ export function LeagueDetail() {
       await api.updateLeague(id!, {
         corpsPerCaption: editCorpsPerCaption,
         draftableCaptions: expandCaptions(editGe, editVis, editMusic),
-        draftStartTime: editDraftStartTime || null,
+        draftStartTime: editDraftStartTime ? datetimeLocalToIso(editDraftStartTime) : null,
       });
 
       const updated = await api.getLeague(id!);
