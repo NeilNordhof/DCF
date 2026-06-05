@@ -168,7 +168,7 @@ export function LeagueCreate() {
 
   useEffect(() => {
     api.getActiveSeason()
-      .then(s => { setCorpsCount(s.corpsCount); setHasActiveSeason(true); })
+      .then(s => { setCorpsCount(s.corpsCount); setMaxPlayers(Math.floor(s.corpsCount / 3)); setHasActiveSeason(true); })
       .catch(() => { setHasActiveSeason(false); })
       .finally(() => setSeasonLoaded(true));
   }, []);
