@@ -103,6 +103,7 @@ export function LeagueDetail() {
   const [editMusic, setEditMusic] = useState<MusicOption>('combined');
   const [editCorpsPerCaption, setEditCorpsPerCaption] = useState(1);
   const [editDraftStartTime, setEditDraftStartTime] = useState('');
+  const [seasonCorpsCount, setSeasonCorpsCount] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [refreshingCode, setRefreshingCode] = useState(false);
@@ -114,6 +115,10 @@ export function LeagueDetail() {
       api.getLeague(id, code).then(setLeague).catch(() => setError('Failed to load league.'));
     }
   }, [id]);
+
+  useEffect(() => {
+    api.getActiveSeason().then(s => setSeasonCorpsCount(s.corpsCount)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -136,6 +141,7 @@ export function LeagueDetail() {
   }
 
   const effectiveStatus = draftState?.status ?? league.draftStatus;
+  const maxEditCorpsPerCaption = seasonCorpsCount != null ? Math.floor(seasonCorpsCount / 4) : null;
 
   const handleJoin = async () => {
     try {
@@ -538,10 +544,13 @@ export function LeagueDetail() {
                   <button
                     type="button"
                     onClick={() => setEditCorpsPerCaption(v => v + 1)}
+                    disabled={maxEditCorpsPerCaption != null && editCorpsPerCaption >= maxEditCorpsPerCaption}
                     style={{
                       width: 32, height: 32, borderRadius: 5, fontSize: 16, fontWeight: 700,
                       background: 'var(--surface)', border: '1px solid var(--border)',
-                      color: 'var(--text-heading)', cursor: 'pointer',
+                      color: (maxEditCorpsPerCaption != null && editCorpsPerCaption >= maxEditCorpsPerCaption) ? 'var(--text-faint)' : 'var(--text-heading)',
+                      cursor: (maxEditCorpsPerCaption != null && editCorpsPerCaption >= maxEditCorpsPerCaption) ? 'not-allowed' : 'pointer',
+                      opacity: (maxEditCorpsPerCaption != null && editCorpsPerCaption >= maxEditCorpsPerCaption) ? 0.3 : 1,
                     }}
                   >
                     +
