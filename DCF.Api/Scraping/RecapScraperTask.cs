@@ -10,21 +10,32 @@ public class RecapScraperTask : IRecapScraperTask
     private readonly HttpClient _httpClient;
 
     // Ordered most-specific first so Contains() matches the right entry.
+    // 2025 DCI format uses "General Effect 1/2", "Music - X", "Visual - X" naming.
+    // Legacy format uses "GE Music 1", "GE Visual 1" etc.
     // "Total" is last so it doesn't absorb "GE Total", "Visual Total", etc.
     private static readonly (string Key, Caption Caption, Action<Result, Score?> Setter)[] CaptionMap =
     [
+        // GE sub-captions — 2025 format first, then legacy
+        ("General Effect 1",    Caption.GeneralEffectMusic,  (r, s) => r.GeneralEffectMusic1 = s),
+        ("General Effect 2",    Caption.GeneralEffectMusic,  (r, s) => r.GeneralEffectMusic2 = s),
         ("GE Music 1",          Caption.GeneralEffectMusic,  (r, s) => r.GeneralEffectMusic1 = s),
         ("GE Music 2",          Caption.GeneralEffectMusic,  (r, s) => r.GeneralEffectMusic2 = s),
         ("GE Visual 1",         Caption.GeneralEffectVisual, (r, s) => r.GeneralEffectVisual1 = s),
         ("GE Visual 2",         Caption.GeneralEffectVisual, (r, s) => r.GeneralEffectVisual2 = s),
         ("GE Total",            Caption.GeneralEffect,       (r, s) => r.GeneralEffect = s),
         ("General Effect",      Caption.GeneralEffect,       (r, s) => r.GeneralEffect = s),
+        // Visual sub-captions — 2025 uses dashes; legacy doesn't
+        ("Visual - Analysis",   Caption.VisualAnalysis,      (r, s) => r.VisualAnalysis = s),
         ("Visual Analysis",     Caption.VisualAnalysis,      (r, s) => r.VisualAnalysis = s),
         ("Visual Proficiency",  Caption.VisualProficiency,   (r, s) => r.VisualProficiency = s),
         ("Visual Total",        Caption.Visual,              (r, s) => r.Visual = s),
         ("Color Guard",         Caption.ColorGuard,          (r, s) => r.ColorGuard = s),
-        ("Brass",               Caption.Brass,               (r, s) => r.Brass = s),
+        // Music sub-captions — 2025 uses "Music - X" prefix
+        ("Music - Analysis",    Caption.MusicAnalysis,       (r, s) => r.MusicAnalysis = s),
         ("Music Analysis",      Caption.MusicAnalysis,       (r, s) => r.MusicAnalysis = s),
+        ("Music - Percussion",  Caption.Percussion,          (r, s) => r.Percussion1 = s),
+        ("Music - Brass",       Caption.Brass,               (r, s) => r.Brass = s),
+        ("Brass",               Caption.Brass,               (r, s) => r.Brass = s),
         ("Percussion 1",        Caption.Percussion,          (r, s) => r.Percussion1 = s),
         ("Percussion 2",        Caption.Percussion,          (r, s) => r.Percussion2 = s),
         ("Music Total",         Caption.Music,               (r, s) => r.Music = s),
@@ -32,6 +43,7 @@ public class RecapScraperTask : IRecapScraperTask
         // Generic labels — must follow all compound matches above
         ("Visual",              Caption.Visual,              (r, s) => r.Visual = s),
         ("Music",               Caption.Music,               (r, s) => r.Music = s),
+        ("Penalties",           Caption.Penalty,             (r, s) => r.Penalty = s),
         ("Penalty",             Caption.Penalty,             (r, s) => r.Penalty = s),
         // "Total" last — matches only after all more-specific "* Total" entries
         ("Total",               Caption.Total,               (r, s) => r.Total = s),
@@ -71,9 +83,19 @@ public class RecapScraperTask : IRecapScraperTask
             return [];
         }
 
-        var captionColumns = BuildCaptionColumns(headerRow);
+        // Use "tr | tbody/tr" instead of ".//tr" to get only outer rows,
+        // not the rows from the deeply nested section and score tables.
+        var outerRows = table.SelectNodes("tr | tbody/tr");
 
-        if (captionColumns.Count == 0)
+        if (outerRows is null)
+        {
+            return [];
+        }
+
+        // Skip the first cell (Corps sticky-td); remaining are section cells.
+        var headerSectionCells = headerRow.SelectNodes("td")?.Skip(1).ToList();
+
+        if (headerSectionCells is null || headerSectionCells.Count == 0)
         {
             return [];
         }
@@ -82,36 +104,21 @@ public class RecapScraperTask : IRecapScraperTask
         var results = new List<Result>();
         int resultId = 1;
 
-        var allRows = table.SelectNodes(".//tr");
-
-        if (allRows is null)
-        {
-            return [];
-        }
-
-        bool pastHeader = false;
-
-        foreach (var row in allRows)
+        foreach (var row in outerRows)
         {
             if (row == headerRow)
             {
-                pastHeader = true;
                 continue;
             }
 
-            if (!pastHeader)
+            var rowCells = row.SelectNodes("td");
+
+            if (rowCells is null || rowCells.Count < 2)
             {
                 continue;
             }
 
-            var cells = row.SelectNodes("td");
-
-            if (cells is null || cells.Count < 2)
-            {
-                continue;
-            }
-
-            var corpsName = HtmlEntity.DeEntitize(cells[0].InnerText.Trim());
+            var corpsName = HtmlEntity.DeEntitize(rowCells[0].InnerText.Trim());
 
             if (string.IsNullOrWhiteSpace(corpsName))
             {
@@ -130,23 +137,13 @@ public class RecapScraperTask : IRecapScraperTask
                 Show = show
             };
 
-            int cellIndex = 1;
+            // Skip the first cell (corps sticky-td); remaining parallel the header section cells.
+            var corpsSectionCells = rowCells.Skip(1).ToList();
+            int sectionCount = Math.Min(headerSectionCells.Count, corpsSectionCells.Count);
 
-            foreach (var col in captionColumns)
+            for (int s = 0; s < sectionCount; s++)
             {
-                if (cellIndex + 5 >= cells.Count)
-                {
-                    break;
-                }
-
-                var score = ParseScore(cells, cellIndex, corpsObj, show, col.Caption, col.Judge);
-
-                if (score is not null)
-                {
-                    col.Setter(result, score);
-                }
-
-                cellIndex += 6;
+                ProcessSection(headerSectionCells[s], corpsSectionCells[s], result, corpsObj, show);
             }
 
             results.Add(result);
@@ -155,71 +152,218 @@ public class RecapScraperTask : IRecapScraperTask
         return results;
     }
 
-    private static List<CaptionColumn> BuildCaptionColumns(HtmlNode headerRow)
+    private static void ProcessSection(
+        HtmlNode headerCell,
+        HtmlNode corpsCell,
+        Result result,
+        Corps corps,
+        Show show)
     {
-        var columns = new List<CaptionColumn>();
-        var cells = headerRow.SelectNodes("td");
+        var hasMainSecTable = headerCell
+            .SelectSingleNode("table[contains(@class,'main-sec-table')]") is not null;
 
-        if (cells is null)
+        if (hasMainSecTable)
         {
-            return columns;
+            ProcessSubCaptionSection(headerCell, corpsCell, result, corps, show);
         }
-
-        foreach (var cell in cells.Skip(1))
+        else
         {
-            var (captionText, judgeText) = ExtractCaptionAndJudge(cell);
-
-            if (string.IsNullOrWhiteSpace(captionText))
-            {
-                continue;
-            }
-
-            if (TryMapCaption(captionText, out var caption, out var setter))
-            {
-                columns.Add(new CaptionColumn(caption, judgeText, setter));
-            }
+            ProcessStandaloneSection(headerCell, corpsCell, result, corps, show);
         }
-
-        return columns;
     }
 
-    // Extracts caption name and optional judge from a header cell.
-    // Judge may appear in a <small> child, in parentheses, or after a newline.
-    private static (string CaptionText, string? JudgeText) ExtractCaptionAndJudge(HtmlNode cell)
+    // Handles GE, Visual, Music sections — each contains table-head sub-tables in the
+    // header and table.data sub-tables in corps rows, plus a section total td.
+    private static void ProcessSubCaptionSection(
+        HtmlNode headerCell,
+        HtmlNode corpsCell,
+        Result result,
+        Corps corps,
+        Show show)
     {
-        var smallNode = cell.SelectSingleNode(".//small");
+        var tableHeads = headerCell.SelectNodes(".//table[contains(@class,'table-head')]");
+        var dataTables = corpsCell.SelectNodes(".//table[contains(@class,'data')]");
 
-        if (smallNode is not null)
+        if (tableHeads is not null && dataTables is not null)
         {
-            var judgeText = HtmlEntity.DeEntitize(smallNode.InnerText.Trim());
-            var captionText = HtmlEntity.DeEntitize(
-                cell.InnerText.Replace(smallNode.InnerText, "").Trim());
+            int count = Math.Min(tableHeads.Count, dataTables.Count);
 
-            return (captionText, judgeText);
+            for (int i = 0; i < count; i++)
+            {
+                var typeCell = tableHeads[i].SelectSingleNode(".//td[contains(@class,'type')]");
+                var judgeCell = tableHeads[i].SelectSingleNode(".//td[contains(@class,'judge')]");
+
+                if (typeCell is null)
+                {
+                    continue;
+                }
+
+                var captionText = HtmlEntity.DeEntitize(typeCell.InnerText.Trim());
+                var judgeText = judgeCell is not null
+                    ? HtmlEntity.DeEntitize(judgeCell.InnerText.Trim())
+                    : null;
+
+                if (!TryMapCaption(captionText, out var caption, out var setter))
+                {
+                    continue;
+                }
+
+                var score = ParseSubCaptionScore(dataTables[i], corps, show, caption, judgeText);
+
+                if (score is not null)
+                {
+                    setter(result, score);
+                }
+            }
         }
 
-        var fullText = HtmlEntity.DeEntitize(cell.InnerText.Trim());
+        var headerTotalCell = headerCell.SelectSingleNode(".//td[contains(@class,'total-data-head')]");
+        var corpsTotalCell = corpsCell.SelectSingleNode(".//td[contains(@class,'data-total')]");
 
-        var parenStart = fullText.IndexOf('(');
-
-        if (parenStart > 0)
+        if (headerTotalCell is null || corpsTotalCell is null)
         {
-            var caption = fullText[..parenStart].Trim();
-            var remainder = fullText[(parenStart + 1)..];
-            var parenEnd = remainder.IndexOf(')');
-            var judge = parenEnd >= 0 ? remainder[..parenEnd].Trim() : remainder.Trim();
-
-            return (caption, judge);
+            return;
         }
 
-        var newline = fullText.IndexOfAny(['\n', '\r']);
+        var titleNode = headerCell.SelectSingleNode(".//td[contains(@class,'main-title')]//h2");
 
-        if (newline > 0)
+        if (titleNode is null)
         {
-            return (fullText[..newline].Trim(), fullText[(newline + 1)..].Trim());
+            return;
         }
 
-        return (fullText, null);
+        var sectionName = HtmlEntity.DeEntitize(titleNode.InnerText.Trim());
+
+        if (!TryMapCaption(sectionName + " Total", out var totalCaption, out var totalSetter) &&
+            !TryMapCaption(sectionName, out totalCaption, out totalSetter))
+        {
+            return;
+        }
+
+        var totalScore = ParseTotalScore(corpsTotalCell, corps, show, totalCaption, null);
+
+        if (totalScore is not null)
+        {
+            totalSetter(result, totalScore);
+        }
+    }
+
+    // Handles Sub Total, Penalties, and Total — standalone cells with no nested section tables.
+    private static void ProcessStandaloneSection(
+        HtmlNode headerCell,
+        HtmlNode corpsCell,
+        Result result,
+        Corps corps,
+        Show show)
+    {
+        var h2 = headerCell.SelectSingleNode(".//h2");
+        var captionText = h2 is not null
+            ? HtmlEntity.DeEntitize(h2.InnerText.Trim())
+            : HtmlEntity.DeEntitize(headerCell.InnerText.Trim());
+
+        if (!TryMapCaption(captionText, out var caption, out var setter))
+        {
+            return;
+        }
+
+        var judgeCell = headerCell.SelectSingleNode(".//td[contains(@class,'judge')]");
+        var judgeText = judgeCell is not null
+            ? HtmlEntity.DeEntitize(judgeCell.InnerText.Trim())
+            : null;
+
+        var score = ParseTotalScore(corpsCell, corps, show, caption, judgeText);
+
+        if (score is not null)
+        {
+            setter(result, score);
+        }
+    }
+
+    // Extracts a score from a table.data element: 3 cells (Rep, Perf, TOT),
+    // each containing two <span> elements (score and rank).
+    private static Score? ParseSubCaptionScore(
+        HtmlNode dataTable,
+        Corps corps,
+        Show show,
+        Caption caption,
+        string? judge)
+    {
+        var dataRow = dataTable.SelectSingleNode(".//tr");
+
+        if (dataRow is null)
+        {
+            return null;
+        }
+
+        var cells = dataRow.SelectNodes("td");
+
+        if (cells is null || cells.Count < 3)
+        {
+            return null;
+        }
+
+        if (!TryExtractSpans(cells[0], out var repScore, out var repRank)) return null;
+        if (!TryExtractSpans(cells[1], out var perfScore, out var perfRank)) return null;
+        if (!TryExtractSpans(cells[2], out var totalScore, out var totalRank)) return null;
+
+        return new Score
+        {
+            Id = Guid.NewGuid(),
+            Corps = corps,
+            Show = show,
+            Caption = caption,
+            Judge = judge,
+            RepertoireScore = repScore,
+            RepertoireRank = repRank,
+            PerformanceScore = perfScore,
+            PerformanceRank = perfRank,
+            TotalScore = totalScore,
+            TotalRank = totalRank
+        };
+    }
+
+    // Extracts a total-only score from a cell with two <span> elements (score and rank).
+    // Used for section totals (GE Total etc.) and standalone cells (Sub Total, Total).
+    private static Score? ParseTotalScore(
+        HtmlNode cell,
+        Corps corps,
+        Show show,
+        Caption caption,
+        string? judge)
+    {
+        if (!TryExtractSpans(cell, out var totalScore, out var totalRank))
+        {
+            return null;
+        }
+
+        return new Score
+        {
+            Id = Guid.NewGuid(),
+            Corps = corps,
+            Show = show,
+            Caption = caption,
+            Judge = judge,
+            TotalScore = totalScore,
+            TotalRank = totalRank
+        };
+    }
+
+    private static bool TryExtractSpans(HtmlNode cell, out double score, out int rank)
+    {
+        score = 0;
+        rank = 0;
+
+        var spans = cell.SelectNodes(".//span");
+
+        if (spans is null || spans.Count < 2)
+        {
+            return false;
+        }
+
+        if (!TryParseDouble(spans[0].InnerText, out score)) return false;
+        if (!TryParseInt(spans[1].InnerText, out rank)) return false;
+
+        return true;
     }
 
     private static bool TryMapCaption(
@@ -242,37 +386,6 @@ public class RecapScraperTask : IRecapScraperTask
         setter = static (_, _) => { };
 
         return false;
-    }
-
-    private static Score? ParseScore(
-        HtmlNodeCollection cells,
-        int startIndex,
-        Corps corps,
-        Show show,
-        Caption caption,
-        string? judge)
-    {
-        if (!TryParseDouble(cells[startIndex].InnerText, out var repScore)) return null;
-        if (!TryParseInt(cells[startIndex + 1].InnerText, out var repRank)) return null;
-        if (!TryParseDouble(cells[startIndex + 2].InnerText, out var perfScore)) return null;
-        if (!TryParseInt(cells[startIndex + 3].InnerText, out var perfRank)) return null;
-        if (!TryParseDouble(cells[startIndex + 4].InnerText, out var totalScore)) return null;
-        if (!TryParseInt(cells[startIndex + 5].InnerText, out var totalRank)) return null;
-
-        return new Score
-        {
-            Id = Guid.NewGuid(),
-            Corps = corps,
-            Show = show,
-            Caption = caption,
-            Judge = judge,
-            RepertoireScore = repScore,
-            RepertoireRank = repRank,
-            PerformanceScore = perfScore,
-            PerformanceRank = perfRank,
-            TotalScore = totalScore,
-            TotalRank = totalRank
-        };
     }
 
     private static bool TryParseDouble(string raw, out double value)
@@ -302,9 +415,4 @@ public class RecapScraperTask : IRecapScraperTask
 
         return null;
     }
-
-    private sealed record CaptionColumn(
-        Caption Caption,
-        string? Judge,
-        Action<Result, Score?> Setter);
 }
