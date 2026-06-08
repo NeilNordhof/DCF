@@ -15,9 +15,9 @@ public class Result
     public Score? ColorGuard { get; set; }
     public Score? Visual { get; set; }
     public Score? Brass { get; set; }
-    public Score? MusicAnalysis { get; set; }
-    public Score? Percussion1 { get; set; }
-    public Score? Percussion2 { get; set; }
+    public Score? MusicAnalysis1 { get; set; }
+    public Score? MusicAnalysis2 { get; set; }
+    public Score? Percussion { get; set; }
     public Score? Music { get; set; }
     public Score? SubTotal { get; set; }
     public Score? Penalty { get; set; }

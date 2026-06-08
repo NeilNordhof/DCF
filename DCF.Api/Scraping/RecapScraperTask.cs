@@ -10,43 +10,30 @@ public class RecapScraperTask : IRecapScraperTask
     private readonly HttpClient _httpClient;
 
     // Ordered most-specific first so Contains() matches the right entry.
-    // 2025 DCI format uses "General Effect 1/2", "Music - X", "Visual - X" naming.
-    // Legacy format uses "GE Music 1", "GE Visual 1" etc.
+    // DCI format uses "General Effect 1/2", "Music - X", "Visual - X" naming.
     // "Total" is last so it doesn't absorb "GE Total", "Visual Total", etc.
-    private static readonly (string Key, Caption Caption, Action<Result, Score?> Setter)[] CaptionMap =
+    // SecondSetter is non-null for captions that appear twice at full-panel shows.
+    private static readonly (string Key, Caption Caption, Action<Result, Score?> Setter, Action<Result, Score?>? SecondSetter)[] CaptionMap =
     [
         // GE sub-captions — 2025 format first, then legacy
-        ("General Effect 1",    Caption.GeneralEffectMusic,  (r, s) => r.GeneralEffectMusic1 = s),
-        ("General Effect 2",    Caption.GeneralEffectMusic,  (r, s) => r.GeneralEffectMusic2 = s),
-        ("GE Music 1",          Caption.GeneralEffectMusic,  (r, s) => r.GeneralEffectMusic1 = s),
-        ("GE Music 2",          Caption.GeneralEffectMusic,  (r, s) => r.GeneralEffectMusic2 = s),
-        ("GE Visual 1",         Caption.GeneralEffectVisual, (r, s) => r.GeneralEffectVisual1 = s),
-        ("GE Visual 2",         Caption.GeneralEffectVisual, (r, s) => r.GeneralEffectVisual2 = s),
-        ("GE Total",            Caption.GeneralEffect,       (r, s) => r.GeneralEffect = s),
-        ("General Effect",      Caption.GeneralEffect,       (r, s) => r.GeneralEffect = s),
+        ("General Effect 1",    Caption.GeneralEffectVisual,  (r, s) => r.GeneralEffectVisual1 = s, (r, s) => r.GeneralEffectVisual2 = s),
+        ("General Effect 2",    Caption.GeneralEffectMusic,   (r, s) => r.GeneralEffectMusic1  = s, (r, s) => r.GeneralEffectMusic2  = s),
         // Visual sub-captions — 2025 uses dashes; legacy doesn't
-        ("Visual - Analysis",   Caption.VisualAnalysis,      (r, s) => r.VisualAnalysis = s),
-        ("Visual Analysis",     Caption.VisualAnalysis,      (r, s) => r.VisualAnalysis = s),
-        ("Visual Proficiency",  Caption.VisualProficiency,   (r, s) => r.VisualProficiency = s),
-        ("Visual Total",        Caption.Visual,              (r, s) => r.Visual = s),
-        ("Color Guard",         Caption.ColorGuard,          (r, s) => r.ColorGuard = s),
+        ("Visual Proficiency",  Caption.VisualProficiency,    (r, s) => r.VisualProficiency = s,    null),
+        ("Visual - Analysis",   Caption.VisualAnalysis,       (r, s) => r.VisualAnalysis = s,       null),
+        ("Color Guard",         Caption.ColorGuard,           (r, s) => r.ColorGuard = s,           null),
         // Music sub-captions — 2025 uses "Music - X" prefix
-        ("Music - Analysis",    Caption.MusicAnalysis,       (r, s) => r.MusicAnalysis = s),
-        ("Music Analysis",      Caption.MusicAnalysis,       (r, s) => r.MusicAnalysis = s),
-        ("Music - Percussion",  Caption.Percussion,          (r, s) => r.Percussion1 = s),
-        ("Music - Brass",       Caption.Brass,               (r, s) => r.Brass = s),
-        ("Brass",               Caption.Brass,               (r, s) => r.Brass = s),
-        ("Percussion 1",        Caption.Percussion,          (r, s) => r.Percussion1 = s),
-        ("Percussion 2",        Caption.Percussion,          (r, s) => r.Percussion2 = s),
-        ("Music Total",         Caption.Music,               (r, s) => r.Music = s),
-        ("Sub Total",           Caption.SubTotal,            (r, s) => r.SubTotal = s),
+        ("Music - Brass",       Caption.Brass,                (r, s) => r.Brass = s,                null),
+        ("Music - Analysis",    Caption.MusicAnalysis,        (r, s) => r.MusicAnalysis1 = s,       (r, s) => r.MusicAnalysis2 = s),
+        ("Music - Percussion",  Caption.Percussion,           (r, s) => r.Percussion = s,           null),
         // Generic labels — must follow all compound matches above
-        ("Visual",              Caption.Visual,              (r, s) => r.Visual = s),
-        ("Music",               Caption.Music,               (r, s) => r.Music = s),
-        ("Penalties",           Caption.Penalty,             (r, s) => r.Penalty = s),
-        ("Penalty",             Caption.Penalty,             (r, s) => r.Penalty = s),
+        ("General Effect",      Caption.GeneralEffect,        (r, s) => r.GeneralEffect = s,        null),
+        ("Visual",              Caption.Visual,               (r, s) => r.Visual = s,               null),
+        ("Music",               Caption.Music,                (r, s) => r.Music = s,                null),
+        ("Sub Total",           Caption.SubTotal,             (r, s) => r.SubTotal = s,             null),
+        ("Penalties",           Caption.Penalty,              (r, s) => r.Penalty = s,              null),
         // "Total" last — matches only after all more-specific "* Total" entries
-        ("Total",               Caption.Total,               (r, s) => r.Total = s),
+        ("Total",               Caption.Total,                (r, s) => r.Total = s,                null),
     ];
 
     public RecapScraperTask(ICorpsService corpsService, HttpClient httpClient)
@@ -187,6 +174,7 @@ public class RecapScraperTask : IRecapScraperTask
         if (tableHeads is not null && dataTables is not null)
         {
             int count = Math.Min(tableHeads.Count, dataTables.Count);
+            var seenCaptions = new HashSet<Caption>();
 
             for (int i = 0; i < count; i++)
             {
@@ -203,16 +191,22 @@ public class RecapScraperTask : IRecapScraperTask
                     ? HtmlEntity.DeEntitize(judgeCell.InnerText.Trim())
                     : null;
 
-                if (!TryMapCaption(captionText, out var caption, out var setter))
+                if (!TryMapCaption(captionText, out var caption, out var setter, out var secondSetter))
                 {
                     continue;
                 }
+
+                var effectiveSetter = (seenCaptions.Contains(caption) && secondSetter is not null)
+                    ? secondSetter
+                    : setter;
+
+                seenCaptions.Add(caption);
 
                 var score = ParseSubCaptionScore(dataTables[i], corps, show, caption, judgeText);
 
                 if (score is not null)
                 {
-                    setter(result, score);
+                    effectiveSetter(result, score);
                 }
             }
         }
@@ -234,8 +228,8 @@ public class RecapScraperTask : IRecapScraperTask
 
         var sectionName = HtmlEntity.DeEntitize(titleNode.InnerText.Trim());
 
-        if (!TryMapCaption(sectionName + " Total", out var totalCaption, out var totalSetter) &&
-            !TryMapCaption(sectionName, out totalCaption, out totalSetter))
+        if (!TryMapCaption(sectionName + " Total", out var totalCaption, out var totalSetter, out _) &&
+            !TryMapCaption(sectionName, out totalCaption, out totalSetter, out _))
         {
             return;
         }
@@ -261,7 +255,7 @@ public class RecapScraperTask : IRecapScraperTask
             ? HtmlEntity.DeEntitize(h2.InnerText.Trim())
             : HtmlEntity.DeEntitize(headerCell.InnerText.Trim());
 
-        if (!TryMapCaption(captionText, out var caption, out var setter))
+        if (!TryMapCaption(captionText, out var caption, out var setter, out _))
         {
             return;
         }
@@ -369,14 +363,16 @@ public class RecapScraperTask : IRecapScraperTask
     private static bool TryMapCaption(
         string captionText,
         out Caption caption,
-        out Action<Result, Score?> setter)
+        out Action<Result, Score?> setter,
+        out Action<Result, Score?>? secondSetter)
     {
-        foreach (var (key, cap, set) in CaptionMap)
+        foreach (var (key, cap, set, set2) in CaptionMap)
         {
             if (captionText.Contains(key, StringComparison.OrdinalIgnoreCase))
             {
                 caption = cap;
                 setter = set;
+                secondSetter = set2;
 
                 return true;
             }
@@ -384,6 +380,7 @@ public class RecapScraperTask : IRecapScraperTask
 
         caption = default;
         setter = static (_, _) => { };
+        secondSetter = null;
 
         return false;
     }

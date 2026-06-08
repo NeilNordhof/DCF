@@ -148,10 +148,10 @@ public class AdminService(
         var season = await db.Seasons.FindAsync(seasonId)
             ?? throw new InvalidOperationException("Season not found.");
 
-        if (date < season.StartDate || date > season.EndDate)
-        {
-            throw new InvalidOperationException($"Show date must be within the season range ({season.StartDate}–{season.EndDate}).");
-        }
+        //if (date < season.StartDate || date > season.EndDate)
+        //{
+        //    throw new InvalidOperationException($"Show date must be within the season range ({season.StartDate}–{season.EndDate}).");
+        //}
 
         if (date < DateOnly.FromDateTime(DateTime.UtcNow))
         {

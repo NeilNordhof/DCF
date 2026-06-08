@@ -303,7 +303,7 @@ public class RecapScraperTaskTests
 
         var results = await scraper.ScrapeAsync(MakeShow());
 
-        var score = results[0].MusicAnalysis;
+        var score = results[0].MusicAnalysis1;
         Assert.NotNull(score);
         Assert.Equal(Caption.MusicAnalysis, score.Caption);
         Assert.Equal("Judge G", score.Judge);
@@ -318,7 +318,7 @@ public class RecapScraperTaskTests
 
         var results = await scraper.ScrapeAsync(MakeShow());
 
-        var score = results[0].Percussion1;
+        var score = results[0].Percussion;
         Assert.NotNull(score);
         Assert.Equal(Caption.Percussion, score.Caption);
         Assert.Equal("Judge H", score.Judge);

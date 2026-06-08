@@ -162,13 +162,13 @@ public class ScrapeSchedulerService(
                 return scores.FirstOrDefault(s => s.Caption == caption)?.TotalScore ?? 0;
             }
 
-            var ge1 = Avg(Caption.GeneralEffectMusic);
-            var ge2 = Avg(Caption.GeneralEffectVisual);
+            var ge1 = Avg(Caption.GeneralEffectVisual);
+            var ge2 = Avg(Caption.GeneralEffectMusic);
             var vp = Single(Caption.VisualProficiency);
             var va = Single(Caption.VisualAnalysis);
             var cg = Single(Caption.ColorGuard);
             var brass = Single(Caption.Brass);
-            var perc = Avg(Caption.Percussion);
+            var perc = Single(Caption.Percussion);
             var ma = Avg(Caption.MusicAnalysis);
 
             var existing = await db.ComputedScores
@@ -223,7 +223,7 @@ public class ScrapeSchedulerService(
             r.GeneralEffect, r.GeneralEffectMusic1, r.GeneralEffectMusic2,
             r.GeneralEffectVisual1, r.GeneralEffectVisual2,
             r.VisualAnalysis, r.VisualProficiency, r.ColorGuard, r.Visual,
-            r.Brass, r.MusicAnalysis, r.Percussion1, r.Percussion2, r.Music,
+            r.Brass, r.MusicAnalysis1, r.Percussion, r.MusicAnalysis2, r.Music,
             r.SubTotal, r.Penalty, r.Total
         ];
 
