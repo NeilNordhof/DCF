@@ -72,6 +72,13 @@ builder.Services.AddHttpClient();
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
+
+    await db.Database.MigrateAsync();
+}
+
 var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(Path.Combine(uploadsPath, "corps-icons"));
 
