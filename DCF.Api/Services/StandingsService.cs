@@ -160,7 +160,7 @@ public class StandingsService(DcfDbContext db) : IStandingsService
             var weighted = avg * weight;
             totalScore += weighted;
 
-            captions[caption] = new CaptionBreakdown(weighted, pickScores);
+            captions[caption] = new CaptionBreakdown(avg, pickScores);
         }
 
         return (totalScore, captions);

@@ -34,14 +34,4 @@ Items noted for future implementation.
 
 ## Testing
 
-- **TI-1** — **Show creating and editing** — verify creating a new show and editing an existing show (name, start time, timezone, scores announced time, URL) works correctly end-to-end.
-
-- **TI-2** — **Auto score scraping** — verify scores are automatically scraped after a show's scores announced time passes (including the configured delay buffer).
-
-- **TI-3** — **Manual score scraping** — verify the admin `POST /api/admin/shows/{id}/scrape` trigger correctly fetches and populates score rows.
-
-- **TI-4** — **Score computation** — verify standings are computed correctly from scraped scores across captions and drafted corps.
-
-- **TI-5** — **Computed scores display** — verify the scores tab in LeagueDetail displays correct per-player breakdowns and rankings.
-
 - **TI-6** - **Auth0 Lock flow** = Verify Auth0 lock flow works with strict mode disabled (akin to production environment).

@@ -51,10 +51,13 @@ export function LeagueScoresTab({ breakdown, captions, currentUserId }: Props) {
             <th
               scope="col"
               style={{
+                position: 'sticky', right: 0, zIndex: 2,
                 fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px',
                 color: 'var(--text-faint)', fontWeight: 700, textAlign: 'center',
                 padding: '6px 8px',
+                background: 'var(--surface)',
                 borderBottom: '1px solid var(--border)',
+                borderLeft: '1px solid var(--border-subtle)',
               }}
             >
               Total
@@ -95,9 +98,12 @@ export function LeagueScoresTab({ breakdown, captions, currentUserId }: Props) {
               scope="col"
               aria-label="Total score"
               style={{
+                position: 'sticky', right: 0, zIndex: 2,
                 fontSize: 8, color: 'var(--text-faint)', fontWeight: 600,
                 padding: '4px 8px',
+                background: 'var(--surface)',
                 borderBottom: '1px solid var(--border)',
+                borderLeft: '1px solid var(--border-subtle)',
                 textAlign: 'right',
               }}
             />
@@ -150,8 +156,8 @@ export function LeagueScoresTab({ breakdown, captions, currentUserId }: Props) {
                         {pick?.score != null ? pick.score.toFixed(3) : pick ? '—' : ''}
                       </td>,
                       <td key={`${cap}-avg`} style={{
-                        padding: '4px 8px', textAlign: 'right', fontWeight: 600,
-                        color: isMe ? 'var(--accent)' : 'var(--text-muted)',
+                        padding: '4px 8px', textAlign: 'right', fontWeight: 700, fontSize: 12,
+                        color: isMe ? 'var(--accent)' : 'var(--text-heading)',
                         borderRight: '1px solid var(--border-subtle)',
                         borderBottom: isLastRow ? '1px solid var(--border)' : undefined,
                       }}>
@@ -160,10 +166,13 @@ export function LeagueScoresTab({ breakdown, captions, currentUserId }: Props) {
                     ];
                   })}
                   <td style={{
+                    position: 'sticky', right: 0, zIndex: 1,
                     padding: '4px 8px', textAlign: 'right',
                     fontSize: 12, fontWeight: 900,
                     color: isMe ? 'var(--accent)' : 'var(--text-heading)',
+                    background: isMe ? 'var(--surface-me)' : 'var(--surface)',
                     borderBottom: isLastRow ? '1px solid var(--border)' : undefined,
+                    borderLeft: '1px solid var(--border-subtle)',
                   }}>
                     {isFirstRow ? player.totalScore.toFixed(3) : ''}
                   </td>
