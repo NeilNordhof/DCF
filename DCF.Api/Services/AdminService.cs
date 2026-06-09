@@ -137,6 +137,7 @@ public class AdminService(
             .Where(s => s.SeasonId == seasonId)
             .Include(s => s.ShowCorps)
             .OrderBy(s => s.Date)
+            .ThenBy(s => s.StartTime)
             .Select(s => new ShowSummary(s.Id, s.Name, s.Url, s.Date, s.StartTime, s.ScoresAnnouncedTime, s.Timezone,
                 s.ShowCorps.Select(sc => sc.CorpsId)))
             .ToListAsync();

@@ -18,6 +18,10 @@ Items noted for future implementation.
 
 - **FD-11** - **League User Managament** - Allow a commissioner to remove users from their league, and allow naming of co-commisioners or passing commisioner to another user.
 
+- **FD-12** — **Sort and search My Leagues** — add sorting (e.g. by name, draft date, status) and a search/filter input to the My Leagues tab so users can quickly find a league when they belong to many.
+
+- **FD-13** — **Sort and search Season Shows (admin)** — add sorting (e.g. by date, name) and a search/filter input to the shows list on the admin Season Detail page.
+
 ## Larger Features
 
 - **FD-5** — **Email notifications** — notify users of relevant draft/league events via email (e.g. draft starting soon, it's your turn to pick, draft complete, scores updated). Requires an email provider integration (e.g. SendGrid, Mailgun, or SMTP), user notification preferences, and backend triggers wired into the existing draft and scoring flows.
