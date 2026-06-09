@@ -30,7 +30,7 @@ public class DcfDbContext(DbContextOptions<DcfDbContext> options) : DbContext(op
             .IsUnique();
 
         mb.Entity<ScoreEntity>()
-            .HasIndex(e => new { e.CorpsId, e.ShowId, e.Caption })
+            .HasIndex(e => new { e.CorpsId, e.ShowId, e.Caption, e.Judge })
             .IsUnique();
 
         mb.Entity<UserEntity>()
