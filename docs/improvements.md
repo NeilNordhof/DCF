@@ -32,9 +32,15 @@ Items noted for future implementation.
 
 - **FD-8** — **DCI schedule, scores, and rankings viewer** — a public page (no league required) showing the actual DCI competition schedule, official scores, and corps rankings for the current season, plus season-long progress charts mirroring the league historical view (FD-7) but for real DCI standings.
 
+## Bugs
+
+- **BF-2** — **Show status stays "Started" after scores announced** — on the admin page, a show's status does not advance to reflect that scores have been announced; it remains stuck on "Started".
+
+- **BF-3** — **Successful scrape displays as "Scrape trigger failed"** — manually triggering a scrape from the admin page shows a failure message even when the scrape completes successfully.
+
 ## Infrastructure
 
-- **BF-1** — **Third-party logging integration** — ship structured logs to an external provider (e.g. Datadog, Seq, or similar) for production observability. Requires wiring a Serilog sink (or equivalent) into the ASP.NET Core logging pipeline and configuring log levels, enrichers (request ID, user ID, environment), and any sensitive-field redaction.
+- **IF-1** — **Third-party logging integration** — ship structured logs to an external provider (e.g. Datadog, Seq, or similar) for production observability. Requires wiring a Serilog sink (or equivalent) into the ASP.NET Core logging pipeline and configuring log levels, enrichers (request ID, user ID, environment), and any sensitive-field redaction.
 
 ## Testing
 
