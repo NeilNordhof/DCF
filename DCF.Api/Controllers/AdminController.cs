@@ -311,6 +311,6 @@ public class AdminController(IAdminService adminService, IWebHostEnvironment env
             return Forbid();
         }
 
-        return await adminService.TriggerScrapeAsync(id) ? Ok() : NotFound();
+        return await adminService.TriggerScrapeAsync(id) ? NoContent() : NotFound();
     }
 }

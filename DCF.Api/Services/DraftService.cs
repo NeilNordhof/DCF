@@ -63,6 +63,11 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
 
     private async Task OpenDraftCoreAsync(LeagueEntity league)
     {
+        if (league.Members.Count < 2)
+        {
+            throw new InvalidOperationException("At least 2 players must join before the draft can open");
+        }
+
         var shuffled = league.Members
             .Select(m => m.UserId.ToString())
             .ToArray();

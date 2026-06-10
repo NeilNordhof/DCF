@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -40,6 +40,7 @@ export function DraftRoom() {
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
 
+  const currentDrafterRef = useRef<HTMLDivElement>(null);
   const draftState = useMqtt<DraftState>(`dcf/leagues/${id}/draft`);
   const pickPreview = useMqtt<PickPreview>(`dcf/leagues/${id}/draft/pick`);
   const { publishPickPreview } = useDraftPresence(id!, user?.id);
@@ -71,6 +72,13 @@ export function DraftRoom() {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [draftState?.status, league?.draftStatus]);
+
+  // Scroll current drafter into view in the Draft Order panel on each pick
+  useEffect(() => {
+    if (activeTab === 'order') {
+      currentDrafterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [draftState?.currentPickNumber]);
 
   if (error) return <div style={{ padding: 16, color: 'var(--text)' }}>{error}</div>;
   if (!league || !draftState) return <div style={{ padding: 16, color: 'var(--text-muted)' }}>Loading…</div>;
@@ -532,7 +540,7 @@ export function DraftRoom() {
           </div>
         )}
         {status === 'InProgress' && currentDrafter && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', margin: '4px 0', background: 'var(--accent-bg)', border: '1px solid var(--accent-border)', borderRadius: 5 }}>
+          <div ref={currentDrafterRef} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', margin: '4px 0', background: 'var(--accent-bg)', border: '1px solid var(--accent-border)', borderRadius: 5 }}>
             <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--accent-bg)', border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: 'var(--accent)', flexShrink: 0 }}>
               {draftState.currentPickNumber + 1}
             </div>

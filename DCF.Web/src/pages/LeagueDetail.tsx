@@ -107,6 +107,7 @@ export function LeagueDetail() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [refreshingCode, setRefreshingCode] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const draftState = useMqtt<DraftState>(`dcf/leagues/${id}/draft`);
   const scoresUpdated = useMqtt<{ showId: string }>('dcf/scores/updated');
 
@@ -132,6 +133,13 @@ export function LeagueDetail() {
     }
   }, [id, activeTab, scoresUpdated]);
 
+  useEffect(() => {
+    const status = draftState?.status ?? league?.draftStatus;
+    if (status !== 'Scheduled' || !league?.draftStartTime) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [draftState?.status, league?.draftStatus, league?.draftStartTime]);
+
   if (error) {
     return <div style={{ color: 'var(--text-muted)', padding: 16 }}>{error}</div>;
   }
@@ -142,6 +150,16 @@ export function LeagueDetail() {
 
   const effectiveStatus = draftState?.status ?? league.draftStatus;
   const maxEditCorpsPerCaption = seasonCorpsCount != null ? Math.floor(seasonCorpsCount / 4) : null;
+
+  const getCountdown = () => {
+    if (!league.draftStartTime) return '--:--:--';
+    const diff = new Date(league.draftStartTime).getTime() - now;
+    if (diff <= 0) return '00:00:00';
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
+  };
 
   const handleJoin = async () => {
     try {
@@ -154,7 +172,9 @@ export function LeagueDetail() {
   };
 
   const openDraft = () => {
-    if (id) api.openDraft(id).then(() => {navigate(`/leagues/${id}/draft`)}).catch(() => {});
+    if (id) api.openDraft(id)
+      .then(() => { navigate(`/leagues/${id}/draft`); })
+      .catch(e => setError(e instanceof Error ? e.message : 'Failed to open draft.'));
   };
 
   const copyInviteCode = () => {
@@ -642,6 +662,14 @@ export function LeagueDetail() {
               </span>
             )}
           </div>
+          {effectiveStatus === 'Scheduled' && league.draftStartTime && (
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+              Draft starts in{' '}
+              <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: 'var(--accent)' }}>
+                {getCountdown()}
+              </span>
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {statusBadge()}
@@ -670,18 +698,26 @@ export function LeagueDetail() {
               Join Draft Room →
             </button>
           )}
-          {league.isCommissioner && league.draftStatus === 'NotStarted' && !draftState && (
-            <button
-              onClick={openDraft}
-              style={{
-                fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 5,
-                background: 'var(--accent)', border: '1px solid var(--border)', color: '#fff)',
-                cursor: 'pointer',
-              }}
-            >
-              Open Draft
-            </button>
-          )}
+          {league.isCommissioner && league.draftStatus === 'NotStarted' && !draftState && (() => {
+            const enoughPlayers = (league.memberCount ?? league.members?.length ?? 0) >= 2;
+            return (
+              <button
+                onClick={enoughPlayers ? openDraft : undefined}
+                disabled={!enoughPlayers}
+                title={!enoughPlayers ? 'Need at least 2 players to open the draft' : undefined}
+                style={{
+                  fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 5,
+                  background: enoughPlayers ? 'var(--accent)' : 'var(--border)',
+                  border: '1px solid var(--border)',
+                  color: enoughPlayers ? '#fff' : 'var(--text-faint)',
+                  cursor: enoughPlayers ? 'pointer' : 'not-allowed',
+                  opacity: enoughPlayers ? 1 : 0.6,
+                }}
+              >
+                Open Draft
+              </button>
+            );
+          })()}
         </div>
       </div>
 

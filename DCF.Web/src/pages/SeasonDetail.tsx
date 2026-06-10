@@ -17,6 +17,10 @@ function hasStarted(show: Show): boolean {
   return !!show.startTime && new Date(show.startTime) <= new Date();
 }
 
+function hasScoresAnnounced(show: Show): boolean {
+  return new Date(show.scoresAnnouncedTime) <= new Date();
+}
+
 const inputStyle: CSSProperties = {
   width: '100%', padding: '7px 10px', borderRadius: 5,
   background: 'var(--bg)', border: '1px solid var(--border-input)',
@@ -589,7 +593,10 @@ export function SeasonDetail() {
                     <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>
                       {s.date}
                       {s.startTime && ` · starts ${new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-                      {started && <span style={{ color: 'var(--accent)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>STARTED</span>}
+                      {hasScoresAnnounced(s)
+                        ? <span style={{ color: 'var(--green)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>SCORES ANNOUNCED</span>
+                        : started && <span style={{ color: 'var(--accent)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>STARTED</span>
+                      }
                     </div>
                   </div>
                   <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{expanded ? '▲' : '▼'}</span>
@@ -597,7 +604,7 @@ export function SeasonDetail() {
 
                 {expanded && editShow && (
                   <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {!started ? (
+                    {!started && !hasScoresAnnounced(s) ? (
                       <>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
                           <label style={labelStyle}>Name</label>
