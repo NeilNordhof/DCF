@@ -20,7 +20,8 @@ public record LeagueDetail(
     IEnumerable<string> DraftableCaptions, int SeasonYear, Guid SeasonId,
     IEnumerable<MemberSummary> Members,
     IEnumerable<PickSummary> Picks,
-    bool IsMember, bool IsCommissioner, int MaxPlayers);
+    bool IsMember, bool IsCommissioner, int MaxPlayers,
+    string[] IssueMessages);
 
 public record MemberSummary(Guid UserId, string DisplayName);
 
@@ -235,7 +236,8 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
                 p.Caption.ToString(), p.PickNumber, p.RoundNumber)),
             isMember,
             isCommissioner,
-            league.MaxPlayers);
+            league.MaxPlayers,
+            league.IssueMessages);
     }
 
     public async Task<IReadOnlyList<PublicLeagueSummary>> GetPublicLeaguesAsync()
@@ -302,6 +304,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
 
         league.CorpsPerCaption = req.CorpsPerCaption;
         league.DraftableCaptions = req.DraftableCaptions;
+        league.IssueMessages = [];
 
         if (req.DraftStartTime.HasValue)
         {

@@ -19,6 +19,7 @@ public class LeagueEntity
     public DateTimeOffset? DraftStartTime { get; set; }
     public string DraftOrderJson { get; set; } = "[]";
     public int CurrentPickNumber { get; set; }
+    public string[] IssueMessages { get; set; } = [];
 
     public List<LeagueMemberEntity> Members { get; set; } = [];
     public List<DraftPickEntity> DraftPicks { get; set; } = [];

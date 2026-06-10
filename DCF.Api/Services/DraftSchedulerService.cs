@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using DCF.Data;
+using DCF.Data.Entities;
 using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
@@ -58,10 +59,32 @@ public class DraftSchedulerService(
                         return;
                     }
 
-                    using var openScope = scopeFactory.CreateScope();
-                    var openService = openScope.ServiceProvider.GetRequiredService<IDraftService>();
+                    try
+                    {
+                        using var openScope = scopeFactory.CreateScope();
+                        var openService = openScope.ServiceProvider.GetRequiredService<IDraftService>();
 
-                    await openService.OpenDraftAsync(leagueId);
+                        await openService.OpenDraftAsync(leagueId);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        logger.LogWarning("Scheduled draft could not open for league {Id}: {Message}", leagueId, ex.Message);
+
+                        using var resetScope = scopeFactory.CreateScope();
+                        var db = resetScope.ServiceProvider.GetRequiredService<DcfDbContext>();
+                        var league = await db.Leagues.FindAsync(leagueId);
+
+                        if (league is not null)
+                        {
+                            league.DraftStatus = DraftStatus.NotStarted;
+                            league.DraftStartTime = null;
+                            league.IssueMessages = [.. league.IssueMessages, ex.Message];
+
+                            await db.SaveChangesAsync();
+                        }
+
+                        return;
+                    }
                 }
 
                 var startDelay = startTime - DateTimeOffset.UtcNow;

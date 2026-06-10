@@ -58,6 +58,13 @@ public class DcfDbContext(DbContextOptions<DcfDbContext> options) : DbContext(op
                 v => JsonSerializer.Serialize(v, JsonSerializerOptions.Default),
                 v => JsonSerializer.Deserialize<ComputedCaption[]>(v, JsonSerializerOptions.Default) ?? Array.Empty<ComputedCaption>());
 
+        mb.Entity<LeagueEntity>()
+            .Property(e => e.IssueMessages)
+            .HasColumnType("jsonb")
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, JsonSerializerOptions.Default),
+                v => JsonSerializer.Deserialize<string[]>(v, JsonSerializerOptions.Default) ?? Array.Empty<string>());
+
         mb.Entity<ComputedScoreEntity>()
             .HasIndex(e => new { e.ShowId, e.CorpsId })
             .IsUnique();

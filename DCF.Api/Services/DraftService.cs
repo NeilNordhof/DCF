@@ -63,9 +63,9 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
 
     private async Task OpenDraftCoreAsync(LeagueEntity league)
     {
-        if (league.Members.Count < 2)
+        if (league.Members.Count < 4)
         {
-            throw new InvalidOperationException("At least 2 players must join before the draft can open");
+            throw new InvalidOperationException("At least 4 players must join before the draft can open");
         }
 
         var shuffled = league.Members
@@ -75,6 +75,7 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
 
         league.DraftOrderJson = JsonSerializer.Serialize(shuffled);
         league.DraftStatus = DraftStatus.Open;
+        league.IssueMessages = [];
 
         await db.SaveChangesAsync();
 

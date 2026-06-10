@@ -34,6 +34,7 @@ export interface League {
   userScore?: number;
   members?: Member[];
   picks?: DraftPick[];
+  issueMessages?: string[];
 }
 
 export interface PublicLeague {

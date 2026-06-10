@@ -721,6 +721,24 @@ export function LeagueDetail() {
         </div>
       </div>
 
+      {league.isCommissioner && league.issueMessages && league.issueMessages.length > 0 && (
+        <div style={{
+          background: 'var(--warning-bg, #2a1f00)',
+          border: '1px solid var(--warning-border, #7a5500)',
+          borderTop: 'none',
+          padding: '10px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+        }}>
+          {league.issueMessages.map((msg, i) => (
+            <div key={i} style={{ fontSize: 12, color: 'var(--warning, #e8a000)', fontWeight: 500 }}>
+              ⚠ {msg}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Tab bar */}
       <div style={{
         display: 'flex',
