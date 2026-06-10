@@ -15,7 +15,7 @@ namespace DCF.Data.Migrations
                 table: "Leagues",
                 type: "jsonb",
                 nullable: false,
-                defaultValue: "");
+                defaultValue: "[]");
         }
 
         /// <inheritdoc />
