@@ -400,7 +400,7 @@ export function DraftRoom() {
             </tr>
           </thead>
           <tbody>
-            {corps.map(c => (
+            {corps.filter(c => !captions.every(cap => isTaken(c.id, cap))).map(c => (
               <tr key={c.id}>
                 {captions.map(cap => {
                   const taken = isTaken(c.id, cap);
