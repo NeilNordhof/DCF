@@ -83,6 +83,7 @@ export function SeasonDetail() {
   const [deletingShowId, setDeletingShowId] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
+  const [scrapeSuccessId, setScrapeSuccessId] = useState<string | null>(null);
 
   const [editingDates, setEditingDates] = useState(false);
   const [editStartDate, setEditStartDate] = useState('');
@@ -681,7 +682,11 @@ export function SeasonDetail() {
                           type="button"
                           onClick={() => {
                             api.adminTriggerScrape(s.id)
-                              .then(() => setError(null))
+                              .then(() => {
+                                setError(null);
+                                setScrapeSuccessId(s.id);
+                                setTimeout(() => setScrapeSuccessId(null), 3000);
+                              })
                               .catch(() => setError('Scrape trigger failed.'));
                           }}
                           style={{
@@ -691,6 +696,11 @@ export function SeasonDetail() {
                         >
                           Trigger Score Scrape
                         </button>
+                        {scrapeSuccessId === s.id && (
+                          <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: 'var(--green)', textAlign: 'center' }}>
+                            ✓ Scrape triggered successfully
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
