@@ -699,12 +699,12 @@ export function LeagueDetail() {
             </button>
           )}
           {league.isCommissioner && league.draftStatus === 'NotStarted' && !draftState && (() => {
-            const enoughPlayers = (league.memberCount ?? league.members?.length ?? 0) >= 2;
+            const enoughPlayers = (league.memberCount ?? league.members?.length ?? 0) >= 4;
             return (
               <button
                 onClick={enoughPlayers ? openDraft : undefined}
                 disabled={!enoughPlayers}
-                title={!enoughPlayers ? 'Need at least 2 players to open the draft' : undefined}
+                title={!enoughPlayers ? 'Need at least 4 players to open the draft' : undefined}
                 style={{
                   fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 5,
                   background: enoughPlayers ? 'var(--accent)' : 'var(--border)',
