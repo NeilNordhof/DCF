@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import { Link, useNavigate, useBlocker } from 'react-router-dom';
 import { api } from '../api/client';
 import type { ComputedCaption } from '../types/api';
+import { TimePicker } from '../components/TimePicker';
 
 type GEOption = 'combined' | 'split';
 type VisOption = 'combined' | 'partial' | 'full';
@@ -157,6 +158,7 @@ export function LeagueCreate() {
   const [music, setMusic] = useState<MusicOption>('combined');
   const [corpsPerCaption, setCorpsPerCaption] = useState(3);
   const [maxPlayers, setMaxPlayers] = useState(8);
+  const [draftStartDate, setDraftStartDate] = useState('');
   const [draftStartTime, setDraftStartTime] = useState('');
   const [corpsCount, setCorpsCount] = useState<number | null>(null);
   const [seasonLoaded, setSeasonLoaded] = useState(false);
@@ -203,7 +205,7 @@ export function LeagueCreate() {
         corpsPerCaption,
         maxPlayers,
         draftableCaptions: expandCaptions(ge, vis, music),
-        draftStartTime: draftStartTime ? datetimeLocalToIso(draftStartTime) : null,
+        draftStartTime: (draftStartDate && draftStartTime) ? datetimeLocalToIso(`${draftStartDate}T${draftStartTime}`) : null,
       });
 
       navigate(`/leagues/${league.id}`);
@@ -365,10 +367,15 @@ export function LeagueCreate() {
             Draft Start <span style={{ textTransform: 'none', fontWeight: 400 }}>(optional)</span>
           </div>
           <input
-            type="datetime-local"
-            value={draftStartTime}
-            onChange={e => { setDraftStartTime(e.target.value); setIsDirty(true); }}
+            type="date"
+            value={draftStartDate}
+            onChange={e => { setDraftStartDate(e.target.value); setIsDirty(true); }}
             style={inputStyle}
+          />
+          <TimePicker
+            value={draftStartTime}
+            onChange={v => { setDraftStartTime(v); setIsDirty(true); }}
+            style={{ marginTop: 6, width: '100%', boxSizing: 'border-box' }}
           />
         </div>
 
