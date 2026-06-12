@@ -144,7 +144,7 @@ export function TimePicker({ value, onChange, required = false, style }: TimePic
     const parsed = parseInt(typed, 10);
     if (isNaN(parsed)) return;
     const clamped = Math.max(0, Math.min(59, parsed));
-    const rounded = Math.round(clamped / 5) * 5 % 60;
+    const rounded = Math.min(55, Math.round(clamped / 5) * 5);
     setMinute(rounded);
     emit(hour, rounded, ampm);
   }
