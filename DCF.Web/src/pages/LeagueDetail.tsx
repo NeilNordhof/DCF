@@ -5,6 +5,7 @@ import { LeagueScoresTab } from '../components/LeagueScoresTab';
 import { useMqtt } from '../mqtt/useMqtt';
 import { useUser } from '../context/UserContext';
 import type { ComputedCaption, DraftState, League, MemberScoreBreakdown, Standing } from '../types/api';
+import { TimePicker } from '../components/TimePicker';
 
 type Tab = 'home' | 'scores' | 'members' | 'picks' | 'info';
 type GEOption = 'combined' | 'split';
@@ -102,6 +103,7 @@ export function LeagueDetail() {
   const [editVis, setEditVis] = useState<VisOption>('combined');
   const [editMusic, setEditMusic] = useState<MusicOption>('combined');
   const [editCorpsPerCaption, setEditCorpsPerCaption] = useState(1);
+  const [editDraftStartDate, setEditDraftStartDate] = useState('');
   const [editDraftStartTime, setEditDraftStartTime] = useState('');
   const [seasonCorpsCount, setSeasonCorpsCount] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -204,7 +206,9 @@ export function LeagueDetail() {
     setEditVis(vis);
     setEditMusic(music);
     setEditCorpsPerCaption(league.corpsPerCaption!);
-    setEditDraftStartTime(toDatetimeLocal(league.draftStartTime));
+    const combined = toDatetimeLocal(league.draftStartTime);
+    setEditDraftStartDate(combined.split('T')[0] ?? '');
+    setEditDraftStartTime(combined.split('T')[1] ?? '');
     setSaveError(null);
     setEditing(true);
   };
@@ -217,7 +221,7 @@ export function LeagueDetail() {
       await api.updateLeague(id!, {
         corpsPerCaption: editCorpsPerCaption,
         draftableCaptions: expandCaptions(editGe, editVis, editMusic),
-        draftStartTime: editDraftStartTime ? datetimeLocalToIso(editDraftStartTime) : null,
+        draftStartTime: (editDraftStartDate && editDraftStartTime) ? datetimeLocalToIso(`${editDraftStartDate}T${editDraftStartTime}`) : null,
       });
 
       const updated = await api.getLeague(id!);
@@ -582,10 +586,15 @@ export function LeagueDetail() {
                   Draft Start <span style={{ textTransform: 'none', fontWeight: 400 }}>(leave blank to remove)</span>
                 </div>
                 <input
-                  type="datetime-local"
-                  value={editDraftStartTime}
-                  onChange={e => setEditDraftStartTime(e.target.value)}
+                  type="date"
+                  value={editDraftStartDate}
+                  onChange={e => setEditDraftStartDate(e.target.value)}
                   style={inputStyle}
+                />
+                <TimePicker
+                  value={editDraftStartTime}
+                  onChange={v => setEditDraftStartTime(v)}
+                  style={{ marginTop: 6, width: '100%', boxSizing: 'border-box' }}
                 />
               </div>
               {saveError && (
