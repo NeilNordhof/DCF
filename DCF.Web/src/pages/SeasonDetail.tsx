@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Corps, SeasonDetail as SeasonDetailType, Show } from '../types/api';
 import { CorpsIcon } from '../components/CorpsIcon';
+import { TimePicker } from '../components/TimePicker';
 
 const TZ_HOURS: Record<string, number> = { PT: 7, MT: 6, CT: 5, ET: 4 };
 
@@ -551,9 +552,9 @@ export function SeasonDetail() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <label style={labelStyle}>Start</label>
-                  <input type="time" value={showStartTime} onChange={e => setShowStartTime(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                  <TimePicker value={showStartTime} onChange={setShowStartTime} style={{ flex: 1 }} />
                   <label style={{ ...labelStyle, marginLeft: 8 }}>Scores</label>
-                  <input type="time" value={showScoresTime} onChange={e => setShowScoresTime(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
+                  <TimePicker value={showScoresTime} onChange={setShowScoresTime} required style={{ flex: 1 }} />
                 </div>
                 <div>
                   <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
@@ -625,9 +626,9 @@ export function SeasonDetail() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <label style={labelStyle}>Start</label>
-                          <input type="time" value={editShow.startTime} onChange={e => setEditShow(p => p && ({ ...p, startTime: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                          <TimePicker value={editShow.startTime} onChange={v => setEditShow(p => p && ({ ...p, startTime: v }))} style={{ flex: 1 }} />
                           <label style={{ ...labelStyle, marginLeft: 8 }}>Scores</label>
-                          <input type="time" value={editShow.scoresTime} onChange={e => setEditShow(p => p && ({ ...p, scoresTime: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                          <TimePicker value={editShow.scoresTime} onChange={v => setEditShow(p => p && ({ ...p, scoresTime: v }))} required style={{ flex: 1 }} />
                         </div>
                         <div>
                           <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
