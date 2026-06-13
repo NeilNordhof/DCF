@@ -107,6 +107,8 @@ public class OpenDraftTests
         var mqtt = new SpyMqtt();
         var commissioner = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|comm", DisplayName = "Commissioner", Email = "c@test.com" };
         var member = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|mem", DisplayName = "Member", Email = "m@test.com" };
+        var member2 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|mem2", DisplayName = "Member2", Email = "m2@test.com" };
+        var member3 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|mem3", DisplayName = "Member3", Email = "m3@test.com" };
         var league = new LeagueEntity
         {
             Id = Guid.NewGuid(),
@@ -118,11 +120,13 @@ public class OpenDraftTests
             DraftableCaptions = [ComputedCaption.Brass],
             CorpsPerCaption = 1
         };
-        db.Users.AddRange(commissioner, member);
+        db.Users.AddRange(commissioner, member, member2, member3);
         db.Leagues.Add(league);
         db.LeagueMembers.AddRange(
             new LeagueMemberEntity { LeagueId = league.Id, UserId = commissioner.Id },
-            new LeagueMemberEntity { LeagueId = league.Id, UserId = member.Id }
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = member.Id },
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = member2.Id },
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = member3.Id }
         );
         db.SaveChanges();
         return (db, new DraftService(db, mqtt, new NullPresenceService()), mqtt, commissioner.Id, member.Id, league.Id);

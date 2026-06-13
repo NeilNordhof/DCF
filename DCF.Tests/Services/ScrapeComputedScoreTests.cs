@@ -32,9 +32,9 @@ public class ScrapeComputedScoreTests
         db.Corps.Add(corps);
         db.Shows.Add(show);
 
-        // Two GE Music judges → averaged; one GE Visual judge
+        // One GE Visual judge; two GE Music judges → averaged
         // VP, VA, CG single; Brass single
-        // Two Percussion judges → averaged; one Music Analysis judge
+        // Two Percussion judges (Single takes first); one Music Analysis judge → averaged
         db.Scores.AddRange(
             new ScoreEntity { Id = Guid.NewGuid(), CorpsId = corps.Id, ShowId = show.Id,
                 Caption = Caption.GeneralEffectMusic, Judge = "A", TotalScore = 19.0, Corps = corps, Show = show },
@@ -64,13 +64,13 @@ public class ScrapeComputedScoreTests
         var computed = await db.ComputedScores
             .FirstAsync(cs => cs.ShowId == show.Id && cs.CorpsId == corps.Id);
 
-        double ge1 = (19.0 + 18.0) / 2;    // 18.5
-        double ge2 = 17.5;
+        double ge1 = 17.5;                  // GeneralEffectVisual → GeneralEffect1
+        double ge2 = (19.0 + 18.0) / 2;    // GeneralEffectMusic avg → GeneralEffect2
         double vp = 18.0;
         double va = 19.0;
         double cg = 17.0;
         double brass = 19.5;
-        double perc = (18.5 + 17.5) / 2;   // 18.0
+        double perc = 18.5;                 // Single → first score (Judge D)
         double ma = 18.0;
 
         Assert.Equal(ge1, computed.GeneralEffect1, precision: 5);

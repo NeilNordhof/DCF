@@ -185,9 +185,9 @@ public class RecapScraperTaskTests
 
         var results = await scraper.ScrapeAsync(MakeShow());
 
-        var score = results[0].GeneralEffectMusic1;
+        var score = results[0].GeneralEffectVisual1;
         Assert.NotNull(score);
-        Assert.Equal(Caption.GeneralEffectMusic, score.Caption);
+        Assert.Equal(Caption.GeneralEffectVisual, score.Caption);
         Assert.Equal("Judge A", score.Judge);
         Assert.Equal(7.9, score.RepertoireScore, precision: 5);
         Assert.Equal(1, score.RepertoireRank);
@@ -204,7 +204,7 @@ public class RecapScraperTaskTests
 
         var results = await scraper.ScrapeAsync(MakeShow());
 
-        var score = results[0].GeneralEffectMusic2;
+        var score = results[0].GeneralEffectMusic1;
         Assert.NotNull(score);
         Assert.Equal(Caption.GeneralEffectMusic, score.Caption);
         Assert.Equal("Judge B", score.Judge);
