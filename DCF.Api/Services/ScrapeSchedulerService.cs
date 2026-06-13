@@ -23,9 +23,8 @@ public class ScrapeSchedulerService(
         var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
 
         var shows = await db.Shows
-            .Include(s => s.Season)
             .Include(s => s.ShowCorps)
-            .Where(s => s.Season.Status == SeasonStatus.Active && s.ScoresAnnouncedTime > DateTimeOffset.UtcNow)
+            .Where(s => s.ScoresAnnouncedTime > DateTimeOffset.UtcNow)
             .ToListAsync(stoppingToken);
 
         foreach (var show in shows)
