@@ -1,0 +1,76 @@
+name: Smoke Test
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: dcf
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      mosquitto:
+        image: eclipse-mosquitto:2
+        ports:
+          - 1883:1883
+          - 9001:9001
+        volumes:
+          - ${{ github.workspace }}/scripts/smoke/mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install -r scripts/smoke/requirements.txt
+
+      - name: Apply DB migrations
+        run: dotnet ef database update --project DCF.Data/DCF.Data.csproj --startup-project DCF.Api/DCF.Api.csproj
+        env:
+          ConnectionStrings__Default: Host=localhost;Database=dcf;Username=postgres;Password=postgres
+
+      - name: Start API
+        run: dotnet run --project DCF.Api/DCF.Api.csproj &
+        env:
+          ConnectionStrings__Default: Host=localhost;Database=dcf;Username=postgres;Password=postgres
+          Mqtt__Host: localhost
+          Mqtt__Port: 1883
+          ASPNETCORE_URLS: http://localhost:5000
+          ASPNETCORE_ENVIRONMENT: Development
+
+      - name: Wait for API to be ready
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/api/seasons/active)
+            [ "$code" != "000" ] && break || sleep 2
+          done
+
+      - name: Run smoke test
+        run: python scripts/smoke/smoke_test.py
+        env:
+          SMOKE_API_URL: http://localhost:5000
+          SMOKE_DB_URL: postgresql://postgres:postgres@localhost:5432/dcf
+          SMOKE_MQTT_HOST: localhost
+          SMOKE_MQTT_PORT: "1883"
