@@ -14,7 +14,7 @@ public class HttpHtmlFetcher : IHtmlFetcher
         if (!url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
             !url.StartsWith("http://localhost", StringComparison.OrdinalIgnoreCase))
         {
-            throw new ArgumentException($"Show URL must use HTTPS or http://localhost: {url}");
+            throw new ArgumentException($"URL must use HTTPS or http://localhost: {url}");
         }
 
         return await _httpClient.GetStringAsync(url);
