@@ -1,8 +1,8 @@
-import { useAuth0 } from '@auth0/auth0-react';
+import { useDevAuth } from '../context/DevAuthContext';
 import { useUser } from '../context/UserContext';
 
 export function Profile() {
-  const { logout } = useAuth0();
+  const { logout } = useDevAuth();
   const { user } = useUser();
 
   if (!user) return <div>Loading...</div>;
@@ -13,7 +13,7 @@ export function Profile() {
       <p>Display name: {user.displayName}</p>
       <p>Email: {user.email}</p>
       {user.isAdmin && <p>✓ Admin</p>}
-      <button onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}>
+      <button onClick={() => logout()}>
         Sign Out
       </button>
     </div>
