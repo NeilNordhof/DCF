@@ -30,6 +30,8 @@ services:
     image: dcf-api
     ports:
       - "5000:8080"
+    volumes:
+      - ./DCF.Api/uploads:/app/uploads
     restart: on-failure
     depends_on:
       postgres:
