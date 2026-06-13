@@ -9,6 +9,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dcf -d dcf"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   mosquitto:
     image: eclipse-mosquitto:2
@@ -25,9 +30,12 @@ services:
     image: dcf-api
     ports:
       - "5000:8080"
+    restart: on-failure
     depends_on:
-      - postgres
-      - mosquitto
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
     environment:
       - ConnectionStrings__Default=Host=postgres;Port=5432;Database=dcf;Username=dcf;Password=dcf_dev_password
       - Auth0__Domain=${AUTH0_DOMAIN}
