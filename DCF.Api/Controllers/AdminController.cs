@@ -177,7 +177,8 @@ public class AdminController(IAdminService adminService, IWebHostEnvironment env
             _ => "png"
         };
 
-        var relativePath = $"corps-icons/{id}.{ext}";
+        var uniqueSuffix = Guid.NewGuid().ToString("N")[..8];
+        var relativePath = $"corps-icons/{id}-{uniqueSuffix}.{ext}";
         var uploadsDir = Path.Combine(env.ContentRootPath, "uploads", "corps-icons");
         Directory.CreateDirectory(uploadsDir);
         var filePath = Path.Combine(uploadsDir, $"{id}.{ext}");
