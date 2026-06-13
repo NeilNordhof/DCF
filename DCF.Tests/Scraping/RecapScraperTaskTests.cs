@@ -1,7 +1,6 @@
 using DCF.Api.Scraping;
 using DCF.Api.Services;
 using DCF.Data.Models;
-using System.Net;
 using Xunit;
 
 namespace DCF.Tests.Scraping;
@@ -25,21 +24,18 @@ public class RecapScraperTaskTests
         }
     }
 
-    private sealed class StubHttpHandler : HttpMessageHandler
+    private sealed class FakeHtmlFetcher : IHtmlFetcher
     {
         private readonly string _html;
 
-        public StubHttpHandler(string html)
+        public FakeHtmlFetcher(string html)
         {
             _html = html;
         }
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        public Task<string> FetchAsync(string url)
         {
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(_html)
-            });
+            return Task.FromResult(_html);
         }
     }
 
@@ -47,10 +43,10 @@ public class RecapScraperTaskTests
 
     private static RecapScraperTask CreateScraper(string html, IReadOnlyDictionary<string, Corps>? corps = null)
     {
-        var client = new HttpClient(new StubHttpHandler(html));
+        var fetcher = new FakeHtmlFetcher(html);
         var service = new StubCorpsService(corps);
 
-        return new RecapScraperTask(service, client);
+        return new RecapScraperTask(service, fetcher);
     }
 
     private static Show MakeShow()

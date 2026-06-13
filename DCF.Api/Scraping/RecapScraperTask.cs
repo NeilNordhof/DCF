@@ -7,7 +7,7 @@ namespace DCF.Api.Scraping;
 public class RecapScraperTask : IRecapScraperTask
 {
     private readonly ICorpsService _corpsService;
-    private readonly HttpClient _httpClient;
+    private readonly IHtmlFetcher _htmlFetcher;
 
     // Ordered most-specific first so Contains() matches the right entry.
     // DCI format uses "General Effect 1/2", "Music - X", "Visual - X" naming.
@@ -36,20 +36,15 @@ public class RecapScraperTask : IRecapScraperTask
         ("Total",               Caption.Total,                (r, s) => r.Total = s,                null),
     ];
 
-    public RecapScraperTask(ICorpsService corpsService, HttpClient httpClient)
+    public RecapScraperTask(ICorpsService corpsService, IHtmlFetcher htmlFetcher)
     {
         _corpsService = corpsService;
-        _httpClient = httpClient;
+        _htmlFetcher = htmlFetcher;
     }
 
     public async Task<List<Result>> ScrapeAsync(Show show)
     {
-        if (!show.URL.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new ArgumentException($"Show URL must use HTTPS: {show.URL}");
-        }
-
-        var html = await _httpClient.GetStringAsync(show.URL);
+        var html = await _htmlFetcher.FetchAsync(show.URL);
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
