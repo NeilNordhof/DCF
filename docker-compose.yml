@@ -37,6 +37,7 @@ services:
       mosquitto:
         condition: service_started
     environment:
+      - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__Default=Host=postgres;Port=5432;Database=dcf;Username=dcf;Password=dcf_dev_password
       - Auth0__Domain=${AUTH0_DOMAIN}
       - Auth0__Audience=${AUTH0_AUDIENCE}
