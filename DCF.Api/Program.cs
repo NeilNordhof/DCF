@@ -82,13 +82,13 @@ using (var scope = app.Services.CreateScope())
 var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(Path.Combine(uploadsPath, "corps-icons"));
 
+app.UseCors();
+
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(uploadsPath),
     RequestPath = "/uploads"
 });
-
-app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
