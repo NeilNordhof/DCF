@@ -154,7 +154,9 @@ public class AdminService(
         //    throw new InvalidOperationException($"Show date must be within the season range ({season.StartDate}–{season.EndDate}).");
         //}
 
-        if (date < DateOnly.FromDateTime(DateTime.UtcNow))
+        // Compare against UTC-10 (Hawaii) so a show date that is still "today"
+        // in any US timezone is not rejected when it is already the next UTC day.
+        if (date < DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-10)))
         {
             throw new InvalidOperationException("Show date cannot be in the past.");
         }
