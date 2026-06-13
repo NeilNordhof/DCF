@@ -41,6 +41,7 @@ services:
       - Auth0__Domain=${AUTH0_DOMAIN}
       - Auth0__Audience=${AUTH0_AUDIENCE}
       - Mqtt__Host=mosquitto
+      - AllowedOrigins=http://localhost:3000
 
   web:
     build:
