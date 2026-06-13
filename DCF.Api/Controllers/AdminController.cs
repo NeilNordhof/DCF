@@ -181,7 +181,7 @@ public class AdminController(IAdminService adminService, IWebHostEnvironment env
         var relativePath = $"corps-icons/{id}-{uniqueSuffix}.{ext}";
         var uploadsDir = Path.Combine(env.ContentRootPath, "uploads", "corps-icons");
         Directory.CreateDirectory(uploadsDir);
-        var filePath = Path.Combine(uploadsDir, $"{id}.{ext}");
+        var filePath = Path.Combine(uploadsDir, $"{id}-{uniqueSuffix}.{ext}");
 
         await using (var stream = System.IO.File.Create(filePath))
         {
