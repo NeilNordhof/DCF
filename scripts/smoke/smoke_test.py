@@ -95,7 +95,7 @@ def main():
             "date" : "9999-06-02",
             "startTime" : None,
             "scoresAnnouncedTime" : "2027-01-01T00:00:00Z",
-            "timeZone" : "PST",
+            "timezone" : None,
             "corpsIds" : corps_ids
             })
         assert_status(resp, 200, "Create show")
@@ -113,8 +113,52 @@ def main():
 
         id_to_sub = {v: k for k, v in users.items()}
 
+        # Create our league
+        resp = api("POST", "/api/leagues", "smoke-admin", json={
+            "name": "Smoke League",
+            "isPublic": False,
+            "corpsPerCaption" : 1,
+            "maxPlayers" : 4,
+            "draftableCaptions" : CAPTIONS,
+            "draftStartTime" : None
+            })
+        assert_status(resp, 201, "Create league")
+        league_id = resp.json().get("id")
 
+        # Get the invite code for the league
+        resp = api("GET", f"/api/leagues/{league_id}", "smoke-admin")
+        assert_status(resp, 200, "Get league")
+        invite_code = resp.json().get("inviteCode")
 
+        # Use the invite code to join the league
+        for i in range(1, 4):
+            resp = api("POST", f"/api/leagues/{league_id}/join", f"smoke-user-{i}", json={"inviteCode": invite_code})
+            assert_status(resp, 204, f"Join league for user {i}")
+
+        # Setup mqtt
+        draft_queue = queue.Queue()
+        scores_queue = queue.Queue()
+        def on_message(client, userdata, msg):
+            if "draft" in msg.topic:
+                draft_queue.put(msg.payload)
+            elif "scores" in msg.topic:
+                scores_queue.put(msg.payload)
+
+        mqtt = mqtt_client.Client()
+        mqtt.on_message = on_message
+        mqtt.connect(MQTT_HOST, MQTT_PORT, 60)
+        mqtt.subscribe(f"dcf/leagues/{league_id}/draft")
+        mqtt.subscribe("dcf/scores/updated")
+        mqtt.loop_start()
+
+        # Open and Start Draft
+        resp = api("POST", f"/api/leagues/{league_id}/draft/open", "smoke-admin")
+        assert_status(resp, 204, "Open draft")
+
+        wait_for_message(draft_queue, timeout=5)
+
+        resp = api("POST", f"/api/leagues/{league_id}/draft/start", "smoke-admin")
+        assert_status(resp, 200, "Start draft")
 
     finally:
         if http_server_proc:
