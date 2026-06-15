@@ -595,6 +595,7 @@ export function SeasonDetail() {
                     <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>
                       {s.date}
                       {s.startTime && ` · starts ${new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                      {s.scoresAnnouncedTime && ` · scores ${new Date(s.scoresAnnouncedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                       {hasScoresAnnounced(s)
                         ? <span style={{ color: 'var(--green)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>SCORES ANNOUNCED</span>
                         : started && <span style={{ color: 'var(--accent)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>STARTED</span>
