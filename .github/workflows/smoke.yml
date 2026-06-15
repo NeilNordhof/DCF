@@ -47,6 +47,9 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r scripts/smoke/requirements.txt
 
+      - name: Install dotnet-ef tool
+        run: dotnet tool install --global dotnet-ef
+
       - name: Apply DB migrations
         run: dotnet ef database update --project DCF.Data/DCF.Data.csproj --startup-project DCF.Api/DCF.Api.csproj
         env:
