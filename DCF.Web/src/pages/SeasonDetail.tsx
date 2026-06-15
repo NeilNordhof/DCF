@@ -600,6 +600,12 @@ export function SeasonDetail() {
                         ? <span style={{ color: 'var(--green)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>SCORES ANNOUNCED</span>
                         : started && <span style={{ color: 'var(--accent)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>STARTED</span>
                       }
+                      {s.scrapeStatus === 'Succeeded'
+                        ? <span style={{ color: 'var(--green)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>SCRAPE COMPLETED</span>
+                        : s.scrapeStatus === 'Failed'
+                        ? <span style={{ color: 'var(--red)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>SCRAPE FAILED</span>
+                        : <span/>
+                      }
                     </div>
                   </div>
                   <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{expanded ? '▲' : '▼'}</span>

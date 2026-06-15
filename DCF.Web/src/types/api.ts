@@ -152,6 +152,9 @@ export interface Show {
   scoresAnnouncedTime: string;
   timezone?: string;
   corpsIds: string[];
+  scrapeStatus: 'NotStarted' | 'Succeeded' | 'Failed';
+  lastScrapeAttemptAt?: string;
+  scrapeError?: string;
 }
 
 export interface PickScore {

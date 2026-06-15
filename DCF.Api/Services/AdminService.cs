@@ -8,7 +8,7 @@ namespace DCF.Api.Services;
 public record SeasonSummary(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished);
 public record SeasonDetail(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished, IEnumerable<Guid> CorpsIds, IReadOnlyDictionary<Guid, int> CorpsSortOrders);
 public record CorpsSummary(Guid Id, string Name, string? IconUrl);
-public record ShowSummary(Guid Id, string Name, string Url, DateOnly Date, DateTimeOffset? StartTime, DateTimeOffset ScoresAnnouncedTime, string? Timezone, IEnumerable<Guid> CorpsIds);
+public record ShowSummary(Guid Id, string Name, string Url, DateOnly Date, DateTimeOffset? StartTime, DateTimeOffset ScoresAnnouncedTime, string? Timezone, ScrapeStatus ScrapeStatus, DateTimeOffset? LastScrapeAttemptAt, string? ScrapeError, IEnumerable<Guid> CorpsIds);
 public record ShowBrief(Guid Id, string Name);
 
 public class AdminService(
@@ -139,6 +139,7 @@ public class AdminService(
             .OrderBy(s => s.Date)
             .ThenBy(s => s.StartTime)
             .Select(s => new ShowSummary(s.Id, s.Name, s.Url, s.Date, s.StartTime, s.ScoresAnnouncedTime, s.Timezone,
+                s.ScrapeStatus, s.LastScrapeAttemptAt, s.ScrapeError,
                 s.ShowCorps.Select(sc => sc.CorpsId)))
             .ToListAsync();
     }
@@ -193,7 +194,7 @@ public class AdminService(
             return false;
         }
 
-        if (show.StartTime.HasValue && show.StartTime.Value <= DateTimeOffset.UtcNow)
+        if (show.ScrapeStatus == ScrapeStatus.Succeeded)
         {
             return false;
         }

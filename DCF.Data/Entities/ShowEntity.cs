@@ -1,3 +1,5 @@
+using DCF.Data.Models;
+
 namespace DCF.Data.Entities;
 
 public class ShowEntity
@@ -9,6 +11,9 @@ public class ShowEntity
     public DateTimeOffset? StartTime { get; set; }
     public DateTimeOffset ScoresAnnouncedTime { get; set; }
     public string? Timezone { get; set; }
+    public ScrapeStatus ScrapeStatus { get; set; } = ScrapeStatus.NotStarted;
+    public DateTimeOffset? LastScrapeAttemptAt { get; set; }
+    public string? ScrapeError { get; set; }
     public Guid SeasonId { get; set; }
     public SeasonEntity Season { get; set; } = null!;
 

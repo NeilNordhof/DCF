@@ -94,6 +94,8 @@ public class ScrapeSchedulerService(
         var scraperShow = new Show(freshShow.Id, freshShow.Name, freshShow.Url, freshShow.Date);
         var scraper = scope.ServiceProvider.GetRequiredService<IRecapScraperTask>();
 
+        freshShow.LastScrapeAttemptAt = DateTimeOffset.UtcNow;
+
         List<Result> results;
 
         try
@@ -104,8 +106,16 @@ public class ScrapeSchedulerService(
         {
             logger.LogError(ex, "Scrape failed for show {ShowId}", freshShow.Id);
 
+            freshShow.ScrapeStatus = ScrapeStatus.Failed;
+            freshShow.ScrapeError = ex.Message;
+
+            await db.SaveChangesAsync();
+
             return;
         }
+
+        freshShow.ScrapeStatus = ScrapeStatus.Succeeded;
+        freshShow.ScrapeError = null;
 
         var scores = results
             .SelectMany(r => EnumerateScores(r))
