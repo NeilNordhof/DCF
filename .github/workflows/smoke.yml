@@ -24,16 +24,17 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      mosquitto:
-        image: eclipse-mosquitto:2
-        ports:
-          - 1883:1883
-          - 9001:9001
-        volumes:
-          - ${{ github.workspace }}/scripts/smoke/mosquitto.conf:/mosquitto/config/mosquitto.conf
-
     steps:
       - uses: actions/checkout@v4
+
+      - name: Start Mosquitto
+        run: |
+          docker run -d \
+            --name mosquitto \
+            -p 1883:1883 \
+            -p 9001:9001 \
+            -v ${{ github.workspace }}/scripts/smoke/mosquitto.conf:/mosquitto/config/mosquitto.conf \
+            eclipse-mosquitto:2
 
       - uses: actions/setup-dotnet@v4
         with:
