@@ -4,7 +4,6 @@ import queue
 import subprocess
 import sys
 import time
-import uuid
 from pathlib import Path
 
 import httpx
@@ -144,7 +143,7 @@ def main():
             elif "scores" in msg.topic:
                 scores_queue.put(msg.payload)
 
-        mqtt = mqtt_client.Client()
+        mqtt = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION2)
         mqtt.on_message = on_message
         mqtt.connect(MQTT_HOST, MQTT_PORT, 60)
         mqtt.subscribe(f"dcf/leagues/{league_id}/draft")
@@ -160,7 +159,79 @@ def main():
         resp = api("POST", f"/api/leagues/{league_id}/draft/start", "smoke-admin")
         assert_status(resp, 200, "Start draft")
 
+        #Run Draft
+        draft_state = json.loads(wait_for_message(draft_queue, timeout=5))
+        assert draft_state["status"] == "InProgress"
+
+        corps_idx = 0
+        user_captions_used = {sub: [] for sub in users}
+        skipped_user_3 = False
+
+        while draft_state["status"] == "InProgress":
+            drafter_id = draft_state.get("currentDrafterId")
+            if not drafter_id:
+                break
+            sub = id_to_sub.get(drafter_id)
+            if not sub:
+                break
+
+            if sub == "smoke-user-3" and not skipped_user_3:
+                resp = api("POST", f"/api/leagues/{league_id}/draft/skip", "smoke-admin")
+                assert_status(resp, 200, "Skip draft for user 3")
+                skipped_user_3 = True
+                draft_state = json.loads(wait_for_message(draft_queue, timeout=5))
+                continue
+
+            corps_pick = corps_ids[corps_idx]
+            corps_idx += 1
+
+            caption_pick = next(c for c in CAPTIONS if c not in user_captions_used[sub])
+            user_captions_used[sub].append(caption_pick)
+
+            resp = api("POST", f"/api/leagues/{league_id}/draft/pick", sub, json={
+                "corpsId": corps_pick,
+                "caption" : caption_pick
+            })
+            assert_status(resp, 200, f"Pick corps for user {sub}")
+
+            draft_state = json.loads(wait_for_message(draft_queue, timeout=5))
+
+        # Make up for the skipped user
+        assert skipped_user_3
+        makeup_caption = next(c for c in CAPTIONS if c not in user_captions_used["smoke-user-3"])
+        user_captions_used["smoke-user-3"].append(makeup_caption)
+        resp = api("POST", f"/api/leagues/{league_id}/draft/pick", "smoke-user-3", json={
+            "corpsId": corps_ids[corps_idx],
+            "caption" : makeup_caption
+        })
+        assert_status(resp, 200, f"Pick corps for user smoke-user-3")
+
+        # Trigger scores scrape
+        resp = api("POST", f"/api/admin/shows/{show_id}/scrape", "smoke-admin")
+        assert_status(resp, 204, "Trigger scores scrape")
+
+        # Wait for the scores to be updated
+        wait_for_message(scores_queue, timeout=10)
+
+        # Verify the scores have been updated
+        resp = api("GET", f"/api/leagues/{league_id}/standings/breakdown", "smoke-admin")
+        assert_status(resp, 200, "Get standings breakdown")
+
+        assert any(member["totalScore"] > 0 for member in resp.json())
+
     finally:
-        if http_server_proc:
+        # Cleanup our http and mqtt
+        if http_server_proc is not None:
             http_server_proc.terminate()
             http_server_proc.wait()
+
+        if mqtt is not None:
+            mqtt.loop_stop()
+            mqtt.disconnect()
+
+        # Cleanup the database
+        subprocess.run(["psql", DB_URL, "-f", str(SCRIPT_DIR / "cleanup.sql")], check=True)
+
+if __name__ == "__main__":
+    main()
+
