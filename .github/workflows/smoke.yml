@@ -15,7 +15,7 @@ jobs:
         env:
           POSTGRES_DB: dcf
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
@@ -56,12 +56,12 @@ jobs:
       - name: Apply DB migrations
         run: dotnet ef database update --project DCF.Data/DCF.Data.csproj --startup-project DCF.Api/DCF.Api.csproj
         env:
-          ConnectionStrings__Default: Host=localhost;Database=dcf;Username=postgres;Password=postgres
+          ConnectionStrings__Default: Host=localhost;Database=dcf;Username=postgres
 
       - name: Start API
         run: dotnet run --project DCF.Api/DCF.Api.csproj &
         env:
-          ConnectionStrings__Default: Host=localhost;Database=dcf;Username=postgres;Password=postgres
+          ConnectionStrings__Default: Host=localhost;Database=dcf;Username=postgres
           Mqtt__Host: localhost
           Mqtt__Port: 1883
           ASPNETCORE_URLS: http://localhost:5000
@@ -78,6 +78,6 @@ jobs:
         run: python scripts/smoke/smoke_test.py
         env:
           SMOKE_API_URL: http://localhost:5000
-          SMOKE_DB_URL: postgresql://postgres:postgres@localhost:5432/dcf
+          SMOKE_DB_URL: postgresql://postgres@localhost:5432/dcf
           SMOKE_MQTT_HOST: localhost
           SMOKE_MQTT_PORT: "1883"
