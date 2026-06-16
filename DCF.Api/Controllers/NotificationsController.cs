@@ -20,6 +20,7 @@ public class NotificationsController(
 
         if (userId is null)
         {
+
             return BadRequest("Invalid token.");
         }
 
@@ -27,6 +28,7 @@ public class NotificationsController(
 
         if (user is null)
         {
+
             return BadRequest("User not found.");
         }
 
