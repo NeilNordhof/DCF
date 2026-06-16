@@ -50,6 +50,7 @@ public class DraftSchedulerService(
             {
                 if (!isAlreadyOpened)
                 {
+                    var frontendUrl = emailOptions.Value.FrontendUrl;
                     var oneDayDelay = startTime - TimeSpan.FromHours(24) - DateTimeOffset.UtcNow;
 
                     if (oneDayDelay > TimeSpan.Zero)
@@ -58,8 +59,6 @@ public class DraftSchedulerService(
 
                         if (!cts.Token.IsCancellationRequested)
                         {
-                            var frontendUrl = emailOptions.Value.FrontendUrl;
-
                             await NotifyLeagueMembersAsync(leagueId,
                                 (leagueName, token) => EmailTemplate.DraftTomorrow(leagueName, leagueId, frontendUrl, token));
                         }
@@ -78,8 +77,6 @@ public class DraftSchedulerService(
 
                         if (!cts.Token.IsCancellationRequested)
                         {
-                            var frontendUrl = emailOptions.Value.FrontendUrl;
-
                             await NotifyLeagueMembersAsync(leagueId,
                                 (leagueName, token) => EmailTemplate.DraftInOneHour(leagueName, leagueId, frontendUrl, token));
                         }
@@ -131,8 +128,6 @@ public class DraftSchedulerService(
 
                     if (!cts.Token.IsCancellationRequested)
                     {
-                        var frontendUrl = emailOptions.Value.FrontendUrl;
-
                         await NotifyLeagueMembersAsync(leagueId,
                             (leagueName, token) => EmailTemplate.DraftRoomOpen(leagueName, (int)OpenLeadTime.TotalMinutes, leagueId, frontendUrl, token));
                     }
