@@ -3,6 +3,7 @@ using DCF.Data;
 using DCF.Data.Entities;
 using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 
 namespace DCF.Api.Services;
@@ -39,7 +40,14 @@ public record PublicLeagueSummary(
     int MaxPlayers
 );
 
-public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler, IStandingsService standingsService, IEmailService emailService, ILogger<LeagueService> logger) : ILeagueService
+public class LeagueService(
+    DcfDbContext db,
+    DraftSchedulerService draftScheduler,
+    IStandingsService standingsService,
+    IEmailService emailService,
+    IOptions<EmailOptions> emailOptions,
+    EmailTokenService emailTokenService,
+    ILogger<LeagueService> logger) : ILeagueService
 {
     public async Task<IReadOnlyList<LeagueSummary>> BrowseAsync(string userSub)
     {
@@ -190,12 +198,11 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
                 {
                     try
                     {
-                        await emailService.SendAsync(
-                            commissioner.Email,
-                            commissioner.DisplayName,
-                            $"{user.DisplayName} joined {league.Name}",
-                            $"<p><strong>{user.DisplayName}</strong> has joined your league <strong>{league.Name}</strong>.</p>"
-                        );
+                        var token = emailTokenService.GenerateToken(commissioner.Id);
+                        var (subject, html) = EmailTemplate.MemberJoined(
+                            user.DisplayName, league.Name, leagueId, emailOptions.Value.FrontendUrl, token);
+
+                        await emailService.SendAsync(commissioner.Email, commissioner.DisplayName, subject, html);
                     }
                     catch (Exception ex)
                     {
@@ -360,20 +367,20 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
 
         await db.SaveChangesAsync();
 
+        var frontendUrl = emailOptions.Value.FrontendUrl;
+
         if (req.DraftStartTime.HasValue)
         {
             var timeStr = req.DraftStartTime.Value.ToUniversalTime().ToString("dddd, MMMM d 'at' h:mm tt 'UTC'");
             var action = wasScheduled ? "rescheduled" : "scheduled";
 
             await NotifyLeagueMembersAsync(league.Id,
-                $"Draft {action} — {league.Name}",
-                $"<p>The <strong>{league.Name}</strong> draft has been {action} for <strong>{timeStr}</strong>.</p>");
+                token => EmailTemplate.DraftScheduled(action, league.Name, timeStr, league.Id, frontendUrl, token));
         }
         else if (wasScheduled)
         {
             await NotifyLeagueMembersAsync(league.Id,
-                $"Draft unscheduled — {league.Name}",
-                $"<p>The <strong>{league.Name}</strong> draft has been unscheduled. A new date will be set by the commissioner.</p>");
+                token => EmailTemplate.DraftUnscheduled(league.Name, league.Id, frontendUrl, token));
         }
     }
 
@@ -397,7 +404,9 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
         return league.InviteCode;
     }
 
-    private async Task NotifyLeagueMembersAsync(Guid leagueId, string subject, string html)
+    private async Task NotifyLeagueMembersAsync(
+        Guid leagueId,
+        Func<string, (string subject, string html)> messageFactory)
     {
         try
         {
@@ -409,6 +418,9 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
 
             foreach (var member in members)
             {
+                var token = emailTokenService.GenerateToken(member.Id);
+                var (subject, html) = messageFactory(token);
+
                 await emailService.SendAsync(member.Email, member.DisplayName, subject, html);
             }
         }

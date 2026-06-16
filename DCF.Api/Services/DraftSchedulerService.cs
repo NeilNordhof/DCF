@@ -4,12 +4,15 @@ using DCF.Data.Entities;
 using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace DCF.Api.Services;
 
 public class DraftSchedulerService(
     IServiceScopeFactory scopeFactory,
-    ILogger<DraftSchedulerService> logger) : BackgroundService
+    ILogger<DraftSchedulerService> logger,
+    IOptions<EmailOptions> emailOptions,
+    EmailTokenService emailTokenService) : BackgroundService
 {
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _scheduled = new();
     private static readonly TimeSpan OpenLeadTime = TimeSpan.FromMinutes(10);
@@ -55,9 +58,10 @@ public class DraftSchedulerService(
 
                         if (!cts.Token.IsCancellationRequested)
                         {
+                            var frontendUrl = emailOptions.Value.FrontendUrl;
+
                             await NotifyLeagueMembersAsync(leagueId,
-                                name => $"Draft tomorrow — {name}",
-                                name => $"<p>The <strong>{name}</strong> draft is tomorrow! Make sure you're ready to pick.</p>");
+                                (leagueName, token) => EmailTemplate.DraftTomorrow(leagueName, leagueId, frontendUrl, token));
                         }
                     }
 
@@ -74,9 +78,10 @@ public class DraftSchedulerService(
 
                         if (!cts.Token.IsCancellationRequested)
                         {
+                            var frontendUrl = emailOptions.Value.FrontendUrl;
+
                             await NotifyLeagueMembersAsync(leagueId,
-                                name => $"Draft in 1 hour — {name}",
-                                name => $"<p>The <strong>{name}</strong> draft starts in 1 hour!</p>");
+                                (leagueName, token) => EmailTemplate.DraftInOneHour(leagueName, leagueId, frontendUrl, token));
                         }
                     }
 
@@ -126,9 +131,10 @@ public class DraftSchedulerService(
 
                     if (!cts.Token.IsCancellationRequested)
                     {
+                        var frontendUrl = emailOptions.Value.FrontendUrl;
+
                         await NotifyLeagueMembersAsync(leagueId,
-                            name => $"Draft room is open — {name}",
-                            name => $"<p>The <strong>{name}</strong> draft room is now open! The draft starts in {(int)OpenLeadTime.TotalMinutes} minutes.</p>");
+                            (leagueName, token) => EmailTemplate.DraftRoomOpen(leagueName, (int)OpenLeadTime.TotalMinutes, leagueId, frontendUrl, token));
                     }
                 }
 
@@ -169,7 +175,9 @@ public class DraftSchedulerService(
         }
     }
 
-    private async Task NotifyLeagueMembersAsync(Guid leagueId, Func<string, string> subjectFactory, Func<string, string> htmlFactory)
+    private async Task NotifyLeagueMembersAsync(
+        Guid leagueId,
+        Func<string, string, (string subject, string html)> templateFactory)
     {
         try
         {
@@ -190,11 +198,11 @@ public class DraftSchedulerService(
                 .Select(m => m.User)
                 .ToListAsync();
 
-            var subject = subjectFactory(league.Name);
-            var html = htmlFactory(league.Name);
-
             foreach (var member in members)
             {
+                var token = emailTokenService.GenerateToken(member.Id);
+                var (subject, html) = templateFactory(league.Name, token);
+
                 await emailService.SendAsync(member.Email, member.DisplayName, subject, html);
             }
         }

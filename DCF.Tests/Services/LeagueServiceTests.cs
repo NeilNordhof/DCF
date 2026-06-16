@@ -4,6 +4,7 @@ using DCF.Data.Entities;
 using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace DCF.Tests.Services;
@@ -43,6 +44,21 @@ public class LeagueServiceTests
             .Options;
 
         return new DcfDbContext(opts);
+    }
+
+    private static LeagueService CreateSvc(DcfDbContext db)
+    {
+        var emailOpts = Options.Create(new EmailOptions { UnsubscribeSecret = "test-secret" });
+        var tokenSvc = new EmailTokenService(emailOpts);
+
+        return new LeagueService(
+            db,
+            null!,
+            new NoOpStandings(),
+            new NullEmailService(),
+            emailOpts,
+            tokenSvc,
+            NullLogger<LeagueService>.Instance);
     }
 
     private static async Task<(SeasonEntity Season, LeagueEntity League)> CreateSeasonAndLeague(
@@ -102,7 +118,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(GetAsync_PublicLeague_NonMemberNoCode_ReturnsLeague));
         var (_, league) = await CreateSeasonAndLeague(db, "Open", isPublic: true);
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.GetAsync(league.Id, userSub: "sub|other", inviteCode: null);
 
         Assert.NotNull(result);
@@ -116,7 +132,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(GetAsync_PrivateLeague_NonMemberNoCode_ReturnsNull));
         var (_, league) = await CreateSeasonAndLeague(db, "Private", isPublic: false, inviteCode: "ABC123");
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.GetAsync(league.Id, userSub: "sub|other", inviteCode: null);
 
         Assert.Null(result);
@@ -128,7 +144,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(GetAsync_PrivateLeague_NonMemberCorrectCode_ReturnsLeagueWithoutInviteCode));
         var (_, league) = await CreateSeasonAndLeague(db, "Private", isPublic: false, inviteCode: "ABC123");
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.GetAsync(league.Id, userSub: "sub|other", inviteCode: "ABC123");
 
         Assert.NotNull(result);
@@ -142,7 +158,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(GetAsync_PrivateLeague_NonMemberWrongCode_ReturnsNull));
         var (_, league) = await CreateSeasonAndLeague(db, "Private", isPublic: false, inviteCode: "ABC123");
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.GetAsync(league.Id, userSub: "sub|other", inviteCode: "WRONG");
 
         Assert.Null(result);
@@ -154,7 +170,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(GetAsync_PublicLeague_NullUserSub_ReturnsLeague));
         var (_, league) = await CreateSeasonAndLeague(db, "Open", isPublic: true);
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.GetAsync(league.Id, userSub: null, inviteCode: null);
 
         Assert.NotNull(result);
@@ -174,7 +190,7 @@ public class LeagueServiceTests
 
         await db.SaveChangesAsync();
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.GetAsync(league.Id, userSub: "sub|me", inviteCode: null);
 
         Assert.NotNull(result);
@@ -190,7 +206,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(CreateAsync_ValidParams_SetsMaxPlayers));
         var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var league = await svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
             maxPlayers: 8, captions: [ComputedCaption.MusicCombined], userSub: "sub|me");
 
@@ -203,7 +219,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(CreateAsync_MaxPlayersBelowMinimum_Throws));
         var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         await Assert.ThrowsAsync<ArgumentException>(() =>
             svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
                 maxPlayers: 2, captions: [ComputedCaption.MusicCombined], userSub: "sub|me"));
@@ -215,7 +231,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(CreateAsync_CorpsPerCaptionTooHigh_Throws));
         var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         // floor(24/4) = 6, so 7 is invalid
         await Assert.ThrowsAsync<ArgumentException>(() =>
             svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 7,
@@ -228,7 +244,7 @@ public class LeagueServiceTests
         await using var db = CreateDb(nameof(CreateAsync_MaxPlayersExceedsFloor_Throws));
         var (season, user) = await CreateSeasonAndUser(db, corpsCount: 12, userSub: "sub|me");
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         // 12 corps, corpsPerCaption=3 → floor(12/3) = 4 max
         await Assert.ThrowsAsync<ArgumentException>(() =>
             svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
@@ -255,7 +271,7 @@ public class LeagueServiceTests
 
         await db.SaveChangesAsync();
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.JoinAsync(league.Id, "sub|joiner", inviteCode: null);
 
         Assert.Equal(JoinResult.Full, result);
@@ -277,7 +293,7 @@ public class LeagueServiceTests
 
         await db.SaveChangesAsync();
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.JoinAsync(league.Id, "sub|joiner", inviteCode: null);
 
         Assert.Equal(JoinResult.Ok, result);
@@ -308,7 +324,7 @@ public class LeagueServiceTests
 
         await db.SaveChangesAsync();
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.BrowseAsync("sub|me");
 
         Assert.Single(result);
@@ -345,7 +361,7 @@ public class LeagueServiceTests
         var (_, publicLeague) = await CreateSeasonAndLeague(db, "Public League", isPublic: true);
         var (_, privateLeague) = await CreateSeasonAndLeague(db, "Private League", isPublic: false, inviteCode: "SECRET");
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.GetPublicLeaguesAsync();
 
         Assert.Single(result);
@@ -366,7 +382,7 @@ public class LeagueServiceTests
 
         await db.SaveChangesAsync();
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.GetPublicLeaguesAsync();
 
         Assert.Equal(1, result[0].MemberCount);
@@ -386,7 +402,7 @@ public class LeagueServiceTests
 
         await db.SaveChangesAsync();
 
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.LookupByCodeAsync("MYCODE");
 
         Assert.Equal(league.Id, result);
@@ -396,7 +412,7 @@ public class LeagueServiceTests
     public async Task LookupByCodeAsync_InvalidCode_ReturnsNull()
     {
         await using var db = CreateDb(nameof(LookupByCodeAsync_InvalidCode_ReturnsNull));
-        var svc = new LeagueService(db, null!, new NoOpStandings(), new NullEmailService(), NullLogger<LeagueService>.Instance);
+        var svc = CreateSvc(db);
         var result = await svc.LookupByCodeAsync("NOPE");
 
         Assert.Null(result);

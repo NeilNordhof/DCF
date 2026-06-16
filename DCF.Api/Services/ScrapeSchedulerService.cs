@@ -5,6 +5,7 @@ using DCF.Data.Entities;
 using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace DCF.Api.Services;
 
@@ -12,6 +13,8 @@ public class ScrapeSchedulerService(
     IServiceScopeFactory scopeFactory,
     IMqttService mqtt,
     IConfiguration config,
+    IOptions<EmailOptions> emailOptions,
+    EmailTokenService emailTokenService,
     ILogger<ScrapeSchedulerService> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _scheduled = new();
@@ -174,12 +177,10 @@ public class ScrapeSchedulerService(
 
             foreach (var user in users)
             {
-                await emailService.SendAsync(
-                    user.Email,
-                    user.DisplayName,
-                    $"New show scores available — {showName}",
-                    $"<p>Scores from <strong>{showName}</strong> are now available. Check your standings!</p>"
-                );
+                var token = emailTokenService.GenerateToken(user.Id);
+                var (subject, html) = EmailTemplate.ScoresAvailable(showName, emailOptions.Value.FrontendUrl, token);
+
+                await emailService.SendAsync(user.Email, user.DisplayName, subject, html);
             }
         }
         catch (Exception ex)
