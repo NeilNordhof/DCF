@@ -39,7 +39,7 @@ public record PublicLeagueSummary(
     int MaxPlayers
 );
 
-public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler, IStandingsService standingsService) : ILeagueService
+public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler, IStandingsService standingsService, IEmailService emailService, ILogger<LeagueService> logger) : ILeagueService
 {
     public async Task<IReadOnlyList<LeagueSummary>> BrowseAsync(string userSub)
     {
@@ -181,6 +181,28 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
             db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = leagueId, UserId = user.Id });
 
             await db.SaveChangesAsync();
+
+            if (user.Id != league.CommissionerUserId)
+            {
+                var commissioner = await db.Users.FirstOrDefaultAsync(u => u.Id == league.CommissionerUserId && u.EmailNotificationsEnabled);
+
+                if (commissioner is not null)
+                {
+                    try
+                    {
+                        await emailService.SendAsync(
+                            commissioner.Email,
+                            commissioner.DisplayName,
+                            $"{user.DisplayName} joined {league.Name}",
+                            $"<p><strong>{user.DisplayName}</strong> has joined your league <strong>{league.Name}</strong>.</p>"
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to send member-joined notification for league {LeagueId}", leagueId);
+                    }
+                }
+            }
         }
 
         return JoinResult.Ok;
@@ -306,14 +328,14 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
         league.DraftableCaptions = req.DraftableCaptions;
         league.IssueMessages = [];
 
+        var wasScheduled = league.DraftStartTime.HasValue;
+
         if (req.DraftStartTime.HasValue)
         {
             if (req.DraftStartTime.Value < DateTimeOffset.UtcNow)
             {
                 throw new ArgumentException("Draft Start date and time can not be in the past");
             }
-
-            var wasScheduled = league.DraftStartTime.HasValue;
 
             league.DraftStartTime = req.DraftStartTime.Value.ToUniversalTime();
             league.DraftStatus = DraftStatus.Scheduled;
@@ -327,7 +349,7 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
         }
         else
         {
-            if (league.DraftStartTime.HasValue)
+            if (wasScheduled)
             {
                 draftScheduler.CancelScheduled(league.Id);
             }
@@ -337,6 +359,22 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
         }
 
         await db.SaveChangesAsync();
+
+        if (req.DraftStartTime.HasValue)
+        {
+            var timeStr = req.DraftStartTime.Value.ToUniversalTime().ToString("dddd, MMMM d 'at' h:mm tt 'UTC'");
+            var action = wasScheduled ? "rescheduled" : "scheduled";
+
+            await NotifyLeagueMembersAsync(league.Id,
+                $"Draft {action} — {league.Name}",
+                $"<p>The <strong>{league.Name}</strong> draft has been {action} for <strong>{timeStr}</strong>.</p>");
+        }
+        else if (wasScheduled)
+        {
+            await NotifyLeagueMembersAsync(league.Id,
+                $"Draft unscheduled — {league.Name}",
+                $"<p>The <strong>{league.Name}</strong> draft has been unscheduled. A new date will be set by the commissioner.</p>");
+        }
     }
 
     public async Task<string> RefreshInviteCodeAsync(Guid leagueId, string userSub)
@@ -357,6 +395,27 @@ public class LeagueService(DcfDbContext db, DraftSchedulerService draftScheduler
         await db.SaveChangesAsync();
 
         return league.InviteCode;
+    }
+
+    private async Task NotifyLeagueMembersAsync(Guid leagueId, string subject, string html)
+    {
+        try
+        {
+            var members = await db.LeagueMembers
+                .Include(m => m.User)
+                .Where(m => m.LeagueId == leagueId && m.User.EmailNotificationsEnabled)
+                .Select(m => m.User)
+                .ToListAsync();
+
+            foreach (var member in members)
+            {
+                await emailService.SendAsync(member.Email, member.DisplayName, subject, html);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to send notifications for league {LeagueId}", leagueId);
+        }
     }
 
     private static string GenerateInviteCode()

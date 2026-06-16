@@ -47,46 +47,42 @@ public class DraftSchedulerService(
             {
                 if (!isAlreadyOpened)
                 {
-                    var notifyDelay = startTime - TimeSpan.FromMinutes(30) - DateTimeOffset.UtcNow;
+                    var oneDayDelay = startTime - TimeSpan.FromHours(24) - DateTimeOffset.UtcNow;
 
-                    if (notifyDelay > TimeSpan.Zero)
+                    if (oneDayDelay > TimeSpan.Zero)
                     {
-                        await Task.Delay(notifyDelay, cts.Token);
+                        await Task.Delay(oneDayDelay, cts.Token);
+
+                        if (!cts.Token.IsCancellationRequested)
+                        {
+                            await NotifyLeagueMembersAsync(leagueId,
+                                name => $"Draft tomorrow — {name}",
+                                name => $"<p>The <strong>{name}</strong> draft is tomorrow! Make sure you're ready to pick.</p>");
+                        }
                     }
 
-                    if (!cts.Token.IsCancellationRequested)
+                    if (cts.Token.IsCancellationRequested)
                     {
-                        using var notifyScope = scopeFactory.CreateScope();
-                        var notifyDb = notifyScope.ServiceProvider.GetRequiredService<DcfDbContext>();
-                        var emailService = notifyScope.ServiceProvider.GetRequiredService<IEmailService>();
+                        return;
+                    }
 
-                        try
+                    var oneHourDelay = startTime - TimeSpan.FromHours(1) - DateTimeOffset.UtcNow;
+
+                    if (oneHourDelay > TimeSpan.Zero)
+                    {
+                        await Task.Delay(oneHourDelay, cts.Token);
+
+                        if (!cts.Token.IsCancellationRequested)
                         {
-                            var league = await notifyDb.Leagues.FirstOrDefaultAsync(l => l.Id == leagueId);
-
-                            if (league is not null)
-                            {
-                                var members = await notifyDb.LeagueMembers
-                                    .Include(m => m.User)
-                                    .Where(m => m.LeagueId == leagueId && m.User.EmailNotificationsEnabled)
-                                    .Select(m => m.User)
-                                    .ToListAsync();
-
-                                foreach (var member in members)
-                                {
-                                    await emailService.SendAsync(
-                                        member.Email,
-                                        member.DisplayName,
-                                        $"Draft starting in 30 minutes — {league.Name}",
-                                        $"<p>The <strong>{league.Name}</strong> draft is starting in 30 minutes!</p>"
-                                    );
-                                }
-                            }
+                            await NotifyLeagueMembersAsync(leagueId,
+                                name => $"Draft in 1 hour — {name}",
+                                name => $"<p>The <strong>{name}</strong> draft starts in 1 hour!</p>");
                         }
-                        catch (Exception ex)
-                        {
-                            logger.LogWarning(ex, "Failed to send draft-starting-soon notifications for league {LeagueId}", leagueId);
-                        }
+                    }
+
+                    if (cts.Token.IsCancellationRequested)
+                    {
+                        return;
                     }
 
                     var openDelay = startTime - OpenLeadTime - DateTimeOffset.UtcNow;
@@ -127,6 +123,13 @@ public class DraftSchedulerService(
 
                         return;
                     }
+
+                    if (!cts.Token.IsCancellationRequested)
+                    {
+                        await NotifyLeagueMembersAsync(leagueId,
+                            name => $"Draft room is open — {name}",
+                            name => $"<p>The <strong>{name}</strong> draft room is now open! The draft starts in {(int)OpenLeadTime.TotalMinutes} minutes.</p>");
+                    }
                 }
 
                 var startDelay = startTime - DateTimeOffset.UtcNow;
@@ -163,6 +166,41 @@ public class DraftSchedulerService(
         {
             cts.Cancel();
             cts.Dispose();
+        }
+    }
+
+    private async Task NotifyLeagueMembersAsync(Guid leagueId, Func<string, string> subjectFactory, Func<string, string> htmlFactory)
+    {
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
+            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+            var league = await db.Leagues.FirstOrDefaultAsync(l => l.Id == leagueId);
+
+            if (league is null)
+            {
+                return;
+            }
+
+            var members = await db.LeagueMembers
+                .Include(m => m.User)
+                .Where(m => m.LeagueId == leagueId && m.User.EmailNotificationsEnabled)
+                .Select(m => m.User)
+                .ToListAsync();
+
+            var subject = subjectFactory(league.Name);
+            var html = htmlFactory(league.Name);
+
+            foreach (var member in members)
+            {
+                await emailService.SendAsync(member.Email, member.DisplayName, subject, html);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to send notifications for league {LeagueId}", leagueId);
         }
     }
 }

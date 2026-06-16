@@ -3,7 +3,6 @@ using DCF.Data;
 using DCF.Data.Entities;
 using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 using Xunit;
 
@@ -27,14 +26,6 @@ internal sealed class NullPresenceService : IPresenceService
     public IReadOnlyCollection<Guid> GetOnline(Guid leagueId)
     {
         return Array.Empty<Guid>();
-    }
-}
-
-internal sealed class NullEmailService : IEmailService
-{
-    public Task SendAsync(string toEmail, string toName, string subject, string htmlBody)
-    {
-        return Task.CompletedTask;
     }
 }
 
@@ -138,7 +129,7 @@ public class OpenDraftTests
             new LeagueMemberEntity { LeagueId = league.Id, UserId = member3.Id }
         );
         db.SaveChanges();
-        return (db, new DraftService(db, mqtt, new NullPresenceService(), new NullEmailService(), NullLogger<DraftService>.Instance), mqtt, commissioner.Id, member.Id, league.Id);
+        return (db, new DraftService(db, mqtt, new NullPresenceService()), mqtt, commissioner.Id, member.Id, league.Id);
     }
 
     [Fact]
@@ -253,7 +244,7 @@ public class StartDraftTests
             new LeagueMemberEntity { LeagueId = league.Id, UserId = member.Id }
         );
         db.SaveChanges();
-        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService(), new NullEmailService(), NullLogger<DraftService>.Instance), commissioner.Id, league.Id);
+        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService()), commissioner.Id, league.Id);
     }
 
     [Fact]
@@ -346,7 +337,7 @@ public class PublishStateTests
     public async Task PublishStateAsync_LeagueNotFound_DoesNotThrow()
     {
         var db = CreateDb();
-        var svc = new DraftService(db, new NullMqtt(), new NullPresenceService(), new NullEmailService(), NullLogger<DraftService>.Instance);
+        var svc = new DraftService(db, new NullMqtt(), new NullPresenceService());
 
         var ex = await Record.ExceptionAsync(() => svc.PublishStateAsync(Guid.NewGuid()));
 
@@ -361,7 +352,7 @@ public class PublishStateTests
         var user1 = Guid.NewGuid();
         var user2 = Guid.NewGuid();
         var presence = new FakePresenceService(user1, user2);
-        var svc = new DraftService(db, mqtt, presence, new NullEmailService(), NullLogger<DraftService>.Instance);
+        var svc = new DraftService(db, mqtt, presence);
 
         var league = new LeagueEntity
         {
@@ -399,7 +390,7 @@ public class PublishStateTests
         var mqtt = new CapturingMqtt();
         var user1 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "a1", DisplayName = "U1", Email = "u1@t.com" };
         var user2 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "a2", DisplayName = "U2", Email = "u2@t.com" };
-        var svc = new DraftService(db, mqtt, new NullPresenceService(), new NullEmailService(), NullLogger<DraftService>.Instance);
+        var svc = new DraftService(db, mqtt, new NullPresenceService());
         var draftOrder = JsonSerializer.Serialize(new[] { user1.Id.ToString(), user2.Id.ToString() });
 
         var league = new LeagueEntity
@@ -465,7 +456,7 @@ public class SubmitPickTests
         db.Leagues.Add(league);
         db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = player.Id });
         db.SaveChanges();
-        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService(), new NullEmailService(), NullLogger<DraftService>.Instance), player.Id, league.Id, corps1.Id, corps2.Id);
+        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService()), player.Id, league.Id, corps1.Id, corps2.Id);
     }
 
     [Fact]
@@ -534,7 +525,7 @@ public class SkipCurrentPickTests
             new LeagueMemberEntity { LeagueId = league.Id, UserId = member.Id }
         );
         db.SaveChanges();
-        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService(), new NullEmailService(), NullLogger<DraftService>.Instance), commissioner.Id, member.Id, league.Id);
+        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService()), commissioner.Id, member.Id, league.Id);
     }
 
     [Fact]
@@ -609,7 +600,7 @@ public class SubmitPickMakeupTests
             PickNumber = 1, RoundNumber = 0
         });
         db.SaveChanges();
-        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService(), new NullEmailService(), NullLogger<DraftService>.Instance),
+        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService()),
             player1.Id, player2.Id, league.Id, corps1.Id, corps2.Id);
     }
 
@@ -644,7 +635,7 @@ public class SubmitPickMakeupTests
         );
         // No DraftPick at slot 0 — Player1 was skipped. Slot 1 is pending (Player2's turn).
         db.SaveChanges();
-        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService(), new NullEmailService(), NullLogger<DraftService>.Instance),
+        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService()),
             player1.Id, player2.Id, league.Id, corps1.Id, corps2.Id);
     }
 
@@ -709,7 +700,7 @@ public class SubmitPickMakeupTests
         db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = player1.Id });
         // Slots 0 and 1 both skipped — no DraftPicks
         db.SaveChanges();
-        var svc = new DraftService(db, new NullMqtt(), new NullPresenceService(), new NullEmailService(), NullLogger<DraftService>.Instance);
+        var svc = new DraftService(db, new NullMqtt(), new NullPresenceService());
 
         await svc.SubmitPickAsync(league.Id, "auth|p1", corps1.Id, ComputedCaption.Brass);
 

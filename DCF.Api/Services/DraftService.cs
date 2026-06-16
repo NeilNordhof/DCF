@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace DCF.Api.Services;
 
-public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService presenceService, IEmailService emailService, ILogger<DraftService> logger) : IDraftService
+public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService presenceService) : IDraftService
 {
     public static string GetCurrentDrafter(string[] draftOrder, int currentPickNumber)
     {
@@ -128,10 +128,6 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
         await db.SaveChangesAsync();
 
         await PublishDraftStateAsync(league);
-
-        var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson)!;
-
-        await NotifyYourTurnAsync(league, draftOrder, 0);
     }
 
     public async Task<(Guid Id, int PickNumber)> SubmitPickAsync(
@@ -252,15 +248,6 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
 
         await PublishDraftStateAsync(league);
 
-        if (league.DraftStatus == DraftStatus.Completed)
-        {
-            await NotifyDraftCompleteAsync(league.Id, league.Name);
-        }
-        else if (!inMakeupPhase && league.CurrentPickNumber < mainTotalPicks)
-        {
-            await NotifyYourTurnAsync(league, draftOrder, league.CurrentPickNumber);
-        }
-
         return (pick.Id, pick.PickNumber);
     }
 
@@ -297,11 +284,6 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
         await db.SaveChangesAsync();
 
         await PublishDraftStateAsync(league);
-
-        if (league.CurrentPickNumber < mainTotalPicks)
-        {
-            await NotifyYourTurnAsync(league, draftOrder, league.CurrentPickNumber);
-        }
     }
 
     public async Task PublishStateAsync(Guid leagueId)
@@ -314,57 +296,6 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
         }
 
         await PublishDraftStateAsync(league);
-    }
-
-    private async Task NotifyYourTurnAsync(LeagueEntity league, string[] draftOrder, int pickNumber)
-    {
-        try
-        {
-            var nextDrafterId = Guid.Parse(GetCurrentDrafter(draftOrder, pickNumber));
-            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == nextDrafterId && u.EmailNotificationsEnabled);
-
-            if (user is null)
-            {
-                return;
-            }
-
-            await emailService.SendAsync(
-                user.Email,
-                user.DisplayName,
-                $"It's your turn to pick — {league.Name}",
-                $"<p>It's your turn to make a pick in the <strong>{league.Name}</strong> draft.</p>"
-            );
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to send your-turn notification for league {LeagueId}", league.Id);
-        }
-    }
-
-    private async Task NotifyDraftCompleteAsync(Guid leagueId, string leagueName)
-    {
-        try
-        {
-            var users = await db.LeagueMembers
-                .Include(m => m.User)
-                .Where(m => m.LeagueId == leagueId && m.User.EmailNotificationsEnabled)
-                .Select(m => m.User)
-                .ToListAsync();
-
-            foreach (var user in users)
-            {
-                await emailService.SendAsync(
-                    user.Email,
-                    user.DisplayName,
-                    $"Draft complete — {leagueName}",
-                    $"<p>The <strong>{leagueName}</strong> draft is complete! Check the standings to see how you stack up.</p>"
-                );
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to send draft-complete notifications for league {LeagueId}", leagueId);
-        }
     }
 
     private async Task PublishDraftStateAsync(LeagueEntity league)
