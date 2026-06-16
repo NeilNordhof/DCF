@@ -19,13 +19,15 @@ A static class with one public method per email type. Each method accepts only t
 
 | Method | Parameters | Subject line | CTA |
 |---|---|---|---|
-| `DraftTomorrow` | `leagueName, ctaUrl, unsubscribeUrl` | `"Draft tomorrow — {leagueName}"` | "Go to Draft Room" |
-| `DraftInOneHour` | `leagueName, ctaUrl, unsubscribeUrl` | `"Draft in 1 hour — {leagueName}"` | "Go to Draft Room" |
-| `DraftRoomOpen` | `leagueName, openLeadMinutes, ctaUrl, unsubscribeUrl` | `"Draft room is open — {leagueName}"` | "Go to Draft Room" |
-| `MemberJoined` | `memberName, leagueName, ctaUrl, unsubscribeUrl` | `"{memberName} joined {leagueName}"` | "View League" |
-| `ScoresAvailable` | `showName, unsubscribeUrl` | `"New show scores available — {showName}"` | "View Standings" → `/leagues` |
+| `DraftTomorrow` | `leagueName, leagueId, frontendUrl, unsubscribeToken` | `"Draft tomorrow — {leagueName}"` | "Go to Draft Room" → `/leagues/{leagueId}/draft` |
+| `DraftInOneHour` | `leagueName, leagueId, frontendUrl, unsubscribeToken` | `"Draft in 1 hour — {leagueName}"` | "Go to Draft Room" → `/leagues/{leagueId}/draft` |
+| `DraftRoomOpen` | `leagueName, openLeadMinutes, leagueId, frontendUrl, unsubscribeToken` | `"Draft room is open — {leagueName}"` | "Go to Draft Room" → `/leagues/{leagueId}/draft` |
+| `DraftScheduled` | `action, leagueName, timeStr, leagueId, frontendUrl, unsubscribeToken` | `"Draft {action} — {leagueName}"` | "View League" → `/leagues/{leagueId}` |
+| `DraftUnscheduled` | `leagueName, leagueId, frontendUrl, unsubscribeToken` | `"Draft unscheduled — {leagueName}"` | "View League" → `/leagues/{leagueId}` |
+| `MemberJoined` | `memberName, leagueName, leagueId, frontendUrl, unsubscribeToken` | `"{memberName} joined {leagueName}"` | "View League" → `/leagues/{leagueId}` |
+| `ScoresAvailable` | `showName, frontendUrl, unsubscribeToken` | `"New show scores available — {showName}"` | "View Standings" → `/leagues` |
 
-Each method returns the subject line (for passing to `SendAsync`) and the HTML body. To keep callers clean, each method returns a `(string subject, string html)` tuple.
+Each method builds its own CTA URL and unsubscribe URL from `leagueId`, `frontendUrl`, and `unsubscribeToken` — call sites never construct URL strings. Each method returns a `(string subject, string html)` tuple. Note: `DraftScheduled` and `DraftUnscheduled` were added during planning; `LeagueService` has two callers of `NotifyLeagueMembersAsync` that require them.
 
 ### Private `Layout` helper
 
@@ -166,23 +168,25 @@ Buttons shown after success or error:
 
 ## 6. Call-Site Changes
 
-The 5 existing `emailService.SendAsync(...)` call sites need to be updated:
+There are 7 distinct email types across 4 `SendAsync` call sites. All need updating:
 
 | Location | Change |
 |---|---|
-| `DraftSchedulerService` — draft tomorrow | Use `EmailTemplate.DraftTomorrow(leagueName, ctaUrl, unsubscribeUrl)` |
-| `DraftSchedulerService` — draft in 1 hour | Use `EmailTemplate.DraftInOneHour(leagueName, ctaUrl, unsubscribeUrl)` |
-| `DraftSchedulerService` — draft room open | Use `EmailTemplate.DraftRoomOpen(leagueName, openLeadMinutes, ctaUrl, unsubscribeUrl)` |
-| `LeagueService` — member joined | Use `EmailTemplate.MemberJoined(memberName, leagueName, ctaUrl, unsubscribeUrl)` |
-| `ScrapeSchedulerService` — scores available | Use `EmailTemplate.ScoresAvailable(showName, unsubscribeUrl)` |
+| `DraftSchedulerService` — draft tomorrow | `EmailTemplate.DraftTomorrow(leagueName, leagueId, frontendUrl, token)` |
+| `DraftSchedulerService` — draft in 1 hour | `EmailTemplate.DraftInOneHour(leagueName, leagueId, frontendUrl, token)` |
+| `DraftSchedulerService` — draft room open | `EmailTemplate.DraftRoomOpen(leagueName, openLeadMinutes, leagueId, frontendUrl, token)` |
+| `LeagueService` — draft scheduled/rescheduled | `EmailTemplate.DraftScheduled(action, leagueName, timeStr, leagueId, frontendUrl, token)` |
+| `LeagueService` — draft unscheduled | `EmailTemplate.DraftUnscheduled(leagueName, leagueId, frontendUrl, token)` |
+| `LeagueService` — member joined | `EmailTemplate.MemberJoined(memberName, leagueName, leagueId, frontendUrl, token)` |
+| `ScrapeSchedulerService` — scores available | `EmailTemplate.ScoresAvailable(showName, frontendUrl, token)` |
 
-Each call site will:
-1. Inject `EmailTokenService` to generate the per-recipient unsubscribe token
-2. Build the `ctaUrl` from `FrontendUrl` + the appropriate route
-3. Call `EmailTemplate.*` inside the per-recipient loop (since unsubscribe URL is per-user)
-4. Pass the returned `(subject, html)` tuple to `emailService.SendAsync`
+Each call site:
+1. Injects `EmailTokenService` and `IOptions<EmailOptions>` (both singleton — injected directly into constructor)
+2. Generates a per-recipient token via `emailTokenService.GenerateToken(userId)` inside the per-member loop
+3. Passes `token`, `leagueId`, and `frontendUrl` to the `EmailTemplate.*` method — no URL strings constructed at the call site
+4. Passes the returned `(subject, html)` tuple to `emailService.SendAsync`
 
-For `DraftSchedulerService`, `EmailTokenService` and `EmailOptions` will need to be resolved from the service scope inside `NotifyLeagueMembersAsync`.
+The private `NotifyLeagueMembersAsync` helpers are refactored to accept a factory delegate that receives `(leagueName, token)` (DraftSchedulerService) or just `token` (LeagueService), with `leagueId` and `frontendUrl` captured in the closure at the call site.
 
 ---
 
