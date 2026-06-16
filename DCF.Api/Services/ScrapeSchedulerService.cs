@@ -145,6 +145,47 @@ public class ScrapeSchedulerService(
         await db.SaveChangesAsync();
 
         await ComputeAndUpsertComputedScoresAsync(db, freshShow.Id, freshShow.SeasonId);
+
+        var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+        await SendScoresUpdatedNotificationsAsync(db, emailService, freshShow.SeasonId, freshShow.Name);
+    }
+
+    private async Task SendScoresUpdatedNotificationsAsync(DcfDbContext db, IEmailService emailService, Guid seasonId, string showName)
+    {
+        try
+        {
+            var leagueIds = await db.Leagues
+                .Where(l => l.SeasonId == seasonId && l.DraftStatus == DraftStatus.Completed)
+                .Select(l => l.Id)
+                .ToListAsync();
+
+            if (leagueIds.Count == 0)
+            {
+                return;
+            }
+
+            var users = await db.LeagueMembers
+                .Include(m => m.User)
+                .Where(m => leagueIds.Contains(m.LeagueId) && m.User.EmailNotificationsEnabled)
+                .Select(m => m.User)
+                .Distinct()
+                .ToListAsync();
+
+            foreach (var user in users)
+            {
+                await emailService.SendAsync(
+                    user.Email,
+                    user.DisplayName,
+                    $"New show scores available — {showName}",
+                    $"<p>Scores from <strong>{showName}</strong> are now available. Check your standings!</p>"
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to send scores-updated notifications for show {ShowName}", showName);
+        }
     }
 
     public static async Task ComputeAndUpsertComputedScoresAsync(DcfDbContext db, Guid showId, Guid seasonId)

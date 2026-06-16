@@ -47,6 +47,48 @@ public class DraftSchedulerService(
             {
                 if (!isAlreadyOpened)
                 {
+                    var notifyDelay = startTime - TimeSpan.FromMinutes(30) - DateTimeOffset.UtcNow;
+
+                    if (notifyDelay > TimeSpan.Zero)
+                    {
+                        await Task.Delay(notifyDelay, cts.Token);
+                    }
+
+                    if (!cts.Token.IsCancellationRequested)
+                    {
+                        using var notifyScope = scopeFactory.CreateScope();
+                        var notifyDb = notifyScope.ServiceProvider.GetRequiredService<DcfDbContext>();
+                        var emailService = notifyScope.ServiceProvider.GetRequiredService<IEmailService>();
+
+                        try
+                        {
+                            var league = await notifyDb.Leagues.FirstOrDefaultAsync(l => l.Id == leagueId);
+
+                            if (league is not null)
+                            {
+                                var members = await notifyDb.LeagueMembers
+                                    .Include(m => m.User)
+                                    .Where(m => m.LeagueId == leagueId && m.User.EmailNotificationsEnabled)
+                                    .Select(m => m.User)
+                                    .ToListAsync();
+
+                                foreach (var member in members)
+                                {
+                                    await emailService.SendAsync(
+                                        member.Email,
+                                        member.DisplayName,
+                                        $"Draft starting in 30 minutes — {league.Name}",
+                                        $"<p>The <strong>{league.Name}</strong> draft is starting in 30 minutes!</p>"
+                                    );
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogWarning(ex, "Failed to send draft-starting-soon notifications for league {LeagueId}", leagueId);
+                        }
+                    }
+
                     var openDelay = startTime - OpenLeadTime - DateTimeOffset.UtcNow;
 
                     if (openDelay > TimeSpan.Zero)

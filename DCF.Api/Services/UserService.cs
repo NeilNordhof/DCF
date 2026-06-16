@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DCF.Api.Services;
 
-public record UserProfile(Guid Id, string Email, string DisplayName, bool IsAdmin);
+public record UserProfile(Guid Id, string Email, string DisplayName, bool IsAdmin, bool EmailNotificationsEnabled);
 
 public class UserService(DcfDbContext db) : IUserService
 {
@@ -49,7 +49,7 @@ public class UserService(DcfDbContext db) : IUserService
             await db.SaveChangesAsync();
         }
 
-        return new UserProfile(user.Id, user.Email, user.DisplayName, user.IsAdmin);
+        return new UserProfile(user.Id, user.Email, user.DisplayName, user.IsAdmin, user.EmailNotificationsEnabled);
     }
 
     public async Task<UserProfile?> GetAsync(string sub)
@@ -61,6 +61,6 @@ public class UserService(DcfDbContext db) : IUserService
             return null;
         }
 
-        return new UserProfile(user.Id, user.Email, user.DisplayName, user.IsAdmin);
+        return new UserProfile(user.Id, user.Email, user.DisplayName, user.IsAdmin, user.EmailNotificationsEnabled);
     }
 }
