@@ -16,12 +16,14 @@ import { Leagues } from './pages/Leagues';
 import { Onboarding } from './pages/Onboarding';
 import { Profile } from './pages/Profile';
 import { SeasonDetail } from './pages/SeasonDetail';
+import { Unsubscribe } from './pages/Unsubscribe';
 
 const router = createBrowserRouter([
   {
     element: <App />,
     children: [
       { path: '/', element: <Home /> },
+      { path: '/unsubscribe', element: <Unsubscribe /> },
       { path: '/onboarding', element: <ProtectedRoute><Onboarding /></ProtectedRoute> },
       { path: '/leagues', element: <ProtectedRoute><AuthenticatedLayout><Leagues /></AuthenticatedLayout></ProtectedRoute> },
       { path: '/leagues/create', element: <ProtectedRoute><AuthenticatedLayout><LeagueCreate /></AuthenticatedLayout></ProtectedRoute> },

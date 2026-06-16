@@ -38,6 +38,8 @@ export const api = {
   },
   upsertUser: (displayName: string, email: string) =>
     request<UserProfile>('/api/auth/me', { method: 'POST', body: JSON.stringify({ displayName, email }) }),
+  unsubscribe: (token: string) =>
+    request<void>('/api/notifications/unsubscribe', { method: 'POST', body: JSON.stringify({ token }) }),
   getLeagues: () => request<League[]>('/api/leagues'),
   getLeague: (id: string, code?: string) => {
     const params = code ? `?code=${encodeURIComponent(code)}` : '';
