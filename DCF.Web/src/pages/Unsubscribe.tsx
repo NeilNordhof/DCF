@@ -13,6 +13,7 @@ export function Unsubscribe() {
 
     if (!token) {
       setStatus('error');
+
       return;
     }
 
