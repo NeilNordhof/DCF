@@ -60,6 +60,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<SeasonStatusServic
 
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.AddTransient<IEmailService, SmtpEmailService>();
+builder.Services.AddSingleton<EmailTokenService>();
 
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
