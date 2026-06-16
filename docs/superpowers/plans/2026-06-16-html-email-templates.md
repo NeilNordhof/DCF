@@ -306,13 +306,14 @@ git commit -m "feat: add EmailTokenService for HMAC-signed unsubscribe tokens"
 
 **Interfaces:**
 - Produces (all return `(string subject, string html)`):
-  - `EmailTemplate.DraftTomorrow(string leagueName, string ctaUrl, string unsubscribeUrl)`
-  - `EmailTemplate.DraftInOneHour(string leagueName, string ctaUrl, string unsubscribeUrl)`
-  - `EmailTemplate.DraftRoomOpen(string leagueName, int openLeadMinutes, string ctaUrl, string unsubscribeUrl)`
-  - `EmailTemplate.DraftScheduled(string action, string leagueName, string timeStr, string ctaUrl, string unsubscribeUrl)`
-  - `EmailTemplate.DraftUnscheduled(string leagueName, string ctaUrl, string unsubscribeUrl)`
-  - `EmailTemplate.MemberJoined(string memberName, string leagueName, string ctaUrl, string unsubscribeUrl)`
-  - `EmailTemplate.ScoresAvailable(string showName, string ctaUrl, string unsubscribeUrl)`
+  - `EmailTemplate.DraftTomorrow(string leagueName, Guid leagueId, string frontendUrl, string unsubscribeToken)`
+  - `EmailTemplate.DraftInOneHour(string leagueName, Guid leagueId, string frontendUrl, string unsubscribeToken)`
+  - `EmailTemplate.DraftRoomOpen(string leagueName, int openLeadMinutes, Guid leagueId, string frontendUrl, string unsubscribeToken)`
+  - `EmailTemplate.DraftScheduled(string action, string leagueName, string timeStr, Guid leagueId, string frontendUrl, string unsubscribeToken)`
+  - `EmailTemplate.DraftUnscheduled(string leagueName, Guid leagueId, string frontendUrl, string unsubscribeToken)`
+  - `EmailTemplate.MemberJoined(string memberName, string leagueName, Guid leagueId, string frontendUrl, string unsubscribeToken)`
+  - `EmailTemplate.ScoresAvailable(string showName, string frontendUrl, string unsubscribeToken)`
+- Each method builds its own CTA URL from `leagueId` and `frontendUrl`, and its own unsubscribe URL from `frontendUrl` and `unsubscribeToken`. Call sites pass only semantic data and infrastructure values; URL format strings live exclusively in `EmailTemplate`.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -326,16 +327,20 @@ namespace DCF.Tests.Services;
 
 public class EmailTemplateTests
 {
+    private static readonly Guid TestLeagueId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+    private const string FrontendUrl = "http://app.test";
+    private const string Token = "test-token";
+
     [Fact]
     public void DraftTomorrow_SubjectAndHtmlContainLeagueName()
     {
         var (subject, html) = EmailTemplate.DraftTomorrow(
-            "Test League", "http://cta.test/draft", "http://unsub.test");
+            "Test League", TestLeagueId, FrontendUrl, Token);
 
         Assert.Equal("Draft tomorrow — Test League", subject);
         Assert.Contains("Test League", html);
-        Assert.Contains("http://cta.test/draft", html);
-        Assert.Contains("http://unsub.test", html);
+        Assert.Contains($"/leagues/{TestLeagueId}/draft", html);
+        Assert.Contains($"/unsubscribe?token={Token}", html);
         Assert.Contains("Go to Draft Room", html);
     }
 
@@ -343,7 +348,7 @@ public class EmailTemplateTests
     public void DraftInOneHour_SubjectAndHtmlContainLeagueName()
     {
         var (subject, html) = EmailTemplate.DraftInOneHour(
-            "Test League", "http://cta.test/draft", "http://unsub.test");
+            "Test League", TestLeagueId, FrontendUrl, Token);
 
         Assert.Equal("Draft in 1 hour — Test League", subject);
         Assert.Contains("Test League", html);
@@ -354,7 +359,7 @@ public class EmailTemplateTests
     public void DraftRoomOpen_SubjectAndHtmlContainLeagueNameAndMinutes()
     {
         var (subject, html) = EmailTemplate.DraftRoomOpen(
-            "Test League", 10, "http://cta.test/draft", "http://unsub.test");
+            "Test League", 10, TestLeagueId, FrontendUrl, Token);
 
         Assert.Equal("Draft room is open — Test League", subject);
         Assert.Contains("Test League", html);
@@ -367,7 +372,7 @@ public class EmailTemplateTests
     {
         var (subject, html) = EmailTemplate.DraftScheduled(
             "scheduled", "Test League", "Monday, June 16 at 7:00 PM UTC",
-            "http://cta.test", "http://unsub.test");
+            TestLeagueId, FrontendUrl, Token);
 
         Assert.Equal("Draft scheduled — Test League", subject);
         Assert.Contains("Test League", html);
@@ -379,7 +384,7 @@ public class EmailTemplateTests
     public void DraftUnscheduled_SubjectAndHtmlContainLeagueName()
     {
         var (subject, html) = EmailTemplate.DraftUnscheduled(
-            "Test League", "http://cta.test", "http://unsub.test");
+            "Test League", TestLeagueId, FrontendUrl, Token);
 
         Assert.Equal("Draft unscheduled — Test League", subject);
         Assert.Contains("Test League", html);
@@ -390,7 +395,7 @@ public class EmailTemplateTests
     public void MemberJoined_SubjectAndHtmlContainMemberAndLeagueNames()
     {
         var (subject, html) = EmailTemplate.MemberJoined(
-            "Alice", "Test League", "http://cta.test", "http://unsub.test");
+            "Alice", "Test League", TestLeagueId, FrontendUrl, Token);
 
         Assert.Equal("Alice joined Test League", subject);
         Assert.Contains("Alice", html);
@@ -402,10 +407,11 @@ public class EmailTemplateTests
     public void ScoresAvailable_SubjectAndHtmlContainShowName()
     {
         var (subject, html) = EmailTemplate.ScoresAvailable(
-            "Drum Corps West", "http://cta.test/leagues", "http://unsub.test");
+            "Drum Corps West", FrontendUrl, Token);
 
         Assert.Equal("New show scores available — Drum Corps West", subject);
         Assert.Contains("Drum Corps West", html);
+        Assert.Contains("/leagues", html);
         Assert.Contains("View Standings", html);
     }
 
@@ -413,7 +419,7 @@ public class EmailTemplateTests
     public void EmailTemplate_HtmlEncodesUserContent()
     {
         var (_, html) = EmailTemplate.DraftTomorrow(
-            "<script>alert(1)</script>", "http://cta.test", "http://unsub.test");
+            "<script>alert(1)</script>", TestLeagueId, FrontendUrl, Token);
 
         Assert.DoesNotContain("<script>", html);
         Assert.Contains("&lt;script&gt;", html);
@@ -439,8 +445,9 @@ public static class EmailTemplate
 {
     public static (string subject, string html) DraftTomorrow(
         string leagueName,
-        string ctaUrl,
-        string unsubscribeUrl)
+        Guid leagueId,
+        string frontendUrl,
+        string unsubscribeToken)
     {
         var safe = WebUtility.HtmlEncode(leagueName);
 
@@ -450,14 +457,15 @@ public static class EmailTemplate
                 heading: $"Draft tomorrow — {safe}",
                 body: $"The <strong style=\"color: #f3f4f6;\">{safe}</strong> draft is tomorrow! Make sure you're ready to pick.",
                 ctaText: "Go to Draft Room",
-                ctaUrl: ctaUrl,
-                unsubscribeUrl: unsubscribeUrl));
+                ctaUrl: $"{frontendUrl}/leagues/{leagueId}/draft",
+                unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
     }
 
     public static (string subject, string html) DraftInOneHour(
         string leagueName,
-        string ctaUrl,
-        string unsubscribeUrl)
+        Guid leagueId,
+        string frontendUrl,
+        string unsubscribeToken)
     {
         var safe = WebUtility.HtmlEncode(leagueName);
 
@@ -467,15 +475,16 @@ public static class EmailTemplate
                 heading: $"Draft in 1 hour — {safe}",
                 body: $"The <strong style=\"color: #f3f4f6;\">{safe}</strong> draft starts in 1 hour!",
                 ctaText: "Go to Draft Room",
-                ctaUrl: ctaUrl,
-                unsubscribeUrl: unsubscribeUrl));
+                ctaUrl: $"{frontendUrl}/leagues/{leagueId}/draft",
+                unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
     }
 
     public static (string subject, string html) DraftRoomOpen(
         string leagueName,
         int openLeadMinutes,
-        string ctaUrl,
-        string unsubscribeUrl)
+        Guid leagueId,
+        string frontendUrl,
+        string unsubscribeToken)
     {
         var safe = WebUtility.HtmlEncode(leagueName);
 
@@ -485,16 +494,17 @@ public static class EmailTemplate
                 heading: $"Draft room is open — {safe}",
                 body: $"The <strong style=\"color: #f3f4f6;\">{safe}</strong> draft room is now open! The draft starts in {openLeadMinutes} minutes.",
                 ctaText: "Go to Draft Room",
-                ctaUrl: ctaUrl,
-                unsubscribeUrl: unsubscribeUrl));
+                ctaUrl: $"{frontendUrl}/leagues/{leagueId}/draft",
+                unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
     }
 
     public static (string subject, string html) DraftScheduled(
         string action,
         string leagueName,
         string timeStr,
-        string ctaUrl,
-        string unsubscribeUrl)
+        Guid leagueId,
+        string frontendUrl,
+        string unsubscribeToken)
     {
         var safeName = WebUtility.HtmlEncode(leagueName);
         var safeAction = WebUtility.HtmlEncode(action);
@@ -506,14 +516,15 @@ public static class EmailTemplate
                 heading: $"Draft {safeAction} — {safeName}",
                 body: $"The <strong style=\"color: #f3f4f6;\">{safeName}</strong> draft has been {safeAction} for <strong style=\"color: #f3f4f6;\">{safeTime}</strong>.",
                 ctaText: "View League",
-                ctaUrl: ctaUrl,
-                unsubscribeUrl: unsubscribeUrl));
+                ctaUrl: $"{frontendUrl}/leagues/{leagueId}",
+                unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
     }
 
     public static (string subject, string html) DraftUnscheduled(
         string leagueName,
-        string ctaUrl,
-        string unsubscribeUrl)
+        Guid leagueId,
+        string frontendUrl,
+        string unsubscribeToken)
     {
         var safe = WebUtility.HtmlEncode(leagueName);
 
@@ -523,15 +534,16 @@ public static class EmailTemplate
                 heading: $"Draft unscheduled — {safe}",
                 body: $"The <strong style=\"color: #f3f4f6;\">{safe}</strong> draft has been unscheduled. A new date will be set by the commissioner.",
                 ctaText: "View League",
-                ctaUrl: ctaUrl,
-                unsubscribeUrl: unsubscribeUrl));
+                ctaUrl: $"{frontendUrl}/leagues/{leagueId}",
+                unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
     }
 
     public static (string subject, string html) MemberJoined(
         string memberName,
         string leagueName,
-        string ctaUrl,
-        string unsubscribeUrl)
+        Guid leagueId,
+        string frontendUrl,
+        string unsubscribeToken)
     {
         var safeMember = WebUtility.HtmlEncode(memberName);
         var safeName = WebUtility.HtmlEncode(leagueName);
@@ -542,14 +554,14 @@ public static class EmailTemplate
                 heading: $"{safeMember} joined {safeName}",
                 body: $"<strong style=\"color: #f3f4f6;\">{safeMember}</strong> has joined your league <strong style=\"color: #f3f4f6;\">{safeName}</strong>.",
                 ctaText: "View League",
-                ctaUrl: ctaUrl,
-                unsubscribeUrl: unsubscribeUrl));
+                ctaUrl: $"{frontendUrl}/leagues/{leagueId}",
+                unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
     }
 
     public static (string subject, string html) ScoresAvailable(
         string showName,
-        string ctaUrl,
-        string unsubscribeUrl)
+        string frontendUrl,
+        string unsubscribeToken)
     {
         var safe = WebUtility.HtmlEncode(showName);
 
@@ -559,8 +571,8 @@ public static class EmailTemplate
                 heading: "New scores available",
                 body: $"Scores from <strong style=\"color: #f3f4f6;\">{safe}</strong> are now available. Check your standings!",
                 ctaText: "View Standings",
-                ctaUrl: ctaUrl,
-                unsubscribeUrl: unsubscribeUrl));
+                ctaUrl: $"{frontendUrl}/leagues",
+                unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
     }
 
     private static string Layout(
@@ -842,7 +854,7 @@ git commit -m "feat: add unsubscribe endpoint POST /api/notifications/unsubscrib
 
 **Interfaces:**
 - Consumes:
-  - `EmailTemplate.*` methods from Task 3 (all returning `(string subject, string html)`)
+  - `EmailTemplate.*` methods from Task 3
   - `EmailTokenService.GenerateToken` from Task 2
   - `EmailOptions.FrontendUrl` from Task 1
 
@@ -852,7 +864,7 @@ No new tests — existing tests don't assert email content and the observable be
 
 In `DCF.Api/Services/DraftSchedulerService.cs`:
 
-**1a. Add `using` directives** at the top of the file:
+**1a. Add `using` directive** at the top of the file:
 
 ```csharp
 using Microsoft.Extensions.Options;
@@ -868,33 +880,30 @@ public class DraftSchedulerService(
     EmailTokenService emailTokenService) : BackgroundService
 ```
 
-**1c. Replace the 3 `NotifyLeagueMembersAsync` call sites** (the `await NotifyLeagueMembersAsync(...)` calls inside the `ScheduleNext` task). Replace all 3 with:
+**1c. Replace the 3 `NotifyLeagueMembersAsync` call sites** inside `ScheduleNext`. Each call now passes only a lambda that receives `(leagueName, token)` — the leagueId and frontendUrl are captured from the enclosing scope:
 
 ```csharp
+var frontendUrl = emailOptions.Value.FrontendUrl;
+
 // 24-hour reminder
 await NotifyLeagueMembersAsync(leagueId,
-    $"{emailOptions.Value.FrontendUrl}/leagues/{leagueId}/draft",
-    EmailTemplate.DraftTomorrow);
+    (leagueName, token) => EmailTemplate.DraftTomorrow(leagueName, leagueId, frontendUrl, token));
 
 // 1-hour reminder
 await NotifyLeagueMembersAsync(leagueId,
-    $"{emailOptions.Value.FrontendUrl}/leagues/{leagueId}/draft",
-    EmailTemplate.DraftInOneHour);
+    (leagueName, token) => EmailTemplate.DraftInOneHour(leagueName, leagueId, frontendUrl, token));
 
 // Room open
 await NotifyLeagueMembersAsync(leagueId,
-    $"{emailOptions.Value.FrontendUrl}/leagues/{leagueId}/draft",
-    (leagueName, ctaUrl, unsubscribeUrl) =>
-        EmailTemplate.DraftRoomOpen(leagueName, (int)OpenLeadTime.TotalMinutes, ctaUrl, unsubscribeUrl));
+    (leagueName, token) => EmailTemplate.DraftRoomOpen(leagueName, (int)OpenLeadTime.TotalMinutes, leagueId, frontendUrl, token));
 ```
 
-**1d. Replace `NotifyLeagueMembersAsync` signature and body** (the private method at the bottom of the file). Change from `Func<string, string>` factories to a single template factory:
+**1d. Replace `NotifyLeagueMembersAsync` signature and body** (the private method at the bottom of the file). The factory now receives `(leagueName, token)` and the method generates the token per-member:
 
 ```csharp
 private async Task NotifyLeagueMembersAsync(
     Guid leagueId,
-    string ctaUrl,
-    Func<string, string, string, (string subject, string html)> templateFactory)
+    Func<string, string, (string subject, string html)> templateFactory)
 {
     try
     {
@@ -917,8 +926,8 @@ private async Task NotifyLeagueMembersAsync(
 
         foreach (var member in members)
         {
-            var unsubscribeUrl = $"{emailOptions.Value.FrontendUrl}/unsubscribe?token={emailTokenService.GenerateToken(member.Id)}";
-            var (subject, html) = templateFactory(league.Name, ctaUrl, unsubscribeUrl);
+            var token = emailTokenService.GenerateToken(member.Id);
+            var (subject, html) = templateFactory(league.Name, token);
 
             await emailService.SendAsync(member.Email, member.DisplayName, subject, html);
         }
@@ -958,9 +967,9 @@ public class LeagueService(
 ```csharp
 try
 {
-    var ctaUrl = $"{emailOptions.Value.FrontendUrl}/leagues/{leagueId}";
-    var unsubscribeUrl = $"{emailOptions.Value.FrontendUrl}/unsubscribe?token={emailTokenService.GenerateToken(commissioner.Id)}";
-    var (subject, html) = EmailTemplate.MemberJoined(user.DisplayName, league.Name, ctaUrl, unsubscribeUrl);
+    var token = emailTokenService.GenerateToken(commissioner.Id);
+    var (subject, html) = EmailTemplate.MemberJoined(
+        user.DisplayName, league.Name, leagueId, emailOptions.Value.FrontendUrl, token);
 
     await emailService.SendAsync(commissioner.Email, commissioner.DisplayName, subject, html);
 }
@@ -970,34 +979,32 @@ catch (Exception ex)
 }
 ```
 
-**2d. Replace the two `NotifyLeagueMembersAsync` call sites** (around lines 368 and 374). These build the `timeStr` and `action` variables above them — keep those, and replace the two calls:
+**2d. Replace the two `NotifyLeagueMembersAsync` call sites** (around lines 368 and 374). The factory now receives just `token` — `league.Name`, `league.Id`, and `frontendUrl` are captured in the closure:
 
 ```csharp
+var frontendUrl = emailOptions.Value.FrontendUrl;
+
 if (req.DraftStartTime.HasValue)
 {
     var timeStr = req.DraftStartTime.Value.ToUniversalTime().ToString("dddd, MMMM d 'at' h:mm tt 'UTC'");
     var action = wasScheduled ? "rescheduled" : "scheduled";
-    var leagueUrl = $"{emailOptions.Value.FrontendUrl}/leagues/{league.Id}";
 
-    await NotifyLeagueMembersAsync(league.Id, leagueUrl,
-        (ctaUrl, unsubUrl) => EmailTemplate.DraftScheduled(action, league.Name, timeStr, ctaUrl, unsubUrl));
+    await NotifyLeagueMembersAsync(league.Id,
+        token => EmailTemplate.DraftScheduled(action, league.Name, timeStr, league.Id, frontendUrl, token));
 }
 else if (wasScheduled)
 {
-    var leagueUrl = $"{emailOptions.Value.FrontendUrl}/leagues/{league.Id}";
-
-    await NotifyLeagueMembersAsync(league.Id, leagueUrl,
-        (ctaUrl, unsubUrl) => EmailTemplate.DraftUnscheduled(league.Name, ctaUrl, unsubUrl));
+    await NotifyLeagueMembersAsync(league.Id,
+        token => EmailTemplate.DraftUnscheduled(league.Name, league.Id, frontendUrl, token));
 }
 ```
 
-**2e. Replace `NotifyLeagueMembersAsync` signature and body** (private method around line 400). Change from `(Guid leagueId, string subject, string html)` to:
+**2e. Replace `NotifyLeagueMembersAsync` signature and body** (private method around line 400). The factory now receives just `token`; token generation happens inside the loop:
 
 ```csharp
 private async Task NotifyLeagueMembersAsync(
     Guid leagueId,
-    string ctaUrl,
-    Func<string, string, (string subject, string html)> messageFactory)
+    Func<string, (string subject, string html)> messageFactory)
 {
     try
     {
@@ -1009,8 +1016,8 @@ private async Task NotifyLeagueMembersAsync(
 
         foreach (var member in members)
         {
-            var unsubscribeUrl = $"{emailOptions.Value.FrontendUrl}/unsubscribe?token={emailTokenService.GenerateToken(member.Id)}";
-            var (subject, html) = messageFactory(ctaUrl, unsubscribeUrl);
+            var token = emailTokenService.GenerateToken(member.Id);
+            var (subject, html) = messageFactory(token);
 
             await emailService.SendAsync(member.Email, member.DisplayName, subject, html);
         }
@@ -1044,14 +1051,13 @@ public class ScrapeSchedulerService(
     ILogger<ScrapeSchedulerService> logger) : BackgroundService
 ```
 
-**3c. Replace the `emailService.SendAsync` call** (around line 177). The surrounding `foreach (var user in users)` loop stays unchanged; only the body changes:
+**3c. Replace the `emailService.SendAsync` call** (around line 177). The surrounding `foreach (var user in users)` loop stays; only the body changes:
 
 ```csharp
 foreach (var user in users)
 {
-    var ctaUrl = $"{emailOptions.Value.FrontendUrl}/leagues";
-    var unsubscribeUrl = $"{emailOptions.Value.FrontendUrl}/unsubscribe?token={emailTokenService.GenerateToken(user.Id)}";
-    var (subject, html) = EmailTemplate.ScoresAvailable(showName, ctaUrl, unsubscribeUrl);
+    var token = emailTokenService.GenerateToken(user.Id);
+    var (subject, html) = EmailTemplate.ScoresAvailable(showName, emailOptions.Value.FrontendUrl, token);
 
     await emailService.SendAsync(user.Email, user.DisplayName, subject, html);
 }
