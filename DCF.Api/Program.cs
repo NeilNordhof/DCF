@@ -58,6 +58,9 @@ builder.Services.AddSingleton<SeasonStatusService>();
 builder.Services.AddSingleton<ISeasonStatusService>(sp => sp.GetRequiredService<SeasonStatusService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<SeasonStatusService>());
 
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.AddTransient<IEmailService, SmtpEmailService>();
+
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<ILeagueService, LeagueService>();

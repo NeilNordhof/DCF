@@ -15,6 +15,12 @@ services:
       timeout: 5s
       retries: 10
 
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
   mosquitto:
     image: eclipse-mosquitto:2
     ports:
@@ -44,6 +50,10 @@ services:
       - Auth0__Domain=${AUTH0_DOMAIN}
       - Auth0__Audience=${AUTH0_AUDIENCE}
       - Mqtt__Host=mosquitto
+      - Email__Host=mailpit
+      - Email__Port=1025
+      - Email__FromAddress=notifications@dcf.local
+      - Email__FromName=Drum Corps Fantasy
       - AllowedOrigins=http://localhost:3000
 
   web:
