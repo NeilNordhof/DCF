@@ -14,6 +14,8 @@ public class EmailOptions
     public string FromAddress { get; set; } = string.Empty;
     public string FromName { get; set; } = "Drum Corps Fantasy";
     public bool StartTls { get; set; } = false;
+    public string FrontendUrl { get; set; } = string.Empty;
+    public string UnsubscribeSecret { get; set; } = string.Empty;
 }
 
 public class SmtpEmailService(IOptions<EmailOptions> options, ILogger<SmtpEmailService> logger) : IEmailService
