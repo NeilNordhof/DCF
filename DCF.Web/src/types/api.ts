@@ -110,6 +110,7 @@ export interface UserProfile {
   email: string;
   displayName: string;
   isAdmin: boolean;
+  emailNotificationsEnabled: boolean;
 }
 
 export interface CreateLeagueRequest {

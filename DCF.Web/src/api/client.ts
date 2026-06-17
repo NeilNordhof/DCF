@@ -40,6 +40,8 @@ export const api = {
     request<UserProfile>('/api/auth/me', { method: 'POST', body: JSON.stringify({ displayName, email }) }),
   unsubscribe: (token: string) =>
     request<void>('/api/notifications/unsubscribe', { method: 'POST', body: JSON.stringify({ token }) }),
+  updateNotificationPreferences: (emailNotificationsEnabled: boolean) =>
+    request<void>('/api/notifications/preferences', { method: 'PATCH', body: JSON.stringify({ emailNotificationsEnabled }) }),
   getLeagues: () => request<League[]>('/api/leagues'),
   getLeague: (id: string, code?: string) => {
     const params = code ? `?code=${encodeURIComponent(code)}` : '';
