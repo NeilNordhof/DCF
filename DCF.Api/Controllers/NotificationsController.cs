@@ -36,6 +36,6 @@ public class NotificationsController(
 
         await db.SaveChangesAsync();
 
-        return Ok();
+        return NoContent();
     }
 }

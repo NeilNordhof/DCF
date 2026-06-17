@@ -29,7 +29,7 @@ public class NotificationsControllerTests
     }
 
     [Fact]
-    public async Task Unsubscribe_ValidToken_DisablesNotificationsAndReturnsOk()
+    public async Task Unsubscribe_ValidToken_DisablesNotificationsAndReturnsNoContent()
     {
         using var db = CreateDb("unsub_valid");
         var userId = Guid.NewGuid();
@@ -51,7 +51,7 @@ public class NotificationsControllerTests
 
         var result = await controller.Unsubscribe(new UnsubscribeRequest(token));
 
-        Assert.IsType<OkResult>(result);
+        Assert.IsType<NoContentResult>(result);
 
         var user = await db.Users.FindAsync(userId);
 
@@ -71,7 +71,7 @@ public class NotificationsControllerTests
     }
 
     [Fact]
-    public async Task Unsubscribe_ValidTokenAlreadyUnsubscribed_ReturnsOk()
+    public async Task Unsubscribe_ValidTokenAlreadyUnsubscribed_ReturnsNoContent()
     {
         using var db = CreateDb("unsub_idempotent");
         var userId = Guid.NewGuid();
@@ -93,6 +93,6 @@ public class NotificationsControllerTests
 
         var result = await controller.Unsubscribe(new UnsubscribeRequest(token));
 
-        Assert.IsType<OkResult>(result);
+        Assert.IsType<NoContentResult>(result);
     }
 }
