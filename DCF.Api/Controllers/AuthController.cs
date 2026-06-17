@@ -25,7 +25,7 @@ public class AuthController(IUserService userService) : ControllerBase
             return NotFound();
         }
 
-        return Ok(new { profile.Id, profile.Email, profile.DisplayName, profile.IsAdmin });
+        return Ok(new { profile.Id, profile.Email, profile.DisplayName, profile.IsAdmin, profile.EmailNotificationsEnabled });
     }
 
     [HttpPost("me")]
@@ -39,6 +39,6 @@ public class AuthController(IUserService userService) : ControllerBase
 
         var profile = await userService.UpsertAsync(sub, email, name, request?.DisplayName);
 
-        return Ok(new { profile.Id, profile.Email, profile.DisplayName, profile.IsAdmin });
+        return Ok(new { profile.Id, profile.Email, profile.DisplayName, profile.IsAdmin, profile.EmailNotificationsEnabled });
     }
 }

@@ -3,6 +3,7 @@ using DCF.Api.Models;
 using DCF.Api.Services;
 using DCF.Data;
 using DCF.Data.Entities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -94,5 +95,68 @@ public class NotificationsControllerTests
         var result = await controller.Unsubscribe(new UnsubscribeRequest(token));
 
         Assert.IsType<NoContentResult>(result);
+    }
+
+    private static NotificationsController CreateControllerWithSub(DcfDbContext db, EmailTokenService tokenService, string sub)
+    {
+        var claims = new List<System.Security.Claims.Claim>
+        {
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, sub)
+        };
+
+        var identity = new System.Security.Claims.ClaimsIdentity(claims);
+        var principal = new System.Security.Claims.ClaimsPrincipal(identity);
+
+        var controller = new NotificationsController(db, tokenService);
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = principal }
+        };
+
+        return controller;
+    }
+
+    [Fact]
+    public async Task UpdatePreferences_ValidUser_UpdatesFieldAndReturnsNoContent()
+    {
+        using var db = CreateDb("pref_update_valid");
+        const string sub = "auth0|pref-user";
+
+        db.Users.Add(new UserEntity
+        {
+            Id = Guid.NewGuid(),
+            Auth0Sub = sub,
+            Email = "pref@example.com",
+            DisplayName = "Pref User",
+            EmailNotificationsEnabled = false
+        });
+
+        await db.SaveChangesAsync();
+
+        var tokenService = CreateTokenService();
+        var controller = CreateControllerWithSub(db, tokenService, sub);
+        var request = new UpdateNotificationPreferencesRequest(true);
+
+        var result = await controller.UpdatePreferences(request);
+
+        Assert.IsType<NoContentResult>(result);
+
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == sub);
+
+        Assert.True(user!.EmailNotificationsEnabled);
+    }
+
+    [Fact]
+    public async Task UpdatePreferences_UserNotFound_ReturnsNotFound()
+    {
+        using var db = CreateDb("pref_update_notfound");
+        var tokenService = CreateTokenService();
+        var controller = CreateControllerWithSub(db, tokenService, "auth0|ghost");
+        var request = new UpdateNotificationPreferencesRequest(true);
+
+        var result = await controller.UpdatePreferences(request);
+
+        Assert.IsType<NotFoundResult>(result);
     }
 }
