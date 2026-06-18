@@ -368,3 +368,8 @@ appsettings.Development.json
 .claude/
 .superpowers/
 *.code-workspace
+
+# Images for corps logos
+
+corpslogos/
+DCF.Api/uploads/corps-icons/*

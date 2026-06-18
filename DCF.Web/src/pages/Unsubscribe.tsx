@@ -118,7 +118,7 @@ export function Unsubscribe() {
                   display: 'inline-block',
                 }}
               >
-                Manage Preferences
+                Manage Email Preferences
               </Link>
             </div>
           </>
@@ -166,7 +166,7 @@ export function Unsubscribe() {
                   display: 'inline-block',
                 }}
               >
-                Manage Preferences
+                Manage Email Preferences
               </Link>
             </div>
           </>
