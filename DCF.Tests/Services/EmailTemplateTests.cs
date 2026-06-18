@@ -13,10 +13,11 @@ public class EmailTemplateTests
     public void DraftTomorrow_SubjectAndHtmlContainLeagueName()
     {
         var (subject, html) = EmailTemplate.DraftTomorrow(
-            "Test League", TestLeagueId, FrontendUrl, Token);
+            "Test League", "Tuesday, June 16 at 7:00 PM EDT", TestLeagueId, FrontendUrl, Token);
 
         Assert.Equal("Draft tomorrow — Test League", subject);
         Assert.Contains("Test League", html);
+        Assert.Contains("Tuesday, June 16 at 7:00 PM EDT", html);
         Assert.Contains($"/leagues/{TestLeagueId}/draft", html);
         Assert.Contains($"/unsubscribe?token={Token}", html);
         Assert.Contains("Go to Draft Room", html);
@@ -26,10 +27,11 @@ public class EmailTemplateTests
     public void DraftInOneHour_SubjectAndHtmlContainLeagueName()
     {
         var (subject, html) = EmailTemplate.DraftInOneHour(
-            "Test League", TestLeagueId, FrontendUrl, Token);
+            "Test League", "Tuesday, June 16 at 7:00 PM EDT", TestLeagueId, FrontendUrl, Token);
 
         Assert.Equal("Draft in 1 hour — Test League", subject);
         Assert.Contains("Test League", html);
+        Assert.Contains("Tuesday, June 16 at 7:00 PM EDT", html);
         Assert.Contains("Go to Draft Room", html);
     }
 
@@ -97,7 +99,7 @@ public class EmailTemplateTests
     public void EmailTemplate_HtmlEncodesUserContent()
     {
         var (_, html) = EmailTemplate.DraftTomorrow(
-            "<script>alert(1)</script>", TestLeagueId, FrontendUrl, Token);
+            "<script>alert(1)</script>", "Tuesday, June 16 at 7:00 PM EDT", TestLeagueId, FrontendUrl, Token);
 
         Assert.DoesNotContain("<script>", html);
         Assert.Contains("&lt;script&gt;", html);

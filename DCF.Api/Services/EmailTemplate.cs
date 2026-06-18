@@ -6,17 +6,19 @@ public static class EmailTemplate
 {
     public static (string subject, string html) DraftTomorrow(
         string leagueName,
+        string timeStr,
         Guid leagueId,
         string frontendUrl,
         string unsubscribeToken)
     {
         var safe = WebUtility.HtmlEncode(leagueName);
+        var safeTime = WebUtility.HtmlEncode(timeStr);
 
         return (
             $"Draft tomorrow — {leagueName}",
             Layout(
                 heading: $"Draft tomorrow — {safe}",
-                body: $"The <strong style=\"color: #f3f4f6;\">{safe}</strong> draft is tomorrow! Make sure you're ready to pick.",
+                body: $"The <strong style=\"color: #f3f4f6;\">{safe}</strong> draft is tomorrow at <strong style=\"color: #f3f4f6;\">{safeTime}</strong>! Make sure you're ready to pick.",
                 ctaText: "Go to Draft Room",
                 ctaUrl: $"{frontendUrl}/leagues/{leagueId}/draft",
                 unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
@@ -24,17 +26,19 @@ public static class EmailTemplate
 
     public static (string subject, string html) DraftInOneHour(
         string leagueName,
+        string timeStr,
         Guid leagueId,
         string frontendUrl,
         string unsubscribeToken)
     {
         var safe = WebUtility.HtmlEncode(leagueName);
+        var safeTime = WebUtility.HtmlEncode(timeStr);
 
         return (
             $"Draft in 1 hour — {leagueName}",
             Layout(
                 heading: $"Draft in 1 hour — {safe}",
-                body: $"The <strong style=\"color: #f3f4f6;\">{safe}</strong> draft starts in 1 hour!",
+                body: $"The <strong style=\"color: #f3f4f6;\">{safe}</strong> draft starts at <strong style=\"color: #f3f4f6;\">{safeTime}</strong> — that's in 1 hour!",
                 ctaText: "Go to Draft Room",
                 ctaUrl: $"{frontendUrl}/leagues/{leagueId}/draft",
                 unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
@@ -171,13 +175,19 @@ public static class EmailTemplate
                           <p style="margin: 0 0 28px; font-size: 14px; line-height: 1.6; color: #9ca3af;">
                             {body}
                           </p>
-                          <table cellpadding="0" cellspacing="0" role="presentation">
+                          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                             <tr>
-                              <td style="border-radius: 6px; background-color: #c084fc;">
-                                <a href="{ctaUrl}"
-                                   style="display: inline-block; padding: 12px 24px; font-size: 14px; font-weight: bold; color: #0d0f14; text-decoration: none; border-radius: 6px;">
-                                  {ctaText}
-                                </a>
+                              <td align="center">
+                                <table cellpadding="0" cellspacing="0" role="presentation">
+                                  <tr>
+                                    <td style="border-radius: 6px; background-color: #c084fc;">
+                                      <a href="{ctaUrl}"
+                                         style="display: inline-block; padding: 12px 24px; font-size: 14px; font-weight: bold; color: #0d0f14; text-decoration: none; border-radius: 6px;">
+                                        {ctaText}
+                                      </a>
+                                    </td>
+                                  </tr>
+                                </table>
                               </td>
                             </tr>
                           </table>
