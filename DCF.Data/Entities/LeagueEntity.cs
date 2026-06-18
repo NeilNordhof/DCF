@@ -17,6 +17,7 @@ public class LeagueEntity
     public ComputedCaption[] DraftableCaptions { get; set; } = [];
     public DraftStatus DraftStatus { get; set; } = DraftStatus.NotStarted;
     public DateTimeOffset? DraftStartTime { get; set; }
+    public string? DraftTimezone { get; set; }
     public string DraftOrderJson { get; set; } = "[]";
     public int CurrentPickNumber { get; set; }
     public string[] IssueMessages { get; set; } = [];
