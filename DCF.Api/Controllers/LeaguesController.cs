@@ -60,7 +60,7 @@ public class LeaguesController(ILeagueService leagueService, IStandingsService s
         {
             var league = await leagueService.CreateAsync(
                 req.Name, req.IsPublic, req.CorpsPerCaption, req.MaxPlayers,
-                req.DraftableCaptions.ToList(), userSub, req.DraftStartTime);
+                req.DraftableCaptions.ToList(), userSub, req.DraftStartTime, req.DraftTimezone);
 
             return CreatedAtAction(nameof(Get), new { id = league.Id }, new { id = league.Id });
         }

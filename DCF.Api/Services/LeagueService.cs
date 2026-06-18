@@ -88,7 +88,8 @@ public class LeagueService(
         int maxPlayers,
         List<ComputedCaption> captions,
         string userSub,
-        DateTimeOffset? draftStartTime = null)
+        DateTimeOffset? draftStartTime = null,
+        string? draftTimezone = null)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub)
             ?? throw new InvalidOperationException("User not found.");
@@ -133,7 +134,8 @@ public class LeagueService(
             CorpsPerCaption = corpsPerCaption,
             DraftableCaptions = captions.ToArray(),
             DraftStatus = draftStartTime.HasValue ? DraftStatus.Scheduled : DraftStatus.NotStarted,
-            DraftStartTime = draftStartTime?.ToUniversalTime()
+            DraftStartTime = draftStartTime?.ToUniversalTime(),
+            DraftTimezone = draftTimezone
         };
         db.Leagues.Add(league);
         db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = user.Id });
@@ -334,6 +336,7 @@ public class LeagueService(
         league.CorpsPerCaption = req.CorpsPerCaption;
         league.DraftableCaptions = req.DraftableCaptions;
         league.IssueMessages = [];
+        league.DraftTimezone = req.DraftTimezone;
 
         var wasScheduled = league.DraftStartTime.HasValue;
 
@@ -371,7 +374,7 @@ public class LeagueService(
 
         if (req.DraftStartTime.HasValue)
         {
-            var timeStr = req.DraftStartTime.Value.ToUniversalTime().ToString("dddd, MMMM d 'at' h:mm tt 'UTC'");
+            var timeStr = DraftTimeFormatter.Format(req.DraftStartTime.Value.ToUniversalTime(), league.DraftTimezone);
             var action = wasScheduled ? "rescheduled" : "scheduled";
 
             await NotifyLeagueMembersAsync(league.Id,

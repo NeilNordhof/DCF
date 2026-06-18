@@ -60,7 +60,7 @@ public class DraftSchedulerService(
                         if (!cts.Token.IsCancellationRequested)
                         {
                             await NotifyLeagueMembersAsync(leagueId,
-                                (leagueName, token) => EmailTemplate.DraftTomorrow(leagueName, leagueId, frontendUrl, token));
+                                (leagueName, timeStr, token) => EmailTemplate.DraftTomorrow(leagueName, timeStr, leagueId, frontendUrl, token));
                         }
                     }
 
@@ -78,7 +78,7 @@ public class DraftSchedulerService(
                         if (!cts.Token.IsCancellationRequested)
                         {
                             await NotifyLeagueMembersAsync(leagueId,
-                                (leagueName, token) => EmailTemplate.DraftInOneHour(leagueName, leagueId, frontendUrl, token));
+                                (leagueName, timeStr, token) => EmailTemplate.DraftInOneHour(leagueName, timeStr, leagueId, frontendUrl, token));
                         }
                     }
 
@@ -129,7 +129,7 @@ public class DraftSchedulerService(
                     if (!cts.Token.IsCancellationRequested)
                     {
                         await NotifyLeagueMembersAsync(leagueId,
-                            (leagueName, token) => EmailTemplate.DraftRoomOpen(leagueName, (int)OpenLeadTime.TotalMinutes, leagueId, frontendUrl, token));
+                            (leagueName, _, token) => EmailTemplate.DraftRoomOpen(leagueName, (int)OpenLeadTime.TotalMinutes, leagueId, frontendUrl, token));
                     }
                 }
 
@@ -172,7 +172,7 @@ public class DraftSchedulerService(
 
     private async Task NotifyLeagueMembersAsync(
         Guid leagueId,
-        Func<string, string, (string subject, string html)> templateFactory)
+        Func<string, string, string, (string subject, string html)> templateFactory)
     {
         try
         {
@@ -187,6 +187,10 @@ public class DraftSchedulerService(
                 return;
             }
 
+            var timeStr = league.DraftStartTime.HasValue
+                ? DraftTimeFormatter.Format(league.DraftStartTime.Value, league.DraftTimezone)
+                : string.Empty;
+
             var members = await db.LeagueMembers
                 .Include(m => m.User)
                 .Where(m => m.LeagueId == leagueId && m.User.EmailNotificationsEnabled)
@@ -196,7 +200,7 @@ public class DraftSchedulerService(
             foreach (var member in members)
             {
                 var token = emailTokenService.GenerateToken(member.Id);
-                var (subject, html) = templateFactory(league.Name, token);
+                var (subject, html) = templateFactory(league.Name, timeStr, token);
 
                 await emailService.SendAsync(member.Email, member.DisplayName, subject, html);
             }
