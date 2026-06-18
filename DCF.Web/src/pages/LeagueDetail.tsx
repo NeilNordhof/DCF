@@ -222,6 +222,7 @@ export function LeagueDetail() {
         corpsPerCaption: editCorpsPerCaption,
         draftableCaptions: expandCaptions(editGe, editVis, editMusic),
         draftStartTime: (editDraftStartDate && editDraftStartTime) ? datetimeLocalToIso(`${editDraftStartDate}T${editDraftStartTime}`) : null,
+        draftTimezone: (editDraftStartDate && editDraftStartTime) ? Intl.DateTimeFormat().resolvedOptions().timeZone : null,
       });
 
       const updated = await api.getLeague(id!);

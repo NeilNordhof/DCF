@@ -206,6 +206,7 @@ export function LeagueCreate() {
         maxPlayers,
         draftableCaptions: expandCaptions(ge, vis, music),
         draftStartTime: (draftStartDate && draftStartTime) ? datetimeLocalToIso(`${draftStartDate}T${draftStartTime}`) : null,
+        draftTimezone: (draftStartDate && draftStartTime) ? Intl.DateTimeFormat().resolvedOptions().timeZone : null,
       });
 
       navigate(`/leagues/${league.id}`);
