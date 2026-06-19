@@ -5,7 +5,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import App, { AuthenticatedLayout } from './App';
 import { AdminRoute } from './components/AdminRoute';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { DevAuthProvider } from './context/DevAuthContext';
+import { AuthProvider } from './context/AuthContext';
 import { UserProvider } from './context/UserContext';
 import { Admin } from './pages/Admin';
 import { DraftRoom } from './pages/DraftRoom';
@@ -39,9 +39,9 @@ const router = createBrowserRouter([
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <UserProvider>
-      <DevAuthProvider>
+      <AuthProvider>
         <RouterProvider router={router} />
-      </DevAuthProvider>
+      </AuthProvider>
     </UserProvider>
   </React.StrictMode>
 );

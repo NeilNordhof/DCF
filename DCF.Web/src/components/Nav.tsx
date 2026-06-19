@@ -1,11 +1,11 @@
 import type { CSSProperties } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useDevAuth } from '../context/DevAuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
 
 export function Nav() {
   const { user } = useUser();
-  const { logout } = useDevAuth();
+  const { logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const isAdmin = location.pathname.startsWith('/admin');

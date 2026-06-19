@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { api, setTokenGetter } from './api/client';
 import { Nav } from './components/Nav';
-import { useDevAuth } from './context/DevAuthContext';
+import { useAuth } from './context/AuthContext';
 import { useUser } from './context/UserContext';
 
 export function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -17,7 +17,7 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
 }
 
 export default function App() {
-  const { getAccessTokenSilently, isAuthenticated } = useDevAuth();
+  const { getAccessTokenSilently, isAuthenticated } = useAuth();
   const { setUser } = useUser();
 
   setTokenGetter(() => getAccessTokenSilently());

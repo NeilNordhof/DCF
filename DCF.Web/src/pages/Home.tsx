@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import { DEV_USERS, useDevAuth } from '../context/DevAuthContext';
+import { useAuth } from '../context/AuthContext';
+import { DEV_USERS } from '../context/DevAuthContext';
 import { useUser } from '../context/UserContext';
 
 type Panel = 'signin' | 'loading' | 'onboarding';
 
 export function Home() {
-  const { isAuthenticated, user: devUser, login } = useDevAuth();
+  const { isAuthenticated, user, loginWithRedirect, devLogin } = useAuth();
   const { setUser } = useUser();
   const navigate = useNavigate();
   const [panel, setPanel] = useState<Panel>('signin');
@@ -25,13 +26,13 @@ export function Home() {
         setUser(profile);
         navigate('/leagues');
       } else {
-        setDisplayName(devUser?.name ?? '');
+        setDisplayName(user?.name ?? '');
         setPanel('onboarding');
       }
     }).catch(() => {
       setPanel('signin');
     });
-  }, [isAuthenticated, devUser, navigate, setUser]);
+  }, [isAuthenticated, user, navigate, setUser]);
 
   async function handleOnboard(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +40,7 @@ export function Home() {
     setSubmitError(null);
 
     try {
-      const profile = await api.upsertUser(displayName, devUser?.email ?? '');
+      const profile = await api.upsertUser(displayName, user?.email ?? '');
       setUser(profile);
       navigate('/leagues');
     } catch {
@@ -148,53 +149,84 @@ export function Home() {
         }}>
           {panel === 'signin' && (
             <div style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 24 }}>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-heading)', marginBottom: 6 }}>
-                  Dev login
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text)' }}>
-                  Choose a test user to continue.
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {DEV_USERS.map(u => (
+              {devLogin ? (
+                <>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-heading)', marginBottom: 6 }}>
+                      Dev login
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text)' }}>
+                      Choose a test user to continue.
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {DEV_USERS.map(u => (
+                      <button
+                        key={u.sub}
+                        onClick={() => devLogin(u.sub)}
+                        style={{
+                          background: 'var(--surface)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 6,
+                          padding: '12px 16px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          textAlign: 'left',
+                        }}
+                      >
+                        <div style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          background: 'var(--accent)',
+                          color: 'var(--bg)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          flexShrink: 0,
+                        }}>
+                          {u.displayName[0]}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-heading)' }}>{u.displayName}</div>
+                          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{u.email}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-heading)', marginBottom: 6 }}>
+                      Sign in
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text)' }}>
+                      Sign in to join or create a league.
+                    </div>
+                  </div>
                   <button
-                    key={u.sub}
-                    onClick={() => login(u.sub)}
+                    onClick={() => loginWithRedirect()}
                     style={{
-                      background: 'var(--surface)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 6,
-                      padding: '12px 16px',
+                      background: 'var(--accent)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 4,
+                      padding: '10px 0',
+                      fontSize: 13,
+                      fontWeight: 700,
                       cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      textAlign: 'left',
+                      width: '100%',
                     }}
                   >
-                    <div style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: '50%',
-                      background: 'var(--accent)',
-                      color: 'var(--bg)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      flexShrink: 0,
-                    }}>
-                      {u.displayName[0]}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-heading)' }}>{u.displayName}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{u.email}</div>
-                    </div>
+                    Sign in
                   </button>
-                ))}
-              </div>
+                </>
+              )}
             </div>
           )}
 

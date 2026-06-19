@@ -1,10 +1,10 @@
-import { useDevAuth } from '../context/DevAuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
 import { useState } from 'react';
 import { api } from '../api/client';
 
 export function Profile() {
-  const { logout } = useDevAuth();
+  const { logout } = useAuth();
   const { user, setUser } = useUser();
   const [ saving, setSaving] = useState(false);
   const [ error, setError] = useState<string | null>(null);

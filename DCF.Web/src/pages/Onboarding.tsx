@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import { useDevAuth } from '../context/DevAuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
 
 export function Onboarding() {
-  const { user: devUser } = useDevAuth();
+  const { user: authUser } = useAuth();
   const { user, setUser } = useUser();
   const navigate = useNavigate();
-  const [displayName, setDisplayName] = useState(devUser?.name ?? '');
+  const [displayName, setDisplayName] = useState(authUser?.name ?? '');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -22,7 +22,7 @@ export function Onboarding() {
     setError(null);
 
     try {
-      const profile = await api.upsertUser(displayName, devUser?.email ?? '');
+      const profile = await api.upsertUser(displayName, authUser?.email ?? '');
       setUser(profile);
       setSubmitting(false);
       navigate('/');

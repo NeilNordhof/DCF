@@ -1,9 +1,9 @@
 import { Navigate } from 'react-router-dom';
-import { useDevAuth } from '../context/DevAuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
 
 export function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useDevAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const { user } = useUser();
 
   if (isLoading) return <div>Loading...</div>;
