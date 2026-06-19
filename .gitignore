@@ -364,6 +364,7 @@ FodyWeavers.xsd
 
 # Local secrets and environment config
 .env
+.env.prod
 appsettings.Development.json
 .claude/
 .superpowers/

@@ -1,0 +1,66 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Smoke Test"]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: DCF.Api/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/dcf-api:latest
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./DCF.Web
+          file: DCF.Web/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/dcf-web:latest
+          build-args: |
+            VITE_API_URL=https://api.drumcorpsfantasy.net
+            VITE_MQTT_URL=wss://mqtt.drumcorpsfantasy.net
+            VITE_AUTH0_DOMAIN=${{ secrets.VITE_AUTH0_DOMAIN }}
+            VITE_AUTH0_CLIENT_ID=${{ secrets.VITE_AUTH0_CLIENT_ID }}
+            VITE_AUTH0_AUDIENCE=${{ secrets.VITE_AUTH0_AUDIENCE }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /srv/dcf
+            git pull
+            docker compose -f docker-compose.prod.yml --env-file .env.prod pull
+            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+            docker image prune -f
