@@ -69,7 +69,13 @@ function ProductionLockProvider({ children }: { children: React.ReactNode }) {
           redirectUrl: window.location.origin,
           params: { scope: 'openid profile email' },
         },
+        socialButtonStyle: 'big',
         languageDictionary: { title: '' },
+        theme: {
+          logo: '',
+          primaryColor: '#c084fc',
+          hideMainScreenTitle: true,
+        },
       },
     );
 
