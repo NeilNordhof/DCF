@@ -31,7 +31,7 @@ function DevAuthBridge({ children }: { children: React.ReactNode }) {
 }
 
 function Auth0Bridge({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading, user, logout, getAccessTokenSilently, loginWithRedirect } = useAuth0();
+  const { isAuthenticated, isLoading, user, logout, getAccessTokenSilently, loginWithPopup } = useAuth0();
 
   const value: AuthValue = {
     isAuthenticated,
@@ -39,7 +39,7 @@ function Auth0Bridge({ children }: { children: React.ReactNode }) {
     user: user ? { name: user.name ?? '', email: user.email ?? '' } : null,
     logout: () => logout({ logoutParams: { returnTo: window.location.origin } }),
     getAccessTokenSilently: () => getAccessTokenSilently(),
-    loginWithRedirect: () => loginWithRedirect(),
+    loginWithRedirect: () => loginWithPopup(),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
