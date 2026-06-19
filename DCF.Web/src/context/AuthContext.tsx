@@ -1,5 +1,5 @@
-import { Auth0Provider, useAuth0 } from '@auth0/auth0-react';
-import { createContext, useContext } from 'react';
+import { Auth0LockPasswordless } from 'auth0-lock';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { DevAuthProvider, useDevAuth } from './DevAuthContext';
 
 export interface AuthValue {
@@ -13,6 +13,15 @@ export interface AuthValue {
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
+
+const TOKEN_KEY = 'dcf_access_token';
+const TOKEN_EXPIRY_KEY = 'dcf_token_expiry';
+const USER_KEY = 'dcf_user';
+
+function storedTokenValid(): boolean {
+  const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY);
+  return !!expiry && Date.now() < parseInt(expiry, 10);
+}
 
 function DevAuthBridge({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user, logout, getAccessTokenSilently, login } = useDevAuth();
@@ -30,16 +39,90 @@ function DevAuthBridge({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-function Auth0Bridge({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading, user, logout, getAccessTokenSilently, loginWithPopup } = useAuth0();
+function ProductionLockProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState(() => {
+    const valid = storedTokenValid();
+    const userStr = localStorage.getItem(USER_KEY);
+
+    return {
+      isAuthenticated: valid,
+      isLoading: false,
+      user: valid && userStr ? (JSON.parse(userStr) as { name: string; email: string }) : null,
+    };
+  });
+
+  const lockRef = useRef<InstanceType<typeof Auth0LockPasswordless> | null>(null);
+
+  useEffect(() => {
+    const lock = new Auth0LockPasswordless(
+      import.meta.env.VITE_AUTH0_CLIENT_ID,
+      import.meta.env.VITE_AUTH0_DOMAIN,
+      {
+        container: 'auth0-lock-container',
+        passwordlessMethod: 'link',
+        allowedConnections: ['email'],
+        closable: false,
+        avatar: null,
+        auth: {
+          responseType: 'token id_token',
+          audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+          redirectUrl: window.location.origin,
+          params: { scope: 'openid profile email' },
+        },
+        languageDictionary: { title: '' },
+      },
+    );
+
+    lock.on('authenticated', (authResult) => {
+      lock.getUserInfo(authResult.accessToken, (err, profile) => {
+        if (err) return;
+
+        const expiry = Date.now() + authResult.expiresIn * 1000;
+        const user = { name: profile.name ?? profile.email ?? '', email: profile.email ?? '' };
+
+        localStorage.setItem(TOKEN_KEY, authResult.accessToken);
+        localStorage.setItem(TOKEN_EXPIRY_KEY, String(expiry));
+        localStorage.setItem(USER_KEY, JSON.stringify(user));
+
+        setState({ isAuthenticated: true, isLoading: false, user });
+      });
+    });
+
+    lockRef.current = lock;
+
+    if (!storedTokenValid() && document.getElementById('auth0-lock-container')) {
+      lock.show();
+    }
+  }, []);
+
+  function showLock() {
+    lockRef.current?.show();
+  }
+
+  function logout() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_EXPIRY_KEY);
+    localStorage.removeItem(USER_KEY);
+    setState({ isAuthenticated: false, isLoading: false, user: null });
+  }
+
+  function getAccessTokenSilently(): Promise<string> {
+    const token = localStorage.getItem(TOKEN_KEY);
+
+    if (token && storedTokenValid()) {
+      return Promise.resolve(token);
+    }
+
+    return Promise.reject(new Error('Session expired — please sign in again'));
+  }
 
   const value: AuthValue = {
-    isAuthenticated,
-    isLoading,
-    user: user ? { name: user.name ?? '', email: user.email ?? '' } : null,
-    logout: () => logout({ logoutParams: { returnTo: window.location.origin } }),
-    getAccessTokenSilently: () => getAccessTokenSilently(),
-    loginWithRedirect: () => loginWithPopup(),
+    isAuthenticated: state.isAuthenticated,
+    isLoading: state.isLoading,
+    user: state.user,
+    logout,
+    getAccessTokenSilently,
+    loginWithRedirect: showLock,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -54,18 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return (
-    <Auth0Provider
-      domain={import.meta.env.VITE_AUTH0_DOMAIN}
-      clientId={import.meta.env.VITE_AUTH0_CLIENT_ID}
-      authorizationParams={{
-        redirect_uri: window.location.origin,
-        audience: import.meta.env.VITE_AUTH0_AUDIENCE,
-      }}
-    >
-      <Auth0Bridge>{children}</Auth0Bridge>
-    </Auth0Provider>
-  );
+  return <ProductionLockProvider>{children}</ProductionLockProvider>;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

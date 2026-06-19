@@ -17,6 +17,12 @@ export function Home() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (panel === 'signin' && !devLogin) {
+      loginWithRedirect();
+    }
+  }, [panel, devLogin, loginWithRedirect]);
+
+  useEffect(() => {
     if (!isAuthenticated) return;
 
     setPanel('loading');
@@ -200,32 +206,7 @@ export function Home() {
                   </div>
                 </>
               ) : (
-                <>
-                  <div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-heading)', marginBottom: 6 }}>
-                      Sign in
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text)' }}>
-                      Sign in to join or create a league.
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => loginWithRedirect()}
-                    style={{
-                      background: 'var(--accent)',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: 4,
-                      padding: '10px 0',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      width: '100%',
-                    }}
-                  >
-                    Sign in
-                  </button>
-                </>
+                <div id="auth0-lock-container" style={{ width: '100%' }} />
               )}
             </div>
           )}
