@@ -60,7 +60,7 @@ function ProductionLockProvider({ children }: { children: React.ReactNode }) {
       {
         container: 'auth0-lock-container',
         passwordlessMethod: 'link',
-        allowedConnections: ['email'],
+        allowedConnections: ['email', 'google-oauth2'],
         closable: false,
         avatar: null,
         auth: {
