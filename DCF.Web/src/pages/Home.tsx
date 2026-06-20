@@ -118,29 +118,18 @@ export function Home() {
           gap: 24,
         }}>
           <div>
-            <div style={{ fontSize: 34, fontWeight: 900, color: 'var(--accent)', letterSpacing: '-0.5px', lineHeight: 1 }}>DCF</div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', letterSpacing: '1px', textTransform: 'uppercase', marginTop: 2 }}>FANTASY</div>
+            <div style={{ fontSize: 44, fontWeight: 900, color: 'var(--accent)', letterSpacing: '-0.5px', lineHeight: 1 }}>DCF</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-faint)', letterSpacing: '1px', textTransform: 'uppercase', marginTop: 2 }}>Fantasy platform for<br/>marching music's major league</div>
           </div>
           <div>
             <h1 style={{ fontSize: 19, fontWeight: 800, color: 'var(--text-heading)', lineHeight: 1.35, marginBottom: 10 }}>
               Draft corps.<br />Score points.<br />Win the season.
             </h1>
             <p style={{ fontSize: 11, color: 'var(--text)', lineHeight: 1.65 }}>
-              The fantasy league built for Drum Corps International fans. Draft your favourite corps, track real DCI scores, and compete all season long.
+              The fantasy league built for Drum Corps International fans. Join a league with your friends and drafft captions from your favourite corps. Track real DCI scores and compete all season long to see who has the best fantasy corps.
             </p>
           </div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              'Snake draft with your league',
-              'Real DCI scores, auto-updated',
-              'Private leagues with invite codes',
-            ].map(text => (
-              <li key={text} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text)' }}>
-                <span style={{ color: 'var(--accent)', fontSize: 8 }}>●</span>
-                {text}
-              </li>
-            ))}
-          </ul>
+          
         </div>
 
         {/* Right — dynamic panel */}

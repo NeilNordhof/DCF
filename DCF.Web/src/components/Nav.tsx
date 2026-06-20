@@ -38,7 +38,7 @@ export function Nav() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Link to="/leagues" style={{ color: 'var(--accent)', fontWeight: 700, fontSize: 13, letterSpacing: '0.5px', textDecoration: 'none' }}>
-            DCF FANTASY
+            DCF - Drum Corps Fantasy
           </Link>
           {isAdmin && (
             <span style={{
