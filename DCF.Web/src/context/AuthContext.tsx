@@ -1,5 +1,5 @@
 import { Auth0LockPasswordless } from 'auth0-lock';
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { DevAuthProvider, useDevAuth } from './DevAuthContext';
 
 export interface AuthValue {
@@ -66,7 +66,7 @@ function ProductionLockProvider({ children }: { children: React.ReactNode }) {
         auth: {
           responseType: 'token id_token',
           audience: import.meta.env.VITE_AUTH0_AUDIENCE,
-          redirectUrl: window.location.origin,
+          redirect: false,
           params: { scope: 'openid profile email' },
         },
         socialButtonStyle: 'big',
@@ -101,18 +101,18 @@ function ProductionLockProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  function showLock() {
+  const showLock = useCallback(() => {
     lockRef.current?.show();
-  }
+  }, []);
 
-  function logout() {
+  const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(TOKEN_EXPIRY_KEY);
     localStorage.removeItem(USER_KEY);
     setState({ isAuthenticated: false, isLoading: false, user: null });
-  }
+  }, []);
 
-  function getAccessTokenSilently(): Promise<string> {
+  const getAccessTokenSilently = useCallback((): Promise<string> => {
     const token = localStorage.getItem(TOKEN_KEY);
 
     if (token && storedTokenValid()) {
@@ -120,7 +120,7 @@ function ProductionLockProvider({ children }: { children: React.ReactNode }) {
     }
 
     return Promise.reject(new Error('Session expired — please sign in again'));
-  }
+  }, []);
 
   const value: AuthValue = {
     isAuthenticated: state.isAuthenticated,
