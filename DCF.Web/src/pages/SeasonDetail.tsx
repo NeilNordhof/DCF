@@ -54,6 +54,14 @@ function Chip({ label, selected, onClick, disabled }: { label: string; selected:
   );
 }
 
+function slugify(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function generateRecapUrl(name: string, year: number): string {
+  return `https://www.dci.org/scores/recap/${year}-${slugify(name)}`;
+}
+
 export function SeasonDetail() {
   const { id } = useParams<{ id: string }>();
   const [season, setSeason] = useState<SeasonDetailType | null>(null);
@@ -66,6 +74,7 @@ export function SeasonDetail() {
 
   const [showName, setShowName] = useState('');
   const [showUrl, setShowUrl] = useState('');
+  const [urlManuallyEdited, setUrlManuallyEdited] = useState(false);
   const [showDate, setShowDate] = useState('');
   const [showTz, setShowTz] = useState('ET');
   const [showStartTime, setShowStartTime] = useState('');
@@ -214,6 +223,7 @@ export function SeasonDetail() {
       setShowScoresTime('');
       setShowCorpsIds(new Set());
       setAddShowOpen(false);
+      setUrlManuallyEdited(false);
     } catch {
       setError('Failed to add show.');
     } finally {
@@ -520,7 +530,12 @@ export function SeasonDetail() {
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5 }}>
             <button
               type="button"
-              onClick={() => setAddShowOpen(o => !o)}
+              onClick={() => {
+                setAddShowOpen(o => !o);
+                if (!addShowOpen) {
+                  setUrlManuallyEdited(false);
+                }
+              }}
               style={{
                 width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 padding: '10px 14px', background: 'transparent', border: 'none', cursor: 'pointer',
@@ -536,11 +551,20 @@ export function SeasonDetail() {
               <form onSubmit={addShow} style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <label style={labelStyle}>Name</label>
-                  <input value={showName} onChange={e => setShowName(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
+                  <input value={showName} onChange={e => {
+                    setShowName(e.target.value);
+                    if (!urlManuallyEdited) {
+                      const url = generateRecapUrl(e.target.value, season?.year ?? new Date().getFullYear());
+                      setShowUrl(url);
+                    }
+                  }} required style={{ ...inputStyle, flex: 1 }} />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <label style={labelStyle}>URL</label>
-                  <input value={showUrl} onChange={e => setShowUrl(e.target.value)} placeholder="DCI recap URL" required style={{ ...inputStyle, flex: 1 }} />
+                  <input value={showUrl} onChange={e => {
+                    setUrlManuallyEdited(true);
+                    setShowUrl(e.target.value);                    
+                  }} placeholder="DCI recap URL" required style={{ ...inputStyle, flex: 1 }} />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <label style={{ ...labelStyle }}>Date</label>
