@@ -59,7 +59,7 @@ function ProductionLockProvider({ children }: { children: React.ReactNode }) {
       import.meta.env.VITE_AUTH0_DOMAIN,
       {
         container: 'auth0-lock-container',
-        passwordlessMethod: 'link',
+        passwordlessMethod: 'code',
         allowedConnections: ['email', 'google-oauth2'],
         closable: false,
         avatar: null,
