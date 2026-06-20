@@ -1,6 +1,8 @@
 services:
   postgres:
     image: postgres:16
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: dcf
       POSTGRES_USER: dcf
