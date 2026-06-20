@@ -1,0 +1,86 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html dir="ltr" lang="en">
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    <meta name="x-apple-disable-message-reformatting" />
+  </head>
+  <div style="display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0">
+    Your DCF login code
+  </div>
+
+  <body style="margin:0;padding:0;background-color:#0d0f14;font-family:system-ui,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased">
+
+    <!-- Outer wrapper -->
+    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#0d0f14;padding:40px 16px">
+      <tbody>
+        <tr>
+          <td>
+
+            <!-- Card -->
+            <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="max-width:520px;margin:0 auto;background-color:#161822;border:1px solid #2a2d3a;border-radius:8px;overflow:hidden">
+              <tbody>
+                <tr>
+                  <td>
+
+                    <!-- Header -->
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:linear-gradient(135deg,#1e1230,#161822);padding:32px 40px 24px;border-bottom:1px solid #2a2d3a">
+                      <tbody>
+                        <tr>
+                          <td align="center">
+                            <div style="font-size:32px;font-weight:900;color:#c084fc;letter-spacing:-0.5px;line-height:1">DCF</div>
+                            <div style="font-size:10px;font-weight:700;color:#4b5563;letter-spacing:2px;text-transform:uppercase;margin-top:4px">DRUM CORPS FANTASY</div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <!-- Body -->
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="padding:32px 40px">
+                      <tbody>
+                        <tr>
+                          <td>
+                            <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#f3f4f6;text-align:center">Your login code</p>
+                            <p style="margin:0 0 28px;font-size:13px;color:#9ca3af;text-align:center;line-height:1.6">Use the code below to sign in to Drum Corps Fantasy. It expires in 5 minutes.</p>
+
+                            <!-- OTP code -->
+                            <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:28px">
+                              <tbody>
+                                <tr>
+                                  <td align="center">
+                                    <div style="display:inline-block;background-color:#0f1117;border:1px solid #2a2d3a;border-radius:6px;padding:16px 40px;font-family:ui-monospace,Consolas,monospace;font-size:30px;font-weight:700;letter-spacing:10px;color:#f3f4f6">{{ code | escape }}</div>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+
+                            <p style="margin:0;font-size:11px;color:#6b7280;text-align:center">If you didn&#x27;t request this code, you can safely ignore this email.</p>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <!-- Footer -->
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="padding:20px 40px;border-top:1px solid #2a2d3a;background-color:#0f1117">
+                      <tbody>
+                        <tr>
+                          <td align="center">
+                            <p style="margin:0;font-size:11px;color:#4b5563;line-height:1.6">
+                              You&#x27;re receiving this because you have an account in {{ friendly_name | escape }}.{% if support_url != blank %} Questions? <a href="{{ support_url | escape }}" style="color:#c084fc;text-decoration:none">Contact support</a>.{% endif %}
+                            </p>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+  </body>
+</html>
