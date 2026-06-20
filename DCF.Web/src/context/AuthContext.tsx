@@ -80,18 +80,18 @@ function ProductionLockProvider({ children }: { children: React.ReactNode }) {
     );
 
     lock.on('authenticated', (authResult) => {
-      lock.getUserInfo(authResult.accessToken, (err, profile) => {
-        if (err) return;
+      // Decode id_token directly — getUserInfo fails when a custom audience is set
+      // because the access_token is scoped to our API, not Auth0's /userinfo endpoint
+      const b64 = authResult.idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const claims = JSON.parse(atob(b64)) as Record<string, string>;
+      const expiry = Date.now() + authResult.expiresIn * 1000;
+      const user = { name: claims['name'] ?? claims['email'] ?? '', email: claims['email'] ?? '' };
 
-        const expiry = Date.now() + authResult.expiresIn * 1000;
-        const user = { name: profile.name ?? profile.email ?? '', email: profile.email ?? '' };
+      localStorage.setItem(TOKEN_KEY, authResult.accessToken);
+      localStorage.setItem(TOKEN_EXPIRY_KEY, String(expiry));
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
 
-        localStorage.setItem(TOKEN_KEY, authResult.accessToken);
-        localStorage.setItem(TOKEN_EXPIRY_KEY, String(expiry));
-        localStorage.setItem(USER_KEY, JSON.stringify(user));
-
-        setState({ isAuthenticated: true, isLoading: false, user });
-      });
+      setState({ isAuthenticated: true, isLoading: false, user });
     });
 
     lockRef.current = lock;
