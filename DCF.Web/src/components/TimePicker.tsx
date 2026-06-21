@@ -144,9 +144,8 @@ export function TimePicker({ value, onChange, required = false, style }: TimePic
     const parsed = parseInt(typed, 10);
     if (isNaN(parsed)) return;
     const clamped = Math.max(0, Math.min(59, parsed));
-    const rounded = Math.min(55, Math.round(clamped / 5) * 5);
-    setMinute(rounded);
-    emit(hour, rounded, ampm);
+    setMinute(clamped);
+    emit(hour, clamped, ampm);
   }
 
   const arrowStyle: CSSProperties = {
@@ -186,7 +185,7 @@ export function TimePicker({ value, onChange, required = false, style }: TimePic
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-        <button type="button" style={arrowStyle} onClick={() => stepHour(1)}>▲</button>
+        <button type="button" tabIndex={-1} style={arrowStyle} onClick={() => stepHour(1)}>▲</button>
         <input
           value={hourDisplay}
           style={fieldStyle}
@@ -203,13 +202,13 @@ export function TimePicker({ value, onChange, required = false, style }: TimePic
             if (v.length <= 2) setTypedHour(v);
           }}
         />
-        <button type="button" style={arrowStyle} onClick={() => stepHour(-1)}>▼</button>
+        <button type="button" tabIndex={-1} style={arrowStyle} onClick={() => stepHour(-1)}>▼</button>
       </div>
 
       <span style={{ fontSize: 16, fontWeight: 700, color: isEmpty ? 'var(--text-faint)' : 'var(--text-heading)', paddingBottom: 2 }}>:</span>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-        <button type="button" style={arrowStyle} onClick={() => stepMinute(1)}>▲</button>
+        <button type="button" tabIndex={-1} style={arrowStyle} onClick={() => stepMinute(1)}>▲</button>
         <input
           value={minuteDisplay}
           style={fieldStyle}
@@ -226,7 +225,7 @@ export function TimePicker({ value, onChange, required = false, style }: TimePic
             if (v.length <= 2) setTypedMinute(v);
           }}
         />
-        <button type="button" style={arrowStyle} onClick={() => stepMinute(-1)}>▼</button>
+        <button type="button" tabIndex={-1} style={arrowStyle} onClick={() => stepMinute(-1)}>▼</button>
       </div>
 
       <select
