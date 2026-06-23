@@ -221,6 +221,8 @@ input, select, textarea {
 
 .draft-side-panel {
   display: flex;
+  width: 280px;
+  border-left: 1px solid var(--border);
 }
 
 .draft-bar-submit-row {

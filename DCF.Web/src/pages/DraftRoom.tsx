@@ -667,7 +667,7 @@ export function DraftRoom() {
             {renderGrid()}
           </div>
           {/* Right — side panel */}
-          <div className="draft-side-panel" style={{ width: 280, background: 'var(--surface-2)', borderLeft: '1px solid var(--border)', flexDirection: 'column', flexShrink: 0 }}>
+          <div className="draft-side-panel" style={{ background: 'var(--surface-2)', flexDirection: 'column', flexShrink: 0 }}>
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
               {(['order', 'picks'] as const).map(tab => (
                 <button
