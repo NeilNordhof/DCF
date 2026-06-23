@@ -186,6 +186,11 @@ input, select, textarea {
   border-bottom: none;
 }
 
+.league-card-badge {
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
 /* === Mobile === */
 
 @media (max-width: 640px) {
@@ -224,5 +229,15 @@ input, select, textarea {
     flex: none;
     border-left: none;
     border-top: 1px solid var(--border);
+  }
+
+  .league-browse-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .league-browse-name {
+    flex: 1;
+    min-width: 120px;
   }
 }
