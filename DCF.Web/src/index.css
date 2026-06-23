@@ -215,6 +215,14 @@ input, select, textarea {
   border-bottom: 2px solid var(--accent);
 }
 
+.draft-grid-panel {
+  display: flex;
+}
+
+.draft-side-panel {
+  display: flex;
+}
+
 .draft-bar-submit-row {
   display: flex;
   align-items: center;

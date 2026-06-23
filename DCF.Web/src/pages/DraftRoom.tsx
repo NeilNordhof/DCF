@@ -663,11 +663,11 @@ export function DraftRoom() {
         </div>
         <div data-mobile-view={mobileView} style={{ flex: 1, maxWidth: 1200, width: '100%', margin: '0 auto', padding: '0 20px', boxSizing: 'border-box', display: 'flex', overflow: 'hidden' }}>
           {/* Left — grid panel */}
-          <div className="draft-grid-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="draft-grid-panel" style={{ flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
             {renderGrid()}
           </div>
           {/* Right — side panel */}
-          <div className="draft-side-panel" style={{ width: 280, background: 'var(--surface-2)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+          <div className="draft-side-panel" style={{ width: 280, background: 'var(--surface-2)', borderLeft: '1px solid var(--border)', flexDirection: 'column', flexShrink: 0 }}>
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
               {(['order', 'picks'] as const).map(tab => (
                 <button
