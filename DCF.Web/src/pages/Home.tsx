@@ -195,7 +195,7 @@ export function Home() {
                   </div>
                 </>
               ) : (
-                <div id="auth0-lock-container" style={{ width: '100%' }} />
+                <div id="auth0-lock-container" style={{ width: '100%', position: 'relative', minHeight: 320 }} />
               )}
             </div>
           )}
