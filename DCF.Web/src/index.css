@@ -205,4 +205,24 @@ input, select, textarea {
     display: flex;
     flex-direction: column;
   }
+
+  .home-split-card {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .home-brand-panel {
+    flex: none;
+    padding: 24px 20px;
+  }
+
+  .home-brand-body {
+    display: none;
+  }
+
+  .home-auth-panel {
+    flex: none;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
 }
