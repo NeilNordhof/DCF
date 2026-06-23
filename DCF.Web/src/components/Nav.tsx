@@ -114,7 +114,6 @@ export function Nav() {
           border: 'none',
           cursor: 'pointer',
           padding: 4,
-          display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
           width: 20,
