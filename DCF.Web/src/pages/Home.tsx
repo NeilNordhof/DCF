@@ -96,7 +96,7 @@ export function Home() {
       </nav>
 
       {/* Split card */}
-      <div style={{
+      <div className="home-split-card" style={{
         display: 'flex',
         width: '100%',
         maxWidth: 780,
@@ -108,7 +108,7 @@ export function Home() {
         minHeight: 480,
       }}>
         {/* Left — brand panel */}
-        <div style={{
+        <div className="home-brand-panel" style={{
           flex: '1 1 340px',
           background: 'linear-gradient(135deg, #1a0e2e, var(--surface))',
           padding: 40,
@@ -121,7 +121,7 @@ export function Home() {
             <div style={{ fontSize: 44, fontWeight: 900, color: 'var(--accent)', letterSpacing: '-0.5px', lineHeight: 1 }}>DCF</div>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-faint)', letterSpacing: '1px', textTransform: 'uppercase', marginTop: 2 }}>Fantasy platform for<br/>marching music's major league</div>
           </div>
-          <div>
+          <div className="home-brand-body">
             <h1 style={{ fontSize: 19, fontWeight: 800, color: 'var(--text-heading)', lineHeight: 1.35, marginBottom: 10 }}>
               Draft corps.<br />Score points.<br />Win the season.
             </h1>
@@ -133,7 +133,7 @@ export function Home() {
         </div>
 
         {/* Right — dynamic panel */}
-        <div style={{
+        <div className="home-auth-panel" style={{
           flex: '0 0 340px',
           background: 'var(--surface-2)',
           borderLeft: '1px solid var(--border)',

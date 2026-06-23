@@ -448,12 +448,12 @@ export function LeagueDetail() {
         {league.inviteCode && (
           <div>
             <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 8 }}>Invite Code</div>
-            <div style={{
+            <div className="invite-code-row" style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '10px 14px', background: 'var(--surface-2)',
               border: '1px solid var(--border)', borderRadius: 5,
             }}>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--accent)', flex: 1, letterSpacing: '0.5px' }}>
+              <span className="invite-code-value" style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--accent)', flex: 1, letterSpacing: '0.5px' }}>
                 {league.inviteCode}
               </span>
               <button
@@ -645,7 +645,7 @@ export function LeagueDetail() {
         ← Leagues
       </Link>
       {/* Header bar */}
-      <div style={{
+      <div className="league-header-bar" style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderRadius: 6,
@@ -681,7 +681,7 @@ export function LeagueDetail() {
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="league-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {statusBadge()}
           {!league.isMember &&
             (league.memberCount ?? 0) < league.maxPlayers &&

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +10,7 @@ export function Nav() {
   const location = useLocation();
   const navigate = useNavigate();
   const isAdmin = location.pathname.startsWith('/admin');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const initials = user?.displayName
     ? user.displayName.split(' ').filter(Boolean).map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
@@ -24,6 +26,24 @@ export function Nav() {
     borderBottom: location.pathname.startsWith(prefix) ? '2px solid var(--accent)' : '2px solid transparent',
   });
 
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    function handleOutsideClick() {
+      setMenuOpen(false);
+    }
+
+    document.addEventListener('click', handleOutsideClick);
+
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, [menuOpen]);
+
+  function closeMenu() {
+    setMenuOpen(false);
+  }
+
   return (
     <nav style={{
       background: 'var(--surface)',
@@ -34,6 +54,7 @@ export function Nav() {
       padding: '0 20px',
       gap: 20,
       flexShrink: 0,
+      position: 'relative',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -55,9 +76,9 @@ export function Nav() {
             </span>
           )}
         </div>
-        <Link to="/leagues" style={linkStyle('/leagues')}>LEAGUES</Link>
+        <Link to="/leagues" className="nav-links" style={linkStyle('/leagues')}>LEAGUES</Link>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+      <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
         {user?.isAdmin && (
           <Link to="/admin" style={linkStyle('/admin')}>ADMIN</Link>
         )}
@@ -83,6 +104,37 @@ export function Nav() {
         >
           {initials}
         </button>
+      </div>
+      <button
+        className="nav-hamburger"
+        onClick={e => { e.stopPropagation(); setMenuOpen(m => !m); }}
+        aria-label="Toggle menu"
+        style={{
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 4,
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          width: 20,
+          height: 16,
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ width: '100%', height: 2, background: 'var(--text-heading)', borderRadius: 1 }} />
+        <div style={{ width: '100%', height: 2, background: 'var(--text-heading)', borderRadius: 1 }} />
+        <div style={{ width: '100%', height: 2, background: 'var(--text-heading)', borderRadius: 1 }} />
+      </button>
+      <div
+        className={`nav-mobile-menu${menuOpen ? ' open' : ''}`}
+        onClick={e => e.stopPropagation()}
+      >
+        <Link to="/leagues" onClick={closeMenu}>LEAGUES</Link>
+        {user?.isAdmin && (
+          <Link to="/admin" onClick={closeMenu}>ADMIN</Link>
+        )}
+        <Link to="/profile" onClick={closeMenu}>PROFILE</Link>
+        <button onClick={() => { logout(); navigate('/'); closeMenu(); }}>Logout</button>
       </div>
     </nav>
   );

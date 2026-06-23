@@ -144,3 +144,193 @@ input, select, textarea {
 .auth0-lock.auth0-lock .auth0-lock-error-invalid-hint {
   color: var(--red) !important;
 }
+
+.nav-hamburger {
+  display: none;
+}
+
+.nav-mobile-menu {
+  display: none;
+  position: absolute;
+  top: 44px;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  z-index: 100;
+}
+
+.nav-mobile-menu a,
+.nav-mobile-menu button {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-heading);
+  text-decoration: none;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.nav-mobile-menu a:last-child,
+.nav-mobile-menu button:last-child {
+  border-bottom: none;
+}
+
+.league-card-badge {
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.draft-mobile-toggle {
+  display: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.draft-mobile-toggle button {
+  flex: 1;
+  padding: 10px 0;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+}
+
+.draft-mobile-toggle button.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+.draft-grid-panel {
+  display: flex;
+}
+
+.draft-side-panel {
+  display: flex;
+  width: 280px;
+  border-left: 1px solid var(--border);
+}
+
+.draft-bar-submit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* === Mobile === */
+
+@media (max-width: 640px) {
+  .page-content {
+    padding: 16px 12px;
+  }
+
+  .nav-links {
+    display: none !important;
+  }
+
+  .nav-hamburger {
+    display: flex;
+  }
+
+  .nav-mobile-menu.open {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-split-card {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .home-brand-panel {
+    flex: none;
+    padding: 24px 20px;
+  }
+
+  .home-brand-body {
+    display: none;
+  }
+
+  .home-auth-panel {
+    flex: none;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .league-browse-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .league-browse-name {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .league-header-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .league-header-actions {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .invite-code-row {
+    flex-wrap: wrap;
+  }
+
+  .invite-code-value {
+    flex: 1 1 100%;
+  }
+
+  .draft-bar {
+    flex-wrap: wrap;
+  }
+
+  .draft-bar-league-name {
+    display: none;
+  }
+
+  .draft-bar-separator {
+    display: none;
+  }
+
+  .draft-bar-submit-row {
+    flex: 1 1 100%;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .draft-mobile-toggle {
+    display: flex;
+  }
+
+  [data-mobile-view="more"] .draft-grid-panel {
+    display: none;
+  }
+
+  [data-mobile-view="board"] .draft-side-panel {
+    display: none;
+  }
+
+  [data-mobile-view="more"] .draft-side-panel {
+    width: 100%;
+    border-left: none;
+  }
+}

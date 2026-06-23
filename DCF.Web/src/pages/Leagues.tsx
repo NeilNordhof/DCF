@@ -63,7 +63,9 @@ function LeagueCard({ league }: { league: League }) {
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-heading)' }}>{league.name}</span>
-        <StatusBadge status={league.draftStatus} />
+        <div className="league-card-badge">
+          <StatusBadge status={league.draftStatus} />
+        </div>
       </div>
       <div style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         {league.draftStatus === 'InProgress' && (
@@ -218,6 +220,7 @@ function JoinTab() {
               <Link
                 key={l.id}
                 to={`/leagues/${l.id}`}
+                className="league-browse-row"
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '10px 14px', background: 'var(--surface)',
@@ -225,7 +228,7 @@ function JoinTab() {
                   textDecoration: 'none', color: 'inherit',
                 }}
               >
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-heading)' }}>{l.name}</span>
+                <span className="league-browse-name" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-heading)' }}>{l.name}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
                     {l.memberCount} / {l.maxPlayers} members
