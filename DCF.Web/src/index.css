@@ -150,6 +150,7 @@ input, select, textarea {
 }
 
 .nav-mobile-menu {
+  display: none;
   position: absolute;
   top: 44px;
   left: 0;
@@ -198,10 +199,6 @@ input, select, textarea {
 
   .nav-hamburger {
     display: flex;
-  }
-
-  .nav-mobile-menu {
-    display: none;
   }
 
   .nav-mobile-menu.open {
