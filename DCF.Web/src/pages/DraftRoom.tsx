@@ -39,6 +39,7 @@ export function DraftRoom() {
   const [activePicksPlayer, setActivePicksPlayer] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<'board' | 'more'>('board');
 
   const currentDrafterRef = useRef<HTMLDivElement>(null);
   const draftState = useMqtt<DraftState>(`dcf/leagues/${id}/draft`);
@@ -241,8 +242,7 @@ export function DraftRoom() {
                 </div>
               </div>
               {isMyTurn && (
-                <>
-                  <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
+                <div className="draft-bar-submit-row">
                   <div style={{ flexShrink: 0 }}>
                     <div style={{ fontSize: 7, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>Selected</div>
                     <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{selectionLabel}</div>
@@ -261,7 +261,7 @@ export function DraftRoom() {
                   >
                     Submit Pick
                   </button>
-                </>
+                </div>
               )}
             </>
           );
@@ -279,8 +279,7 @@ export function DraftRoom() {
               </div>
             </div>
             {isMyTurn && (
-              <>
-                <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
+              <div className="draft-bar-submit-row">
                 <div style={{ flexShrink: 0 }}>
                   <div style={{ fontSize: 7, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>Selected</div>
                   <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{selectionLabel}</div>
@@ -299,7 +298,7 @@ export function DraftRoom() {
                 >
                   Submit Pick
                 </button>
-              </>
+              </div>
             )}
             {!isMyTurn && !inMakeupPhase && league.isCommissioner && (
               <button
@@ -319,7 +318,7 @@ export function DraftRoom() {
     };
 
     return (
-      <div style={{
+      <div className="draft-bar" style={{
         background: barBg,
         borderBottom: `2px solid ${barAccent}`,
         padding: '10px 16px',
@@ -338,11 +337,11 @@ export function DraftRoom() {
         >
           ← League
         </Link>
-        <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-heading)', flexShrink: 0 }}>
+        <div className="draft-bar-separator" style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
+        <div className="draft-bar-league-name" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-heading)', flexShrink: 0 }}>
           {league.name}
         </div>
-        <div style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
+        <div className="draft-bar-separator" style={{ width: 1, height: 32, background: 'var(--border)', flexShrink: 0 }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
           {renderStatus()}
         </div>
@@ -646,15 +645,29 @@ export function DraftRoom() {
   return (
     <>
       <Nav />
-      <div style={{ height: 'calc(100vh - 44px)', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
-        <div style={{ maxWidth: 1200, width: '100%', height: '100%', margin: '0 auto', padding: '0 20px', boxSizing: 'border-box', display: 'flex' }}>
-          {/* Left — bar + grid */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {renderBar()}
+      <div style={{ height: 'calc(100vh - 44px)', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)', display: 'flex', flexDirection: 'column' }}>
+        {renderBar()}
+        <div className="draft-mobile-toggle">
+          <button
+            className={mobileView === 'board' ? 'active' : ''}
+            onClick={() => setMobileView('board')}
+          >
+            Draft Board
+          </button>
+          <button
+            className={mobileView === 'more' ? 'active' : ''}
+            onClick={() => setMobileView('more')}
+          >
+            More
+          </button>
+        </div>
+        <div data-mobile-view={mobileView} style={{ flex: 1, maxWidth: 1200, width: '100%', margin: '0 auto', padding: '0 20px', boxSizing: 'border-box', display: 'flex', overflow: 'hidden' }}>
+          {/* Left — grid panel */}
+          <div className="draft-grid-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {renderGrid()}
           </div>
           {/* Right — side panel */}
-          <div style={{ width: 280, background: 'var(--surface-2)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+          <div className="draft-side-panel" style={{ width: 280, background: 'var(--surface-2)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
               {(['order', 'picks'] as const).map(tab => (
                 <button

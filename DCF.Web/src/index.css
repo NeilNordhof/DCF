@@ -191,6 +191,30 @@ input, select, textarea {
   margin-left: 8px;
 }
 
+.draft-mobile-toggle {
+  display: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.draft-mobile-toggle button {
+  flex: 1;
+  padding: 10px 0;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+}
+
+.draft-mobile-toggle button.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
 /* === Mobile === */
 
 @media (max-width: 640px) {
@@ -257,5 +281,43 @@ input, select, textarea {
 
   .invite-code-value {
     flex: 1 1 100%;
+  }
+
+  .draft-bar {
+    flex-wrap: wrap;
+  }
+
+  .draft-bar-league-name {
+    display: none;
+  }
+
+  .draft-bar-separator {
+    display: none;
+  }
+
+  .draft-bar-submit-row {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .draft-mobile-toggle {
+    display: flex;
+  }
+
+  [data-mobile-view="more"] .draft-grid-panel {
+    display: none;
+  }
+
+  [data-mobile-view="board"] .draft-side-panel {
+    display: none;
+  }
+
+  [data-mobile-view="more"] .draft-side-panel {
+    width: 100%;
+    border-left: none;
   }
 }
