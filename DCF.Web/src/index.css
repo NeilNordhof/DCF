@@ -215,6 +215,12 @@ input, select, textarea {
   border-bottom: 2px solid var(--accent);
 }
 
+.draft-bar-submit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 /* === Mobile === */
 
 @media (max-width: 640px) {
@@ -297,9 +303,6 @@ input, select, textarea {
 
   .draft-bar-submit-row {
     flex: 1 1 100%;
-    display: flex;
-    align-items: center;
-    gap: 10px;
     padding-top: 6px;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
   }
