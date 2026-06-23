@@ -7,6 +7,21 @@ interface Props {
   currentUserId?: string;
 }
 
+const CAPTION_LABELS: Record<ComputedCaption, string> = {
+  GeneralEffectCombined: 'GENERAL EFFECT',
+  GeneralEffect1: 'GENERAL EFFECT 1',
+  GeneralEffect2: 'GENERAL EFFECT 2',
+  VisualCombined: 'VISUAL',
+  Visual: 'VISUAL',
+  Colorguard: 'COLORGUARD',
+  VisualProficiency: 'VISUAL PROFICIENCY',
+  VisualAnalysis: 'VISUAL ANALYSIS',
+  MusicCombined: 'MUSIC',
+  Brass: 'BRASS',
+  Percussion: 'PERCUSSION',
+  MusicAnalysis: 'MUSIC ANALYSIS',
+};
+
 export function LeagueScoresTab({ breakdown, captions, currentUserId }: Props) {
   if (breakdown.length === 0) {
     return (
@@ -45,7 +60,7 @@ export function LeagueScoresTab({ breakdown, captions, currentUserId }: Props) {
                   borderRight: '1px solid var(--border-subtle)',
                 }}
               >
-                {cap}
+                {CAPTION_LABELS[cap]}
               </th>
             ))}
             <th
@@ -139,6 +154,40 @@ export function LeagueScoresTab({ breakdown, captions, currentUserId }: Props) {
                     const cb = player.captions[cap];
                     const pick = cb?.picks[rowIdx];
                     const avg = cb?.avg ?? 0;
+                    const capPickCount = cb?.picks.length ?? 0;
+                    const rowSpan = capPickCount || 1;
+
+                    let avgCell;
+
+                    if (isFirstRow) {
+                      avgCell = (
+                        <td
+                          key={`${cap}-avg`}
+                          rowSpan={rowSpan}
+                          style={{
+                            padding: '4px 8px', textAlign: 'right', fontWeight: 700, fontSize: 12,
+                            color: isMe ? 'var(--accent)' : 'var(--text-heading)',
+                            borderRight: '1px solid var(--border-subtle)',
+                            verticalAlign: 'middle',
+                            borderBottom: rowSpan >= maxRows ? '1px solid var(--border)' : undefined,
+                          }}
+                        >
+                          {avg > 0 ? avg.toFixed(3) : ''}
+                        </td>
+                      );
+                    } else if (rowIdx < capPickCount) {
+                      avgCell = null;
+                    } else {
+                      avgCell = (
+                        <td
+                          key={`${cap}-avg`}
+                          style={{
+                            borderRight: '1px solid var(--border-subtle)',
+                            borderBottom: isLastRow ? '1px solid var(--border)' : undefined,
+                          }}
+                        />
+                      );
+                    }
 
                     return [
                       <td key={`${cap}-corps`} style={{
@@ -155,14 +204,7 @@ export function LeagueScoresTab({ breakdown, captions, currentUserId }: Props) {
                       }}>
                         {pick?.score != null ? pick.score.toFixed(3) : pick ? '—' : ''}
                       </td>,
-                      <td key={`${cap}-avg`} style={{
-                        padding: '4px 8px', textAlign: 'right', fontWeight: 700, fontSize: 12,
-                        color: isMe ? 'var(--accent)' : 'var(--text-heading)',
-                        borderRight: '1px solid var(--border-subtle)',
-                        borderBottom: isLastRow ? '1px solid var(--border)' : undefined,
-                      }}>
-                        {isFirstRow && avg > 0 ? avg.toFixed(3) : ''}
-                      </td>,
+                      avgCell,
                     ];
                   })}
                   <td style={{
