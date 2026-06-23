@@ -189,6 +189,7 @@ public class LeagueService(
         if (!already)
         {
             db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = leagueId, UserId = user.Id });
+            league.IssueMessages = [];
 
             await db.SaveChangesAsync();
 
