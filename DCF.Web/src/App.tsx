@@ -9,7 +9,7 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100svh' }}>
       <Nav />
-      <div style={{ flex: 1, maxWidth: 1200, width: '100%', margin: '0 auto', padding: '24px 20px', boxSizing: 'border-box' }}>
+      <div className="page-content" style={{ flex: 1, maxWidth: 1200, width: '100%', margin: '0 auto', padding: '24px 20px', boxSizing: 'border-box' }}>
         {children}
       </div>
     </div>

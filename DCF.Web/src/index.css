@@ -144,3 +144,11 @@ input, select, textarea {
 .auth0-lock.auth0-lock .auth0-lock-error-invalid-hint {
   color: var(--red) !important;
 }
+
+/* === Mobile === */
+
+@media (max-width: 640px) {
+  .page-content {
+    padding: 16px 12px;
+  }
+}
