@@ -69,9 +69,18 @@ builder.Services.AddScoped<IStandingsService, StandingsService>();
 builder.Services.AddScoped<IDraftService, DraftService>();
 
 builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
-    p.WithOrigins(builder.Configuration["AllowedOrigins"] ?? "http://localhost:5173")
-     .AllowAnyMethod()
-     .AllowAnyHeader()));
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+    }
+    else
+    {
+        p.WithOrigins(builder.Configuration["AllowedOrigins"] ?? "http://localhost:5173")
+         .AllowAnyMethod()
+         .AllowAnyHeader();
+    }
+}));
 
 builder.Services.AddHttpClient();
 
