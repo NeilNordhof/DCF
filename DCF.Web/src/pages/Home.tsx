@@ -78,23 +78,6 @@ export function Home() {
         pointerEvents: 'none',
       }} />
 
-      {/* Minimal nav */}
-      <nav style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 44,
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 20px',
-        zIndex: 10,
-      }}>
-        <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: 13, letterSpacing: '0.5px' }}>
-          DCF FANTASY
-        </span>
-      </nav>
-
       {/* Split card */}
       <div className="home-split-card" style={{
         display: 'flex',
@@ -195,7 +178,7 @@ export function Home() {
                   </div>
                 </>
               ) : (
-                <div id="auth0-lock-container" style={{ width: '100%', position: 'relative', minHeight: 320 }} />
+                <div id="auth0-lock-container" style={{ width: '100%' }} />
               )}
             </div>
           )}
