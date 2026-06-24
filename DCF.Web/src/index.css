@@ -241,6 +241,13 @@ input, select, textarea {
   gap: 12px;
 }
 
+.admin-show-form-pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
 /* === Mobile === */
 
 @media (max-width: 640px) {
@@ -386,5 +393,13 @@ input, select, textarea {
   .admin-publish-btn {
     width: 100%;
     margin-top: 8px;
+  }
+
+  .admin-show-form-row {
+    flex-wrap: wrap;
+  }
+
+  .admin-show-form-pair {
+    flex: 1 1 100%;
   }
 }

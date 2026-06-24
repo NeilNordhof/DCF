@@ -579,19 +579,30 @@ export function SeasonDetail() {
                     setShowUrl(e.target.value);                    
                   }} placeholder="DCI recap URL" required style={{ ...inputStyle, flex: 1 }} />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <label style={{ ...labelStyle }}>Date</label>
-                  <input type="date" value={showDate} onChange={e => setShowDate(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
-                  <label style={{ ...labelStyle, marginLeft: 8 }}>TZ</label>
-                  <select value={showTz} onChange={e => setShowTz(e.target.value)} style={{ ...inputStyle, width: 62 }}>
-                    {['ET', 'CT', 'MT', 'PT'].map(tz => <option key={tz} value={tz}>{tz}</option>)}
-                  </select>
+                {/* Date / TZ */}
+                <div className="admin-show-form-row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="admin-show-form-pair">
+                    <label style={labelStyle}>Date</label>
+                    <input type="date" value={showDate} onChange={e => setShowDate(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
+                  </div>
+                  <div className="admin-show-form-pair">
+                    <label style={labelStyle}>TZ</label>
+                    <select value={showTz} onChange={e => setShowTz(e.target.value)} style={{ ...inputStyle, width: 62 }}>
+                      {['ET', 'CT', 'MT', 'PT'].map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <label style={labelStyle}>Start</label>
-                  <TimePicker value={showStartTime} onChange={setShowStartTime} style={{ flex: 1 }} />
-                  <label style={{ ...labelStyle, marginLeft: 8 }}>Scores</label>
-                  <TimePicker value={showScoresTime} onChange={setShowScoresTime} required style={{ flex: 1 }} />
+
+                {/* Start / Scores */}
+                <div className="admin-show-form-row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="admin-show-form-pair">
+                    <label style={labelStyle}>Start</label>
+                    <TimePicker value={showStartTime} onChange={setShowStartTime} style={{ flex: 1 }} />
+                  </div>
+                  <div className="admin-show-form-pair">
+                    <label style={labelStyle}>Scores</label>
+                    <TimePicker value={showScoresTime} onChange={setShowScoresTime} required style={{ flex: 1 }} />
+                  </div>
                 </div>
                 <div>
                   <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
@@ -660,19 +671,30 @@ export function SeasonDetail() {
                           <label style={labelStyle}>URL</label>
                           <input value={editShow.url} onChange={e => setEditShow(p => p && ({ ...p, url: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <label style={labelStyle}>Date</label>
-                          <input type="date" value={editShow.date} onChange={e => setEditShow(p => p && ({ ...p, date: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
-                          <label style={{ ...labelStyle, marginLeft: 8 }}>TZ</label>
-                          <select value={editShow.tz} onChange={e => setEditShow(p => p && ({ ...p, tz: e.target.value }))} style={{ ...inputStyle, width: 62 }}>
-                            {['ET', 'CT', 'MT', 'PT'].map(tz => <option key={tz} value={tz}>{tz}</option>)}
-                          </select>
+                        {/* Date / TZ */}
+                        <div className="admin-show-form-row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div className="admin-show-form-pair">
+                            <label style={labelStyle}>Date</label>
+                            <input type="date" value={editShow.date} onChange={e => setEditShow(p => p && ({ ...p, date: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                          </div>
+                          <div className="admin-show-form-pair">
+                            <label style={labelStyle}>TZ</label>
+                            <select value={editShow.tz} onChange={e => setEditShow(p => p && ({ ...p, tz: e.target.value }))} style={{ ...inputStyle, width: 62 }}>
+                              {['ET', 'CT', 'MT', 'PT'].map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                            </select>
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <label style={labelStyle}>Start</label>
-                          <TimePicker value={editShow.startTime} onChange={v => setEditShow(p => p && ({ ...p, startTime: v }))} style={{ flex: 1 }} />
-                          <label style={{ ...labelStyle, marginLeft: 8 }}>Scores</label>
-                          <TimePicker value={editShow.scoresTime} onChange={v => setEditShow(p => p && ({ ...p, scoresTime: v }))} required style={{ flex: 1 }} />
+
+                        {/* Start / Scores */}
+                        <div className="admin-show-form-row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div className="admin-show-form-pair">
+                            <label style={labelStyle}>Start</label>
+                            <TimePicker value={editShow.startTime} onChange={v => setEditShow(p => p && ({ ...p, startTime: v }))} style={{ flex: 1 }} />
+                          </div>
+                          <div className="admin-show-form-pair">
+                            <label style={labelStyle}>Scores</label>
+                            <TimePicker value={editShow.scoresTime} onChange={v => setEditShow(p => p && ({ ...p, scoresTime: v }))} required style={{ flex: 1 }} />
+                          </div>
                         </div>
                         <div>
                           <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
