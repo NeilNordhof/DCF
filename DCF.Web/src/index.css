@@ -67,6 +67,52 @@ input, select, textarea {
   font-size: inherit;
 }
 
+/* Auth0 Lock — force inline rendering inside our card container.
+   By default, .auth0-lock is position:fixed (desktop) or position:absolute
+   with height:100vh (mobile), which causes it to escape the card layout.
+   These overrides make it flow like a normal block element. */
+#auth0-lock-container .auth0-lock.auth0-lock {
+  position: static !important;
+  width: 100% !important;
+  height: auto !important;
+  pointer-events: auto !important;
+  z-index: auto !important;
+}
+
+#auth0-lock-container .auth0-lock.auth0-lock .auth0-lock-overlay {
+  display: none !important;
+}
+
+#auth0-lock-container .auth0-lock.auth0-lock .auth0-lock-center {
+  display: block !important;
+  height: auto !important;
+  padding: 0 !important;
+}
+
+#auth0-lock-container .auth0-lock.auth0-lock .auth0-lock-widget {
+  position: static !important;
+  width: 100% !important;
+  height: auto !important;
+  min-width: 0 !important;
+}
+
+#auth0-lock-container .auth0-lock.auth0-lock .auth0-lock-widget-container {
+  height: auto !important;
+}
+
+#auth0-lock-container .auth0-lock.auth0-lock .auth0-lock-cred-pane {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+#auth0-lock-container .auth0-lock.auth0-lock .auth0-lock-cred-pane-internal-wrapper {
+  height: auto !important;
+}
+
+#auth0-lock-container .auth0-lock.auth0-lock .auth0-lock-body-content {
+  display: block !important;
+}
+
 /* Auth0 Lock dark theme overrides */
 .auth0-lock.auth0-lock .auth0-lock-widget {
   background: var(--surface-2) !important;
@@ -274,8 +320,8 @@ input, select, textarea {
   }
 
   .home-brand-panel {
-    flex: none;
-    padding: 24px 20px;
+    flex: none !important;
+    padding: 10px 20px;
   }
 
   .home-brand-body {
@@ -283,7 +329,7 @@ input, select, textarea {
   }
 
   .home-auth-panel {
-    flex: none;
+    flex: none !important;
     border-left: none;
     border-top: 1px solid var(--border);
   }
