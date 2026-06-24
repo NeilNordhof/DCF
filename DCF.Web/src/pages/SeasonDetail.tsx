@@ -102,6 +102,7 @@ export function SeasonDetail() {
 
   const [corpsSortInputs, setCorpsSortInputs] = useState<Record<string, string>>({});
   const [savingOrder, setSavingOrder] = useState(false);
+  const [corpsOpen, setCorpsOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -416,6 +417,7 @@ export function SeasonDetail() {
           <button
             onClick={() => setShowPublishConfirm(true)}
             disabled={publishing}
+            className="admin-publish-btn"
             style={{
               padding: '7px 16px', borderRadius: 5, fontSize: 11, fontWeight: 800,
               background: publishing ? 'var(--border)' : 'var(--accent)',
@@ -433,97 +435,108 @@ export function SeasonDetail() {
 
       {error && <div style={{ fontSize: 10, color: 'var(--red)', marginBottom: 16 }}>{error}</div>}
 
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        <div style={{ flex: '0 0 280px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>Corps this season</div>
-          <form onSubmit={saveCorps}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-              {allCorps.map(c => (
-                <Chip
-                  key={c.id}
-                  label={c.name}
-                  selected={selectedCorpsIds.has(c.id)}
-                  onClick={() => toggleCorps(c.id)}
-                  disabled={season.isPublished}
-                />
-              ))}
-            </div>
-            <button
-              type="submit"
-              disabled={savingCorps || season.isPublished}
-              style={{
-                padding: '7px 14px', borderRadius: 5, fontSize: 11, fontWeight: 800,
-                background: savingCorps || season.isPublished ? 'var(--border)' : 'var(--accent)',
-                color: savingCorps || season.isPublished ? 'var(--text-faint)' : 'var(--bg)',
-                border: 'none', cursor: savingCorps || season.isPublished ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {season.isPublished ? 'Locked (published)' : savingCorps ? 'Saving…' : 'Save Corps'}
-            </button>
-          </form>
-          {seasonCorps.length > 0 && (
-            <>
-              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0 12px' }} />
-              <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 4 }}>Draft Order</div>
-              {!season.isPublished && (
-                <div style={{ fontSize: 9, color: 'var(--text-faint)', marginBottom: 10 }}>
-                  Enter prior season placements. List re-sorts as you type.
-                </div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
-                {sortedSeasonCorps.map(c => {
-                  const val = corpsSortInputs[c.id] ?? '';
-                  const isUnranked = val === '' || !(parseInt(val) > 0);
-                  return (
-                    <div key={c.id} style={{
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '5px 10px', background: 'var(--surface)',
-                      border: '1px solid var(--border)', borderRadius: 4,
-                    }}>                      
-                      <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={22} />
-                      <span style={{ fontSize: 11, color: isUnranked ? 'var(--text-muted)' : 'var(--text-heading)', flex: 1 }}>
-                        {c.name}
-                      </span>
-                      <input
-                        type="number"
-                        min={1}
-                        value={val}
-                        onChange={e => setCorpsSortInputs(prev => ({ ...prev, [c.id]: e.target.value }))}
-                        disabled={season.isPublished}
-                        placeholder="–"
-                        style={{
-                          width: 60, background: 'var(--bg)',
-                          border: `1px ${isUnranked ? 'dashed' : 'solid'} var(--border-input)`,
-                          borderRadius: 3, padding: '3px 5px',
-                          color: isUnranked ? 'var(--text-faint)' : 'var(--text-heading)',
-                          fontSize: 10, textAlign: 'center',
-                          opacity: season.isPublished ? 0.5 : 1,
-                          outline: 'none',
-                        }}
-                      />
-                    </div>
-                  );
-                })}
+      <div className="admin-season-layout" style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+        <div className="admin-corps-panel" style={{ flex: '0 0 280px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <button
+            type="button"
+            className="admin-corps-toggle"
+            onClick={() => setCorpsOpen(o => !o)}
+          >
+            <span>Corps &amp; Draft Order</span>
+            <span>{corpsOpen ? '▲' : '▼'}</span>
+          </button>
+
+          <div className={`admin-corps-body${corpsOpen ? ' open' : ''}`}>
+            <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>Corps this season</div>
+            <form onSubmit={saveCorps}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                {allCorps.map(c => (
+                  <Chip
+                    key={c.id}
+                    label={c.name}
+                    selected={selectedCorpsIds.has(c.id)}
+                    onClick={() => toggleCorps(c.id)}
+                    disabled={season.isPublished}
+                  />
+                ))}
               </div>
-              {!season.isPublished && (
-                <button
-                  onClick={saveCorpsOrder}
-                  disabled={savingOrder}
-                  style={{
-                    padding: '7px 14px', borderRadius: 5, fontSize: 11, fontWeight: 800,
-                    background: savingOrder ? 'var(--border)' : 'var(--accent)',
-                    color: savingOrder ? 'var(--text-faint)' : 'var(--bg)',
-                    border: 'none', cursor: savingOrder ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {savingOrder ? 'Saving…' : 'Save Order'}
-                </button>
-              )}
-            </>
-          )}
+              <button
+                type="submit"
+                disabled={savingCorps || season.isPublished}
+                style={{
+                  padding: '7px 14px', borderRadius: 5, fontSize: 11, fontWeight: 800,
+                  background: savingCorps || season.isPublished ? 'var(--border)' : 'var(--accent)',
+                  color: savingCorps || season.isPublished ? 'var(--text-faint)' : 'var(--bg)',
+                  border: 'none', cursor: savingCorps || season.isPublished ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {season.isPublished ? 'Locked (published)' : savingCorps ? 'Saving…' : 'Save Corps'}
+              </button>
+            </form>
+            {seasonCorps.length > 0 && (
+              <>
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0 12px' }} />
+                <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)', marginBottom: 4 }}>Draft Order</div>
+                {!season.isPublished && (
+                  <div style={{ fontSize: 9, color: 'var(--text-faint)', marginBottom: 10 }}>
+                    Enter prior season placements. List re-sorts as you type.
+                  </div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+                  {sortedSeasonCorps.map(c => {
+                    const val = corpsSortInputs[c.id] ?? '';
+                    const isUnranked = val === '' || !(parseInt(val) > 0);
+                    return (
+                      <div key={c.id} style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '5px 10px', background: 'var(--surface)',
+                        border: '1px solid var(--border)', borderRadius: 4,
+                      }}>
+                        <CorpsIcon name={c.name} iconUrl={c.iconUrl} size={22} />
+                        <span style={{ fontSize: 11, color: isUnranked ? 'var(--text-muted)' : 'var(--text-heading)', flex: 1 }}>
+                          {c.name}
+                        </span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={val}
+                          onChange={e => setCorpsSortInputs(prev => ({ ...prev, [c.id]: e.target.value }))}
+                          disabled={season.isPublished}
+                          placeholder="–"
+                          style={{
+                            width: 60, background: 'var(--bg)',
+                            border: `1px ${isUnranked ? 'dashed' : 'solid'} var(--border-input)`,
+                            borderRadius: 3, padding: '3px 5px',
+                            color: isUnranked ? 'var(--text-faint)' : 'var(--text-heading)',
+                            fontSize: 10, textAlign: 'center',
+                            opacity: season.isPublished ? 0.5 : 1,
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                {!season.isPublished && (
+                  <button
+                    onClick={saveCorpsOrder}
+                    disabled={savingOrder}
+                    style={{
+                      padding: '7px 14px', borderRadius: 5, fontSize: 11, fontWeight: 800,
+                      background: savingOrder ? 'var(--border)' : 'var(--accent)',
+                      color: savingOrder ? 'var(--text-faint)' : 'var(--bg)',
+                      border: 'none', cursor: savingOrder ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {savingOrder ? 'Saving…' : 'Save Order'}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="admin-shows-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>Shows</div>
 
           {/* Add Show — collapsible */}

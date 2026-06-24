@@ -231,6 +231,16 @@ input, select, textarea {
   gap: 10px;
 }
 
+.admin-corps-toggle {
+  display: none;
+}
+
+.admin-corps-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 /* === Mobile === */
 
 @media (max-width: 640px) {
@@ -332,5 +342,49 @@ input, select, textarea {
   [data-mobile-view="more"] .draft-side-panel {
     width: 100%;
     border-left: none;
+  }
+
+  .admin-season-layout {
+    flex-direction: column;
+  }
+
+  .admin-corps-panel {
+    flex: none !important;
+    width: 100%;
+    order: 2;
+  }
+
+  .admin-shows-panel {
+    order: 1;
+  }
+
+  .admin-corps-toggle {
+    display: flex;
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-heading);
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .admin-corps-body {
+    display: none;
+  }
+
+  .admin-corps-body.open {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .admin-publish-btn {
+    width: 100%;
+    margin-top: 8px;
   }
 }
