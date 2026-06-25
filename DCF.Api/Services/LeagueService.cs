@@ -318,15 +318,26 @@ public class LeagueService(
         var corpsCount = league.Season.SeasonCorps.Count;
         var maxCorpsPerCaption = corpsCount / 4;
         var maxAllowedPlayers = req.CorpsPerCaption > 0 ? corpsCount / req.CorpsPerCaption : 0;
+        var memberCount = await db.LeagueMembers.CountAsync(m => m.LeagueId == leagueId);
 
         if (req.CorpsPerCaption > maxCorpsPerCaption)
         {
             throw new ArgumentException($"corpsPerCaption cannot exceed {maxCorpsPerCaption} for the active season");
         }
 
-        if (league.MaxPlayers > maxAllowedPlayers)
+        if (req.MaxPlayers > maxAllowedPlayers)
         {
             throw new ArgumentException($"corpsPerCaption {req.CorpsPerCaption} would require maxPlayers ≤ {maxAllowedPlayers}");
+        }
+
+        if (req.MaxPlayers < memberCount)
+        {
+            throw new ArgumentException($"maxPlayers cannot be less than the current member count ({memberCount})");
+        }
+
+        if (req.MaxPlayers < 4)
+        {
+            throw new ArgumentException("maxPlayers must be at least 4");
         }
 
         if (req.DraftableCaptions.Length < 3)
@@ -335,6 +346,7 @@ public class LeagueService(
         }
 
         league.CorpsPerCaption = req.CorpsPerCaption;
+        league.MaxPlayers = req.MaxPlayers;
         league.DraftableCaptions = req.DraftableCaptions;
         league.IssueMessages = [];
         league.DraftTimezone = req.DraftTimezone;
