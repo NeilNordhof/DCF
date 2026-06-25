@@ -166,4 +166,95 @@ public class ScrapeComputedScoreTests
         Assert.Contains(rows, r => r.ShowId == show1.Id && r.Brass == 17.0);
         Assert.Contains(rows, r => r.ShowId == show2.Id && r.Brass == 19.5);
     }
+
+    [Fact]
+    public async Task ComputeAndUpsert_NoScores_WritesNoComputedRows()
+    {
+        using var db = CreateDb("scrape_no_scores");
+        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = 2025, Status = SeasonStatus.Active };
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(), Name = "Show", Url = "https://dci.org/scores/test",
+            Date = new DateOnly(2025, 7, 1), SeasonId = season.Id, Season = season
+        };
+        db.Seasons.Add(season);
+        db.Shows.Add(show);
+
+        await db.SaveChangesAsync();
+
+        await ScrapeSchedulerService.ComputeAndUpsertComputedScoresAsync(db, show.Id, season.Id);
+
+        Assert.Empty(await db.ComputedScores.ToListAsync());
+    }
+
+    [Fact]
+    public async Task ComputeAndUpsert_PartialCaptions_MissingCaptionsAreZero()
+    {
+        using var db = CreateDb("scrape_partial");
+        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = 2025, Status = SeasonStatus.Active };
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Cavaliers" };
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(), Name = "Show", Url = "https://dci.org/scores/test",
+            Date = new DateOnly(2025, 7, 1), SeasonId = season.Id, Season = season
+        };
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        db.Shows.Add(show);
+        db.Scores.Add(new ScoreEntity
+        {
+            Id = Guid.NewGuid(), CorpsId = corps.Id, ShowId = show.Id,
+            Caption = Caption.Brass, TotalScore = 20.0, Corps = corps, Show = show
+        });
+
+        await db.SaveChangesAsync();
+
+        await ScrapeSchedulerService.ComputeAndUpsertComputedScoresAsync(db, show.Id, season.Id);
+
+        var computed = await db.ComputedScores.FirstAsync();
+
+        Assert.Equal(20.0, computed.Brass, precision: 5);
+        Assert.Equal(0.0, computed.Percussion, precision: 5);
+        Assert.Equal(0.0, computed.GeneralEffect1, precision: 5);
+        Assert.Equal(0.0, computed.GeneralEffect2, precision: 5);
+    }
+
+    [Fact]
+    public async Task ComputeAndUpsert_MultipleCorps_EachCorpsGetsOwnRow()
+    {
+        using var db = CreateDb("scrape_multi_corps");
+        var season = new SeasonEntity { Id = Guid.NewGuid(), Year = 2025, Status = SeasonStatus.Active };
+        var corps1 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        var corps2 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Cavaliers" };
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(), Name = "Show", Url = "https://dci.org/scores/test",
+            Date = new DateOnly(2025, 7, 1), SeasonId = season.Id, Season = season
+        };
+        db.Seasons.Add(season);
+        db.Corps.AddRange(corps1, corps2);
+        db.Shows.Add(show);
+        db.Scores.AddRange(
+            new ScoreEntity
+            {
+                Id = Guid.NewGuid(), CorpsId = corps1.Id, ShowId = show.Id,
+                Caption = Caption.Brass, TotalScore = 20.0, Corps = corps1, Show = show
+            },
+            new ScoreEntity
+            {
+                Id = Guid.NewGuid(), CorpsId = corps2.Id, ShowId = show.Id,
+                Caption = Caption.Brass, TotalScore = 18.5, Corps = corps2, Show = show
+            }
+        );
+
+        await db.SaveChangesAsync();
+
+        await ScrapeSchedulerService.ComputeAndUpsertComputedScoresAsync(db, show.Id, season.Id);
+
+        var rows = await db.ComputedScores.Where(cs => cs.ShowId == show.Id).ToListAsync();
+
+        Assert.Equal(2, rows.Count);
+        Assert.Contains(rows, r => r.CorpsId == corps1.Id && r.Brass == 20.0);
+        Assert.Contains(rows, r => r.CorpsId == corps2.Id && r.Brass == 18.5);
+    }
 }
