@@ -351,7 +351,8 @@ public class LeagueService(
         league.IssueMessages = [];
         league.DraftTimezone = req.DraftTimezone;
 
-        var wasScheduled = league.DraftStartTime.HasValue;
+        var originalDraftStartTime = league.DraftStartTime;
+        var wasScheduled = originalDraftStartTime.HasValue;
 
         if (req.DraftStartTime.HasValue)
         {
@@ -384,8 +385,9 @@ public class LeagueService(
         await db.SaveChangesAsync();
 
         var frontendUrl = emailOptions.Value.FrontendUrl;
+        var draftTimeChanged = req.DraftStartTime?.ToUniversalTime() != originalDraftStartTime;
 
-        if (req.DraftStartTime.HasValue)
+        if (req.DraftStartTime.HasValue && draftTimeChanged)
         {
             var timeStr = DraftTimeFormatter.Format(req.DraftStartTime.Value.ToUniversalTime(), league.DraftTimezone);
             var action = wasScheduled ? "rescheduled" : "scheduled";
