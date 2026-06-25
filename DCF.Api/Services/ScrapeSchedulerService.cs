@@ -51,8 +51,7 @@ public class ScrapeSchedulerService(
         {
             try
             {
-                var fireAt = show.ScoresAnnouncedTime.AddMinutes(_delayMinutes);
-                var delay = fireAt - DateTimeOffset.UtcNow;
+                var delay = GetScrapeDelay(show.ScoresAnnouncedTime, _delayMinutes, DateTimeOffset.UtcNow);
 
                 if (delay > TimeSpan.Zero)
                 {
@@ -78,6 +77,9 @@ public class ScrapeSchedulerService(
             }
         });
     }
+
+    public static TimeSpan GetScrapeDelay(DateTimeOffset scoresAnnouncedTime, int delayMinutes, DateTimeOffset now)
+        => scoresAnnouncedTime.AddMinutes(delayMinutes) - now;
 
     public async Task ExecuteScrapeAsync(ShowEntity show)
     {

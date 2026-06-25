@@ -1,4 +1,4 @@
-name: Smoke Test
+name: CI
 
 on:
   push:
@@ -8,7 +8,42 @@ on:
   workflow_dispatch:
 
 jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Restore .NET dependencies
+        run: dotnet restore DCF.slnx
+
+      - name: Run .NET tests with coverage
+        run: dotnet test DCF.Tests/DCF.Tests.csproj --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+      - name: Upload .NET coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-coverage
+          path: coverage/**/coverage.cobertura.xml
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: DCF.Web
+
+      - name: Run frontend tests
+        run: npm test
+        working-directory: DCF.Web
+
   smoke:
+    needs: [tests]
     runs-on: ubuntu-latest
 
     services:

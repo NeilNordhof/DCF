@@ -51,7 +51,7 @@ public class DraftSchedulerService(
                 if (!isAlreadyOpened)
                 {
                     var frontendUrl = emailOptions.Value.FrontendUrl;
-                    var oneDayDelay = startTime - TimeSpan.FromHours(24) - DateTimeOffset.UtcNow;
+                    var oneDayDelay = GetDraftDelay(startTime, TimeSpan.FromHours(24), DateTimeOffset.UtcNow);
 
                     if (oneDayDelay > TimeSpan.Zero)
                     {
@@ -69,7 +69,7 @@ public class DraftSchedulerService(
                         return;
                     }
 
-                    var oneHourDelay = startTime - TimeSpan.FromHours(1) - DateTimeOffset.UtcNow;
+                    var oneHourDelay = GetDraftDelay(startTime, TimeSpan.FromHours(1), DateTimeOffset.UtcNow);
 
                     if (oneHourDelay > TimeSpan.Zero)
                     {
@@ -87,7 +87,7 @@ public class DraftSchedulerService(
                         return;
                     }
 
-                    var openDelay = startTime - OpenLeadTime - DateTimeOffset.UtcNow;
+                    var openDelay = GetDraftDelay(startTime, OpenLeadTime, DateTimeOffset.UtcNow);
 
                     if (openDelay > TimeSpan.Zero)
                     {
@@ -133,7 +133,7 @@ public class DraftSchedulerService(
                     }
                 }
 
-                var startDelay = startTime - DateTimeOffset.UtcNow;
+                var startDelay = GetDraftDelay(startTime, TimeSpan.Zero, DateTimeOffset.UtcNow);
 
                 if (startDelay > TimeSpan.Zero)
                 {
@@ -169,6 +169,9 @@ public class DraftSchedulerService(
             cts.Dispose();
         }
     }
+
+    public static TimeSpan GetDraftDelay(DateTimeOffset startTime, TimeSpan leadTime, DateTimeOffset now)
+        => startTime - leadTime - now;
 
     private async Task NotifyLeagueMembersAsync(
         Guid leagueId,
