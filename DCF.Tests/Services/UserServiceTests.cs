@@ -104,4 +104,51 @@ public class UserServiceTests
 
         Assert.Equal("Auth0 Name", result.DisplayName);
     }
+
+    [Fact]
+    public async Task UpsertAsync_DifferentSubSameEmail_RelinksToExistingAccount()
+    {
+        using var db = CreateDb("upsert_relink");
+        var existingId = Guid.NewGuid();
+        db.Users.Add(new UserEntity
+        {
+            Id = existingId,
+            Auth0Sub = "google-oauth2|111",
+            Email = "shared@example.com",
+            DisplayName = "OriginalUser"
+        });
+
+        await db.SaveChangesAsync();
+
+        var svc = new UserService(db);
+        var result = await svc.UpsertAsync("auth0|222", "shared@example.com", "Shared User", "Shared User");
+
+        Assert.Equal(existingId, result.Id);
+        Assert.Equal("OriginalUser", result.DisplayName);
+
+        var dbUser = await db.Users.FindAsync(existingId);
+        Assert.Equal("auth0|222", dbUser!.Auth0Sub);
+    }
+
+    [Fact]
+    public async Task UpsertAsync_DifferentSubSameEmail_DoesNotCreateDuplicateRow()
+    {
+        using var db = CreateDb("upsert_no_duplicate");
+        db.Users.Add(new UserEntity
+        {
+            Id = Guid.NewGuid(),
+            Auth0Sub = "google-oauth2|333",
+            Email = "dupe@example.com",
+            DisplayName = "ExistingUser"
+        });
+
+        await db.SaveChangesAsync();
+
+        var svc = new UserService(db);
+
+        await svc.UpsertAsync("auth0|444", "dupe@example.com", "ExistingUser", "ExistingUser");
+
+        var count = await db.Users.CountAsync(u => u.Email == "dupe@example.com");
+        Assert.Equal(1, count);
+    }
 }

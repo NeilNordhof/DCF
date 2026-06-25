@@ -14,29 +14,43 @@ public class UserService(DcfDbContext db) : IUserService
 
         if (user is null)
         {
-            user = new UserEntity
+            if (!string.IsNullOrWhiteSpace(email))
             {
-                Id = Guid.NewGuid(),
-                Auth0Sub = sub,
-                Email = email,
-                DisplayName = !string.IsNullOrWhiteSpace(displayName) ? displayName : name
-            };
-            db.Users.Add(user);
+                user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+            }
 
-            try
+            if (user is not null)
             {
+                user.Auth0Sub = sub;
+
                 await db.SaveChangesAsync();
             }
-            catch (DbUpdateException)
+            else
             {
-                if (!await db.Users.AnyAsync(u => u.Auth0Sub == sub))
+                user = new UserEntity
                 {
-                    throw;
+                    Id = Guid.NewGuid(),
+                    Auth0Sub = sub,
+                    Email = email,
+                    DisplayName = !string.IsNullOrWhiteSpace(displayName) ? displayName : name
+                };
+                db.Users.Add(user);
+
+                try
+                {
+                    await db.SaveChangesAsync();
                 }
+                catch (DbUpdateException)
+                {
+                    if (!await db.Users.AnyAsync(u => u.Auth0Sub == sub))
+                    {
+                        throw;
+                    }
 
-                db.ChangeTracker.Clear();
+                    db.ChangeTracker.Clear();
 
-                user = await db.Users.FirstAsync(u => u.Auth0Sub == sub);
+                    user = await db.Users.FirstAsync(u => u.Auth0Sub == sub);
+                }
             }
         }
         else
