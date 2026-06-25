@@ -24,18 +24,13 @@ public class SeasonStatusService(
             .Where(s => s.Status != SeasonStatus.Completed)
             .ToListAsync(stoppingToken);
 
-        foreach (var season in seasons)
+        var statusesBefore = seasons.ToDictionary(s => s.Id, s => s.Status);
+
+        ApplyStatusTransitions(seasons, today);
+
+        foreach (var season in seasons.Where(s => s.Status != statusesBefore[s.Id]))
         {
-            if (season.Status == SeasonStatus.Active && season.EndDate < today)
-            {
-                season.Status = SeasonStatus.Completed;
-                logger.LogInformation("Season {Year} completed on startup (end date passed)", season.Year);
-            }
-            else if (season.Status == SeasonStatus.Upcoming && season.StartDate <= today)
-            {
-                season.Status = SeasonStatus.Active;
-                logger.LogInformation("Season {Year} activated on startup (start date passed)", season.Year);
-            }
+            logger.LogInformation("Season {Year} set to {Status} on startup", season.Year, season.Status);
         }
 
         await db.SaveChangesAsync(stoppingToken);
@@ -43,6 +38,21 @@ public class SeasonStatusService(
         foreach (var season in seasons.Where(s => s.Status != SeasonStatus.Completed))
         {
             ScheduleSeason(season);
+        }
+    }
+
+    public static void ApplyStatusTransitions(IList<SeasonEntity> seasons, DateOnly today)
+    {
+        foreach (var season in seasons)
+        {
+            if (season.Status == SeasonStatus.Active && season.EndDate < today)
+            {
+                season.Status = SeasonStatus.Completed;
+            }
+            else if (season.Status == SeasonStatus.Upcoming && season.StartDate <= today)
+            {
+                season.Status = SeasonStatus.Active;
+            }
         }
     }
 
