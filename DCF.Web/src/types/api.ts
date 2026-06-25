@@ -125,6 +125,7 @@ export interface CreateLeagueRequest {
 
 export interface UpdateLeagueRequest {
   corpsPerCaption: number;
+  maxPlayers: number;
   draftableCaptions: ComputedCaption[];
   draftStartTime: string | null;
   draftTimezone: string | null;

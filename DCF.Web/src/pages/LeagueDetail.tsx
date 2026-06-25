@@ -103,6 +103,7 @@ export function LeagueDetail() {
   const [editVis, setEditVis] = useState<VisOption>('combined');
   const [editMusic, setEditMusic] = useState<MusicOption>('combined');
   const [editCorpsPerCaption, setEditCorpsPerCaption] = useState(1);
+  const [editMaxPlayers, setEditMaxPlayers] = useState(4);
   const [editDraftStartDate, setEditDraftStartDate] = useState('');
   const [editDraftStartTime, setEditDraftStartTime] = useState('');
   const [seasonCorpsCount, setSeasonCorpsCount] = useState<number | null>(null);
@@ -152,6 +153,8 @@ export function LeagueDetail() {
 
   const effectiveStatus = draftState?.status ?? league.draftStatus;
   const maxEditCorpsPerCaption = seasonCorpsCount != null ? Math.floor(seasonCorpsCount / 4) : null;
+  const maxEditMaxPlayers = seasonCorpsCount != null && editCorpsPerCaption > 0 ? Math.floor(seasonCorpsCount / editCorpsPerCaption) : null;
+  const minEditMaxPlayers = Math.max(4, league.members?.length ?? 0);
 
   const getCountdown = () => {
     if (!league.draftStartTime) return '--:--:--';
@@ -206,6 +209,7 @@ export function LeagueDetail() {
     setEditVis(vis);
     setEditMusic(music);
     setEditCorpsPerCaption(league.corpsPerCaption!);
+    setEditMaxPlayers(league.maxPlayers!);
     const combined = toDatetimeLocal(league.draftStartTime);
     setEditDraftStartDate(combined.split('T')[0] ?? '');
     setEditDraftStartTime(combined.split('T')[1] ?? '');
@@ -220,6 +224,7 @@ export function LeagueDetail() {
     try {
       await api.updateLeague(id!, {
         corpsPerCaption: editCorpsPerCaption,
+        maxPlayers: editMaxPlayers,
         draftableCaptions: expandCaptions(editGe, editVis, editMusic),
         draftStartTime: (editDraftStartDate && editDraftStartTime) ? datetimeLocalToIso(`${editDraftStartDate}T${editDraftStartTime}`) : null,
         draftTimezone: (editDraftStartDate && editDraftStartTime) ? Intl.DateTimeFormat().resolvedOptions().timeZone : null,
@@ -504,6 +509,7 @@ export function LeagueDetail() {
               {[
                 { label: 'Captions', value: league.draftableCaptions!.join(', ') },
                 { label: 'Corps per Caption', value: String(league.corpsPerCaption) },
+                { label: 'Max Players', value: String(league.maxPlayers) },
                 { label: 'Draft Start', value: league.draftStartTime ? new Date(league.draftStartTime).toLocaleString() : 'Not scheduled' },
               ].map(item => (
                 <div key={item.label} style={{
@@ -576,6 +582,42 @@ export function LeagueDetail() {
                       color: (maxEditCorpsPerCaption != null && editCorpsPerCaption >= maxEditCorpsPerCaption) ? 'var(--text-faint)' : 'var(--text-heading)',
                       cursor: (maxEditCorpsPerCaption != null && editCorpsPerCaption >= maxEditCorpsPerCaption) ? 'not-allowed' : 'pointer',
                       opacity: (maxEditCorpsPerCaption != null && editCorpsPerCaption >= maxEditCorpsPerCaption) ? 0.3 : 1,
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div>
+                <div style={labelStyle}>Max Players</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditMaxPlayers(v => Math.max(minEditMaxPlayers, v - 1))}
+                    disabled={editMaxPlayers <= minEditMaxPlayers}
+                    style={{
+                      width: 32, height: 32, borderRadius: 5, fontSize: 16, fontWeight: 700,
+                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      color: editMaxPlayers <= minEditMaxPlayers ? 'var(--text-faint)' : 'var(--text-heading)',
+                      cursor: editMaxPlayers <= minEditMaxPlayers ? 'not-allowed' : 'pointer',
+                      opacity: editMaxPlayers <= minEditMaxPlayers ? 0.3 : 1,
+                    }}
+                  >
+                    −
+                  </button>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-heading)', minWidth: 24, textAlign: 'center' }}>
+                    {editMaxPlayers}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditMaxPlayers(v => v + 1)}
+                    disabled={maxEditMaxPlayers != null && editMaxPlayers >= maxEditMaxPlayers}
+                    style={{
+                      width: 32, height: 32, borderRadius: 5, fontSize: 16, fontWeight: 700,
+                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      color: (maxEditMaxPlayers != null && editMaxPlayers >= maxEditMaxPlayers) ? 'var(--text-faint)' : 'var(--text-heading)',
+                      cursor: (maxEditMaxPlayers != null && editMaxPlayers >= maxEditMaxPlayers) ? 'not-allowed' : 'pointer',
+                      opacity: (maxEditMaxPlayers != null && editMaxPlayers >= maxEditMaxPlayers) ? 0.3 : 1,
                     }}
                   >
                     +

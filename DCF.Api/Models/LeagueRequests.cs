@@ -15,6 +15,7 @@ public record JoinLeagueRequest(string? InviteCode);
 
 public record UpdateLeagueRequest(
     int CorpsPerCaption,
+    int MaxPlayers,
     ComputedCaption[] DraftableCaptions,
     DateTimeOffset? DraftStartTime,
     string? DraftTimezone);
