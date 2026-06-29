@@ -89,6 +89,7 @@ export function SeasonDetail() {
   const [showSchedule, setShowSchedule] = useState<ShowPrefillScheduleEntry[]>([]);
   const [prefetchError, setPrefetchError] = useState<string | null>(null);
   const [prefetching, setPrefetching] = useState(false);
+  const [prefetched, setPrefetched] = useState(false);
 
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const [editShow, setEditShow] = useState<{
@@ -218,7 +219,7 @@ export function SeasonDetail() {
   };
 
   const fetchFromDci = async () => {
-    if (!id || !showName || prefetching) return;
+    if (!id || !showName || prefetching || prefetched) return;
     setPrefetching(true);
     setPrefetchError(null);
 
@@ -251,6 +252,7 @@ export function SeasonDetail() {
       }
 
       setShowSchedule(data.schedule);
+      setPrefetched(true);
     } catch {
       setPrefetchError('Could not fetch from DCI — fill in manually.');
     } finally {
@@ -321,6 +323,7 @@ export function SeasonDetail() {
       setShowLongitude(null);
       setShowSchedule([]);
       setPrefetchError(null);
+      setPrefetched(false);
       setAddShowOpen(false);
     } catch {
       setError('Failed to add show.');
@@ -686,6 +689,7 @@ export function SeasonDetail() {
                         value={showName}
                         onChange={e => {
                           setShowName(e.target.value);
+                          setPrefetched(false);
 
                           if (!urlManuallyEdited && season) {
                             setShowUrl(generateRecapUrl(e.target.value, season.year));
@@ -698,17 +702,17 @@ export function SeasonDetail() {
                   <button
                     type="button"
                     onClick={fetchFromDci}
-                    disabled={!showName || prefetching}
+                    disabled={!showName || prefetching || prefetched}
                     style={{
                       padding: '7px 12px', borderRadius: 5, fontSize: 10, fontWeight: 600,
-                      background: prefetching ? 'var(--accent)' : 'var(--surface)',
-                      border: prefetching ? 'none' : '1px solid var(--border)',
-                      color: prefetching ? 'var(--bg)' : showName ? 'var(--text-muted)' : 'var(--text-faint)',
-                      cursor: showName && !prefetching ? 'pointer' : 'not-allowed',
+                      background: showName ? 'var(--accent)' : 'var(--surface)',
+                      border: showName ? 'none' : '1px solid var(--border)',
+                      color: showName ? 'var(--bg)' : 'var(--text-faint)',
+                      cursor: showName && !prefetching && !prefetched ? 'pointer' : 'not-allowed',
                       opacity: !showName ? 0.5 : 1, whiteSpace: 'nowrap', marginBottom: 6,
                     }}
                   >
-                    {prefetching ? 'Fetching…' : 'Fetch from DCI'}
+                    {prefetching ? 'Fetching…' : prefetched ? 'Fetched' : 'Fetch from DCI'}
                   </button>
                 </div>
 
