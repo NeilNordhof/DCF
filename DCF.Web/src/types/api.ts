@@ -147,18 +147,48 @@ export interface SeasonDetail extends Season {
   corpsSortOrders: Record<string, number>;
 }
 
+export interface ShowScheduleEntry {
+  time: string;
+  label: string;
+  corpsId: string | null;
+}
+
+export interface ShowPrefillScheduleEntry {
+  time: string;
+  label: string;
+  corpsId: string | null;
+}
+
+export interface ShowPrefillResponse {
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  startTime?: string;
+  scoresAnnouncedTime?: string;
+  timezone?: string;
+  isExhibition: boolean;
+  corpsIds: string[];
+  schedule: ShowPrefillScheduleEntry[];
+  date?: string;
+}
+
 export interface Show {
   id: string;
   name: string;
-  url: string;
+  url?: string;
   date: string;
   startTime?: string;
-  scoresAnnouncedTime: string;
+  scoresAnnouncedTime?: string;
   timezone?: string;
+  isExhibition: boolean;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
   corpsIds: string[];
   scrapeStatus: 'NotStarted' | 'Succeeded' | 'Failed';
   lastScrapeAttemptAt?: string;
   scrapeError?: string;
+  schedule: ShowScheduleEntry[];
 }
 
 export interface PickScore {

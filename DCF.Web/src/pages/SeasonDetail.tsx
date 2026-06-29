@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Corps, SeasonDetail as SeasonDetailType, Show } from '../types/api';
+import type { Corps, SeasonDetail as SeasonDetailType, Show, ShowPrefillScheduleEntry } from '../types/api';
 import { CorpsIcon } from '../components/CorpsIcon';
 import { TimePicker } from '../components/TimePicker';
 
@@ -19,7 +19,7 @@ function hasStarted(show: Show): boolean {
 }
 
 function hasScoresAnnounced(show: Show): boolean {
-  return new Date(show.scoresAnnouncedTime) <= new Date();
+  return !!show.scoresAnnouncedTime && new Date(show.scoresAnnouncedTime) <= new Date();
 }
 
 const inputStyle: CSSProperties = {
@@ -82,6 +82,14 @@ export function SeasonDetail() {
   const [addShowOpen, setAddShowOpen] = useState(false);
   const [showCorpsIds, setShowCorpsIds] = useState<Set<string>>(new Set());
   const [addingShow, setAddingShow] = useState(false);
+  const [isExhibition, setIsExhibition] = useState(false);
+  const [showLocation, setShowLocation] = useState('');
+  const [showLatitude, setShowLatitude] = useState<number | null>(null);
+  const [showLongitude, setShowLongitude] = useState<number | null>(null);
+  const [showSchedule, setShowSchedule] = useState<ShowPrefillScheduleEntry[]>([]);
+  const [prefetchError, setPrefetchError] = useState<string | null>(null);
+  const [prefetching, setPrefetching] = useState(false);
+  const [prefetched, setPrefetched] = useState(false);
 
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const [editShow, setEditShow] = useState<{
@@ -144,7 +152,9 @@ export function SeasonDetail() {
 
     try {
       await api.adminSetSeasonCorps(id, Array.from(selectedCorpsIds));
+
       const updated = await api.adminGetSeason(id);
+
       setSeason(updated);
       setSelectedCorpsIds(new Set(updated.corpsIds));
     } catch {
@@ -164,8 +174,11 @@ export function SeasonDetail() {
         corpsId,
         sortOrder: parseInt(val) > 0 ? parseInt(val) : null,
       }));
+
       await api.adminSetCorpsOrder(id, orders);
+
       const updated = await api.adminGetSeason(id);
+
       setSeason(updated);
       setCorpsSortInputs(
         Object.fromEntries(
@@ -186,7 +199,9 @@ export function SeasonDetail() {
 
     try {
       await api.adminPublishSeason(id);
+
       const updated = await api.adminGetSeason(id);
+
       setSeason(updated);
     } catch {
       setError('Failed to publish season.');
@@ -203,28 +218,113 @@ export function SeasonDetail() {
     });
   };
 
+  const fetchFromDci = async () => {
+    if (!id || !showName || prefetching || prefetched) return;
+    setPrefetching(true);
+    setPrefetchError(null);
+
+    try {
+      const data = await api.adminPrefillShow(id, showName);
+
+      setIsExhibition(data.isExhibition);
+      setShowLocation(data.location ?? '');
+      setShowLatitude(data.latitude ?? null);
+      setShowLongitude(data.longitude ?? null);
+
+      if (data.startTime) {
+        setShowStartTime(data.startTime);
+      }
+
+      if (data.scoresAnnouncedTime) {
+        setShowScoresTime(data.scoresAnnouncedTime);
+      }
+
+      if (data.timezone) {
+        setShowTz(data.timezone);
+      }
+
+      if (data.date) {
+        setShowDate(data.date);
+      }
+
+      if (data.corpsIds.length > 0) {
+        setShowCorpsIds(new Set(data.corpsIds));
+      }
+
+      setShowSchedule(data.schedule);
+      setPrefetched(true);
+    } catch {
+      setPrefetchError('Could not fetch from DCI — fill in manually.');
+    } finally {
+      setPrefetching(false);
+    }
+  };
+
   const addShow = async (e: FormEvent) => {
     e.preventDefault();
     if (!id || addingShow) return;
-    if (showCorpsIds.size === 0) { setError('Select at least one corps.'); return; }
+    if (!isExhibition && showCorpsIds.size === 0) { setError('Select at least one corps.'); return; }
+    if (!isExhibition && !showScoresTime) { setError('Scores announced time is required for competitive shows.'); return; }
     setAddingShow(true);
     setError(null);
 
     try {
       const startTimeIso = showStartTime ? buildDateTime(showDate, showStartTime, showTz) : null;
-      const scoresTimeIso = buildDateTime(showDate, showScoresTime, showTz);
+      const scoresTimeIso = showScoresTime ? buildDateTime(showDate, showScoresTime, showTz) : null;
 
-      await api.adminCreateShow(id, showName, showUrl, showDate, startTimeIso, scoresTimeIso, showTz, Array.from(showCorpsIds));
+      let rolloverDate = showDate;
+      let prevTime = '';
+
+      const schedulePayload = showSchedule.map(entry => {
+        if (prevTime && entry.time < prevTime && prevTime >= '12:00') {
+          const d = new Date(`${rolloverDate}T00:00:00`);
+          d.setDate(d.getDate() + 1);
+          rolloverDate = d.toISOString().slice(0, 10);
+        }
+
+        prevTime = entry.time;
+
+        return {
+          time: buildDateTime(rolloverDate, entry.time, showTz),
+          label: entry.label,
+          corpsId: entry.corpsId,
+        };
+      });
+
+      await api.adminCreateShow(id, {
+        name: showName,
+        url: isExhibition ? null : showUrl,
+        date: showDate,
+        startTime: startTimeIso,
+        scoresAnnouncedTime: scoresTimeIso,
+        timezone: showTz,
+        isExhibition,
+        location: showLocation || null,
+        latitude: showLatitude,
+        longitude: showLongitude,
+        corpsIds: Array.from(showCorpsIds),
+        schedule: schedulePayload,
+      });
+
       const updated = await api.adminGetShows(id);
+
       setShows(updated);
       setShowName('');
       setShowUrl('');
+      setUrlManuallyEdited(false);
       setShowDate('');
+      setShowTz('ET');
       setShowStartTime('');
       setShowScoresTime('');
       setShowCorpsIds(new Set());
+      setIsExhibition(false);
+      setShowLocation('');
+      setShowLatitude(null);
+      setShowLongitude(null);
+      setShowSchedule([]);
+      setPrefetchError(null);
+      setPrefetched(false);
       setAddShowOpen(false);
-      setUrlManuallyEdited(false);
     } catch {
       setError('Failed to add show.');
     } finally {
@@ -239,7 +339,9 @@ export function SeasonDetail() {
 
     try {
       await api.adminUpdateSeasonDates(id, editStartDate, editEndDate);
+
       const updated = await api.adminGetSeason(id);
+
       setSeason(updated);
       setEditingDates(false);
     } catch {
@@ -264,10 +366,10 @@ export function SeasonDetail() {
     setExpandedShowId(show.id);
     setEditShow({
       name: show.name,
-      url: show.url,
+      url: show.url ?? '',
       date: show.date,
       startTime: show.startTime ? toHHMM(show.startTime) : '',
-      scoresTime: toHHMM(show.scoresAnnouncedTime),
+      scoresTime: show.scoresAnnouncedTime ? toHHMM(show.scoresAnnouncedTime) : '',
       tz,
       corpsIds: new Set(show.corpsIds),
     });
@@ -279,22 +381,35 @@ export function SeasonDetail() {
     setError(null);
 
     try {
+      const show = shows.find(s => s.id === showId)!;
       const startTimeIso = editShow.startTime
         ? buildDateTime(editShow.date, editShow.startTime, editShow.tz)
         : null;
-      const scoresTimeIso = buildDateTime(editShow.date, editShow.scoresTime, editShow.tz);
+      const scoresTimeIso = editShow.scoresTime
+        ? buildDateTime(editShow.date, editShow.scoresTime, editShow.tz)
+        : null;
 
       await api.adminUpdateShow(showId, {
         name: editShow.name,
-        url: editShow.url,
+        url: show.isExhibition ? null : editShow.url,
         date: editShow.date,
         startTime: startTimeIso,
         scoresAnnouncedTime: scoresTimeIso,
         timezone: editShow.tz,
+        isExhibition: show.isExhibition,
+        location: show.location ?? null,
+        latitude: show.latitude ?? null,
+        longitude: show.longitude ?? null,
         corpsIds: Array.from(editShow.corpsIds),
+        schedule: show.schedule.map(e => ({
+          time: new Date(e.time).toISOString(),
+          label: e.label,
+          corpsId: e.corpsId,
+        })),
       });
 
       const updated = await api.adminGetShows(id!);
+
       setShows(updated);
       setExpandedShowId(null);
       setEditShow(null);
@@ -312,7 +427,9 @@ export function SeasonDetail() {
 
     try {
       await api.adminDeleteShow(showId);
+
       const updated = await api.adminGetShows(id!);
+
       setShows(updated);
       setExpandedShowId(null);
       setEditShow(null);
@@ -562,22 +679,94 @@ export function SeasonDetail() {
 
             {addShowOpen && (
               <form onSubmit={addShow} style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <label style={labelStyle}>Name</label>
-                  <input value={showName} onChange={e => {
-                    setShowName(e.target.value);
-                    if (!urlManuallyEdited) {
-                      const url = generateRecapUrl(e.target.value, season?.year ?? new Date().getFullYear());
-                      setShowUrl(url);
-                    }
-                  }} required style={{ ...inputStyle, flex: 1 }} />
+                {/* Name + Fetch row */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <span style={labelStyle}>Name</span>
+                      <input
+                        style={inputStyle}
+                        value={showName}
+                        onChange={e => {
+                          setShowName(e.target.value);
+                          setPrefetched(false);
+
+                          if (!urlManuallyEdited && season) {
+                            setShowUrl(generateRecapUrl(e.target.value, season.year));
+                          }
+                        }}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={fetchFromDci}
+                    disabled={!showName || prefetching || prefetched}
+                    style={{
+                      padding: '7px 12px', borderRadius: 5, fontSize: 10, fontWeight: 600,
+                      background: showName ? 'var(--accent)' : 'var(--surface)',
+                      border: showName ? 'none' : '1px solid var(--border)',
+                      color: showName ? 'var(--bg)' : 'var(--text-faint)',
+                      cursor: showName && !prefetching && !prefetched ? 'pointer' : 'not-allowed',
+                      opacity: !showName ? 0.5 : 1, whiteSpace: 'nowrap', marginBottom: 6,
+                    }}
+                  >
+                    {prefetching ? 'Fetching…' : prefetched ? 'Fetched' : 'Fetch from DCI'}
+                  </button>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <label style={labelStyle}>URL</label>
-                  <input value={showUrl} onChange={e => {
-                    setUrlManuallyEdited(true);
-                    setShowUrl(e.target.value);                    
-                  }} placeholder="DCI recap URL" required style={{ ...inputStyle, flex: 1 }} />
+
+                {prefetchError && (
+                  <p style={{ fontSize: 10, color: 'var(--red)', margin: '2px 0 6px' }}>{prefetchError}</p>
+                )}
+
+                {/* IsExhibition toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={labelStyle}>Exhibition</span>
+                  <input
+                    type="checkbox"
+                    checked={isExhibition}
+                    onChange={e => setIsExhibition(e.target.checked)}
+                  />
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Non-competitive show (no scores)</span>
+                </div>
+
+                {/* Scores URL (hide for exhibition) */}
+                {!isExhibition && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={labelStyle}>Recap URL</span>
+                    <input
+                      style={inputStyle}
+                      value={showUrl}
+                      onChange={e => { setShowUrl(e.target.value); setUrlManuallyEdited(true); }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={labelStyle}>Location</span>
+                  <input
+                    style={{ ...inputStyle, flex: 2 }}
+                    value={showLocation}
+                    onChange={e => setShowLocation(e.target.value)}
+                    placeholder="City, ST"
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="Lat"
+                    style={{ ...inputStyle, width: 90 }}
+                    value={showLatitude ?? ''}
+                    onChange={e => setShowLatitude(e.target.value ? parseFloat(e.target.value) : null)}
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="Lng"
+                    style={{ ...inputStyle, width: 90 }}
+                    value={showLongitude ?? ''}
+                    onChange={e => setShowLongitude(e.target.value ? parseFloat(e.target.value) : null)}
+                  />
                 </div>
                 {/* Date / TZ */}
                 <div className="admin-show-form-row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -604,14 +793,34 @@ export function SeasonDetail() {
                     <TimePicker value={showScoresTime} onChange={setShowScoresTime} required style={{ flex: 1 }} />
                   </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {seasonCorps.map(c => (
-                      <Chip key={c.id} label={c.name} selected={showCorpsIds.has(c.id)} onClick={() => toggleShowCorps(c.id)} />
-                    ))}
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {seasonCorps.map(c => (
+                        <Chip key={c.id} label={c.name} selected={showCorpsIds.has(c.id)} onClick={() => toggleShowCorps(c.id)} />
+                      ))}
+                    </div>
                   </div>
+
+                  {showSchedule.length > 0 && (
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Schedule</div>
+                      <div style={{
+                        background: 'var(--bg)', border: '1px solid var(--border)',
+                        borderRadius: 5, padding: '4px 8px', fontSize: 10, color: 'var(--text-muted)',
+                      }}>
+                        {showSchedule.map((entry, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
+                            <span style={{ minWidth: 36, fontVariantNumeric: 'tabular-nums' }}>{entry.time}</span>
+                            <span>{entry.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <button type="submit" disabled={addingShow} style={{
                   padding: '7px 0', borderRadius: 5, fontSize: 11, fontWeight: 800,
                   background: addingShow ? 'var(--border)' : 'var(--accent)',
@@ -667,10 +876,12 @@ export function SeasonDetail() {
                           <label style={labelStyle}>Name</label>
                           <input value={editShow.name} onChange={e => setEditShow(p => p && ({ ...p, name: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <label style={labelStyle}>URL</label>
-                          <input value={editShow.url} onChange={e => setEditShow(p => p && ({ ...p, url: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
-                        </div>
+                        {!s.isExhibition && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <label style={labelStyle}>URL</label>
+                            <input value={editShow.url} onChange={e => setEditShow(p => p && ({ ...p, url: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                          </div>
+                        )}
                         {/* Date / TZ */}
                         <div className="admin-show-form-row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div className="admin-show-form-pair">
@@ -743,7 +954,9 @@ export function SeasonDetail() {
                           </button>
                         </div>
                       </>
-                    ) : (
+                    ) : null}
+
+                    {!s.isExhibition && (started || hasScoresAnnounced(s)) && (
                       <div style={{ marginTop: 10 }}>
                         <button
                           type="button"
@@ -763,6 +976,7 @@ export function SeasonDetail() {
                         >
                           Trigger Score Scrape
                         </button>
+
                         {scrapeSuccessId === s.id && (
                           <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: 'var(--green)', textAlign: 'center' }}>
                             ✓ Scrape triggered successfully

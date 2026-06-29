@@ -95,7 +95,12 @@ def main():
             "startTime" : None,
             "scoresAnnouncedTime" : "2027-01-01T00:00:00Z",
             "timezone" : None,
-            "corpsIds" : corps_ids
+            "isExhibition" : False,
+            "location" : None,
+            "latitude" : None,
+            "longitude" : None,
+            "corpsIds" : corps_ids,
+            "schedule" : []
             })
         assert_status(resp, 200, "Create show")
         show_id = resp.json().get("id")

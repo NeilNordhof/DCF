@@ -1,3 +1,4 @@
+using DCF.Api.Models;
 using DCF.Api.Services;
 using DCF.Data;
 using DCF.Data.Entities;
@@ -29,7 +30,7 @@ public class AdminServiceTests
     public async Task CreateSeasonAsync_PersistsSeasonWithCorrectFields()
     {
         using var db = CreateDb("admin_create_season");
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
 
         var start = new DateOnly(2026, 6, 1);
         var end = new DateOnly(2026, 8, 12);
@@ -46,7 +47,7 @@ public class AdminServiceTests
     public async Task GetSeasonDetailAsync_MissingSeason_ReturnsNull()
     {
         using var db = CreateDb("admin_get_detail_missing");
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
 
         var result = await svc.GetSeasonDetailAsync(Guid.NewGuid());
 
@@ -75,7 +76,7 @@ public class AdminServiceTests
         ]);
         await db.SaveChangesAsync();
 
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
         var result = await svc.GetSeasonDetailAsync(seasonId);
 
         Assert.NotNull(result);
@@ -89,7 +90,7 @@ public class AdminServiceTests
     public async Task PublishSeasonAsync_MissingSeason_ReturnsFalse()
     {
         using var db = CreateDb("admin_publish_missing");
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
 
         var result = await svc.PublishSeasonAsync(Guid.NewGuid());
 
@@ -110,7 +111,7 @@ public class AdminServiceTests
         });
         await db.SaveChangesAsync();
 
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
         var result = await svc.PublishSeasonAsync(seasonId);
 
         Assert.True(result);
@@ -126,7 +127,7 @@ public class AdminServiceTests
         db.Corps.Add(corps);
         await db.SaveChangesAsync();
 
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
         var result = await svc.RenameCorpsAsync(corps.Id, "New Name");
 
         Assert.NotNull(result);
@@ -138,7 +139,7 @@ public class AdminServiceTests
     public async Task RenameCorps_MissingId_ReturnsNull()
     {
         using var db = CreateDb("corps_rename_missing");
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
 
         var result = await svc.RenameCorpsAsync(Guid.NewGuid(), "Anything");
 
@@ -153,7 +154,7 @@ public class AdminServiceTests
         db.Corps.Add(corps);
         await db.SaveChangesAsync();
 
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
         var (found, deletable) = await svc.DeleteCorpsAsync(corps.Id);
 
         Assert.True(found);
@@ -177,7 +178,7 @@ public class AdminServiceTests
         db.SeasonCorps.Add(new SeasonCorpsEntity { SeasonId = season.Id, CorpsId = corps.Id });
         await db.SaveChangesAsync();
 
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
         var (found, deletable) = await svc.DeleteCorpsAsync(corps.Id);
 
         Assert.True(found);
@@ -193,7 +194,7 @@ public class AdminServiceTests
         db.Corps.Add(corps);
         await db.SaveChangesAsync();
 
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
         var (found, oldPath) = await svc.SetCorpsIconAsync(corps.Id, "corps-icons/new.jpg");
 
         Assert.True(found);
@@ -209,7 +210,7 @@ public class AdminServiceTests
         db.Corps.Add(corps);
         await db.SaveChangesAsync();
 
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
         var (found, oldPath) = await svc.SetCorpsIconAsync(corps.Id, "corps-icons/cav.png");
 
         Assert.True(found);
@@ -221,7 +222,7 @@ public class AdminServiceTests
     public async Task SetCorpsIconAsync_MissingCorps_ReturnsFalse()
     {
         using var db = CreateDb("corps_icon_missing");
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
 
         var (found, oldPath) = await svc.SetCorpsIconAsync(Guid.NewGuid(), "corps-icons/x.png");
 
@@ -241,7 +242,7 @@ public class AdminServiceTests
         db.Seasons.Add(season);
         await db.SaveChangesAsync();
 
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
         var result = await svc.UpdateSeasonDatesAsync(season.Id, new DateOnly(2026, 6, 15), new DateOnly(2026, 9, 1));
 
         Assert.True(result);
@@ -263,7 +264,7 @@ public class AdminServiceTests
         db.Seasons.Add(season);
         await db.SaveChangesAsync();
 
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
         var result = await svc.UpdateSeasonDatesAsync(season.Id, new DateOnly(2026, 6, 15), new DateOnly(2026, 9, 1));
 
         Assert.False(result);
@@ -289,7 +290,7 @@ public class AdminServiceTests
         );
         await db.SaveChangesAsync();
 
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
         var orders = new List<(Guid CorpsId, int? SortOrder)>
         {
             (corps1.Id, 2),
@@ -316,7 +317,7 @@ public class AdminServiceTests
         db.Seasons.Add(season);
         await db.SaveChangesAsync();
 
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
         var (found, canEdit) = await svc.SetSeasonCorpsOrderAsync(season.Id, []);
 
         Assert.True(found);
@@ -327,7 +328,7 @@ public class AdminServiceTests
     public async Task SetSeasonCorpsOrderAsync_MissingSeason_ReturnsFoundFalse()
     {
         using var db = CreateDb("corps_sort_missing");
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
 
         var (found, canEdit) = await svc.SetSeasonCorpsOrderAsync(Guid.NewGuid(), []);
 
@@ -355,10 +356,204 @@ public class AdminServiceTests
         db.Shows.Add(show);
         await db.SaveChangesAsync();
 
-        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus());
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
         var result = await svc.DeleteShowAsync(show.Id);
 
         Assert.True(result);
         Assert.False(db.Shows.Any(s => s.Id == show.Id));
+    }
+
+    [Fact]
+    public async Task ShowScheduleEntryEntity_CanPersistAndRetrieve()
+    {
+        using var db = CreateDb("schedule_entity_persist");
+
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(),
+            Year = 2030,
+            StartDate = new DateOnly(2030, 6, 1),
+            EndDate = new DateOnly(2030, 8, 31)
+        };
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Test Corps" };
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test Show",
+            Date = new DateOnly(2030, 7, 4),
+            ScoresAnnouncedTime = null,
+            IsExhibition = true,
+            Location = "Test Venue, City, ST",
+            Latitude = 39.7684,
+            Longitude = -86.1581,
+            SeasonId = season.Id
+        };
+
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        db.Shows.Add(show);
+        db.ShowScheduleEntries.AddRange(
+        [
+            new ShowScheduleEntryEntity
+            {
+                Id = Guid.NewGuid(),
+                ShowId = show.Id,
+                SortOrder = 0,
+                Time = new DateTimeOffset(2030, 7, 4, 23, 0, 0, TimeSpan.Zero),
+                Label = "Test Corps",
+                CorpsId = corps.Id
+            },
+            new ShowScheduleEntryEntity
+            {
+                Id = Guid.NewGuid(),
+                ShowId = show.Id,
+                SortOrder = 1,
+                Time = new DateTimeOffset(2030, 7, 5, 0, 30, 0, TimeSpan.Zero),
+                Label = "Awards",
+                CorpsId = null
+            }
+        ]);
+
+        await db.SaveChangesAsync();
+
+        var entries = db.ShowScheduleEntries
+            .Where(e => e.ShowId == show.Id)
+            .OrderBy(e => e.SortOrder)
+            .ToList();
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("Test Corps", entries[0].Label);
+        Assert.Equal(corps.Id, entries[0].CorpsId);
+        Assert.Equal("Awards", entries[1].Label);
+        Assert.Null(entries[1].CorpsId);
+
+        var savedShow = await db.Shows.FindAsync(show.Id);
+
+        Assert.True(savedShow!.IsExhibition);
+        Assert.Equal("Test Venue, City, ST", savedShow.Location);
+        Assert.Equal(39.7684, savedShow.Latitude);
+        Assert.Null(savedShow.ScoresAnnouncedTime);
+    }
+
+    [Fact]
+    public async Task CreateShowAsync_PersistsScheduleEntries()
+    {
+        using var db = CreateDb("admin_create_show_with_schedule");
+
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(),
+            Year = 2030,
+            StartDate = new DateOnly(2030, 6, 1),
+            EndDate = new DateOnly(2030, 8, 31)
+        };
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
+        var schedule = new List<ShowScheduleEntryRequest>
+        {
+            new(new DateTimeOffset(2030, 7, 4, 23, 0, 0, TimeSpan.Zero), "Blue Devils", corps.Id),
+            new(new DateTimeOffset(2030, 7, 5, 0, 0, 0, TimeSpan.Zero), "Awards", null)
+        };
+
+        await svc.CreateShowAsync(
+            season.Id, "Test Show", null, new DateOnly(2030, 7, 4),
+            null, null, "PT", true, "Test Venue", null, null,
+            [corps.Id], schedule);
+
+        var entries = db.ShowScheduleEntries
+            .OrderBy(e => e.SortOrder)
+            .ToList();
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("Blue Devils", entries[0].Label);
+        Assert.Equal(corps.Id, entries[0].CorpsId);
+        Assert.Null(entries[1].CorpsId);
+    }
+
+    [Fact]
+    public async Task UpdateShowAsync_ReplacesScheduleEntries()
+    {
+        using var db = CreateDb("admin_update_show_schedule");
+
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(),
+            Year = 2030,
+            StartDate = new DateOnly(2030, 6, 1),
+            EndDate = new DateOnly(2030, 8, 31)
+        };
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test Show",
+            Date = new DateOnly(2030, 7, 4),
+            SeasonId = season.Id
+        };
+
+        db.Seasons.Add(season);
+        db.Shows.Add(show);
+        db.ShowScheduleEntries.Add(new ShowScheduleEntryEntity
+        {
+            Id = Guid.NewGuid(), ShowId = show.Id, SortOrder = 0,
+            Time = new DateTimeOffset(2030, 7, 4, 23, 0, 0, TimeSpan.Zero),
+            Label = "Old Entry"
+        });
+
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
+        var newSchedule = new List<ShowScheduleEntryRequest>
+        {
+            new(new DateTimeOffset(2030, 7, 4, 23, 30, 0, TimeSpan.Zero), "New Entry", null)
+        };
+
+        await svc.UpdateShowAsync(
+            show.Id, "Test Show", null, new DateOnly(2030, 7, 4),
+            null, null, "PT", false, null, null, null, [], newSchedule);
+
+        var entries = db.ShowScheduleEntries.Where(e => e.ShowId == show.Id).ToList();
+
+        Assert.Single(entries);
+        Assert.Equal("New Entry", entries[0].Label);
+    }
+
+    [Fact]
+    public async Task DeleteShowAsync_AlsoDeletesScheduleEntries()
+    {
+        using var db = CreateDb("admin_delete_show_schedule");
+
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(), Year = 2030,
+            StartDate = new DateOnly(2030, 6, 1), EndDate = new DateOnly(2030, 8, 31)
+        };
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(), Name = "Test Show",
+            Date = new DateOnly(2030, 7, 4), SeasonId = season.Id
+        };
+
+        db.Seasons.Add(season);
+        db.Shows.Add(show);
+        db.ShowScheduleEntries.Add(new ShowScheduleEntryEntity
+        {
+            Id = Guid.NewGuid(), ShowId = show.Id, SortOrder = 0,
+            Time = new DateTimeOffset(2030, 7, 4, 23, 0, 0, TimeSpan.Zero),
+            Label = "Entry"
+        });
+
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
+
+        await svc.DeleteShowAsync(show.Id);
+
+        Assert.Empty(db.ShowScheduleEntries.Where(e => e.ShowId == show.Id).ToList());
     }
 }
