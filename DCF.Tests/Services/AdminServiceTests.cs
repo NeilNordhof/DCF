@@ -361,4 +361,75 @@ public class AdminServiceTests
         Assert.True(result);
         Assert.False(db.Shows.Any(s => s.Id == show.Id));
     }
+
+    [Fact]
+    public async Task ShowScheduleEntryEntity_CanPersistAndRetrieve()
+    {
+        using var db = CreateDb("schedule_entity_persist");
+
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(),
+            Year = 2030,
+            StartDate = new DateOnly(2030, 6, 1),
+            EndDate = new DateOnly(2030, 8, 31)
+        };
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Test Corps" };
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test Show",
+            Date = new DateOnly(2030, 7, 4),
+            ScoresAnnouncedTime = null,
+            IsExhibition = true,
+            Location = "Test Venue, City, ST",
+            Latitude = 39.7684,
+            Longitude = -86.1581,
+            SeasonId = season.Id
+        };
+
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        db.Shows.Add(show);
+        db.ShowScheduleEntries.AddRange(
+        [
+            new ShowScheduleEntryEntity
+            {
+                Id = Guid.NewGuid(),
+                ShowId = show.Id,
+                SortOrder = 0,
+                Time = new DateTimeOffset(2030, 7, 4, 23, 0, 0, TimeSpan.Zero),
+                Label = "Test Corps",
+                CorpsId = corps.Id
+            },
+            new ShowScheduleEntryEntity
+            {
+                Id = Guid.NewGuid(),
+                ShowId = show.Id,
+                SortOrder = 1,
+                Time = new DateTimeOffset(2030, 7, 5, 0, 30, 0, TimeSpan.Zero),
+                Label = "Awards",
+                CorpsId = null
+            }
+        ]);
+
+        await db.SaveChangesAsync();
+
+        var entries = db.ShowScheduleEntries
+            .Where(e => e.ShowId == show.Id)
+            .OrderBy(e => e.SortOrder)
+            .ToList();
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("Test Corps", entries[0].Label);
+        Assert.Equal(corps.Id, entries[0].CorpsId);
+        Assert.Equal("Awards", entries[1].Label);
+        Assert.Null(entries[1].CorpsId);
+
+        var savedShow = await db.Shows.FindAsync(show.Id);
+        Assert.True(savedShow!.IsExhibition);
+        Assert.Equal("Test Venue, City, ST", savedShow.Location);
+        Assert.Equal(39.7684, savedShow.Latitude);
+        Assert.Null(savedShow.ScoresAnnouncedTime);
+    }
 }

@@ -44,6 +44,11 @@ public class ScrapeSchedulerService(
             existing.Dispose();
         }
 
+        if (!show.ScoresAnnouncedTime.HasValue)
+        {
+            return;
+        }
+
         var cts = new CancellationTokenSource();
         _scheduled[show.Id] = cts;
 
@@ -51,7 +56,7 @@ public class ScrapeSchedulerService(
         {
             try
             {
-                var delay = GetScrapeDelay(show.ScoresAnnouncedTime, _delayMinutes, DateTimeOffset.UtcNow);
+                var delay = GetScrapeDelay(show.ScoresAnnouncedTime.Value, _delayMinutes, DateTimeOffset.UtcNow);
 
                 if (delay > TimeSpan.Zero)
                 {
@@ -96,7 +101,7 @@ public class ScrapeSchedulerService(
         }
 
         var showCorpsIds = freshShow.ShowCorps.Select(sc => sc.CorpsId).ToHashSet();
-        var scraperShow = new Show(freshShow.Id, freshShow.Name, freshShow.Url, freshShow.Date);
+        var scraperShow = new Show(freshShow.Id, freshShow.Name, freshShow.Url ?? string.Empty, freshShow.Date);
         var scraper = scope.ServiceProvider.GetRequiredService<IRecapScraperTask>();
 
         freshShow.LastScrapeAttemptAt = DateTimeOffset.UtcNow;

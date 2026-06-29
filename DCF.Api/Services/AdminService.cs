@@ -8,7 +8,7 @@ namespace DCF.Api.Services;
 public record SeasonSummary(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished);
 public record SeasonDetail(Guid Id, int Year, DateOnly StartDate, DateOnly EndDate, SeasonStatus Status, bool IsPublished, IEnumerable<Guid> CorpsIds, IReadOnlyDictionary<Guid, int> CorpsSortOrders);
 public record CorpsSummary(Guid Id, string Name, string? IconUrl);
-public record ShowSummary(Guid Id, string Name, string Url, DateOnly Date, DateTimeOffset? StartTime, DateTimeOffset ScoresAnnouncedTime, string? Timezone, ScrapeStatus ScrapeStatus, DateTimeOffset? LastScrapeAttemptAt, string? ScrapeError, IEnumerable<Guid> CorpsIds);
+public record ShowSummary(Guid Id, string Name, string? Url, DateOnly Date, DateTimeOffset? StartTime, DateTimeOffset? ScoresAnnouncedTime, string? Timezone, ScrapeStatus ScrapeStatus, DateTimeOffset? LastScrapeAttemptAt, string? ScrapeError, IEnumerable<Guid> CorpsIds);
 public record ShowBrief(Guid Id, string Name);
 
 public class AdminService(

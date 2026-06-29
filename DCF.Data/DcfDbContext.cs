@@ -18,6 +18,7 @@ public class DcfDbContext(DbContextOptions<DcfDbContext> options) : DbContext(op
     public DbSet<LeagueMemberEntity> LeagueMembers => Set<LeagueMemberEntity>();
     public DbSet<DraftPickEntity> DraftPicks => Set<DraftPickEntity>();
     public DbSet<ComputedScoreEntity> ComputedScores => Set<ComputedScoreEntity>();
+    public DbSet<ShowScheduleEntryEntity> ShowScheduleEntries => Set<ShowScheduleEntryEntity>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -71,5 +72,7 @@ public class DcfDbContext(DbContextOptions<DcfDbContext> options) : DbContext(op
 
         mb.Entity<ComputedScoreEntity>()
             .HasIndex(e => e.SeasonId);
+
+        mb.Entity<ShowScheduleEntryEntity>().HasIndex(e => e.ShowId);
     }
 }
