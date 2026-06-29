@@ -268,8 +268,10 @@ public class AdminController(IAdminService adminService, IWebHostEnvironment env
 
         try
         {
-            var result = await adminService.CreateShowAsync(seasonId, req.Name, req.Url,
-                req.Date, req.StartTime, req.ScoresAnnouncedTime, req.Timezone, req.CorpsIds);
+            var result = await adminService.CreateShowAsync(
+                seasonId, req.Name, req.Url, req.Date, req.StartTime, req.ScoresAnnouncedTime,
+                req.Timezone, req.IsExhibition, req.Location, req.Latitude, req.Longitude,
+                req.CorpsIds, req.Schedule);
 
             return Ok(result);
         }
@@ -287,8 +289,28 @@ public class AdminController(IAdminService adminService, IWebHostEnvironment env
             return Forbid();
         }
 
-        return await adminService.UpdateShowAsync(id, req.Name, req.Url,
-            req.Date, req.StartTime, req.ScoresAnnouncedTime, req.Timezone, req.CorpsIds) ? NoContent() : NotFound();
+        return await adminService.UpdateShowAsync(
+            id, req.Name, req.Url, req.Date, req.StartTime, req.ScoresAnnouncedTime,
+            req.Timezone, req.IsExhibition, req.Location, req.Latitude, req.Longitude,
+            req.CorpsIds, req.Schedule) ? NoContent() : NotFound();
+    }
+
+    [HttpGet("seasons/{seasonId}/shows/prefill")]
+    public async Task<IActionResult> PrefillShow(Guid seasonId, [FromQuery] string name)
+    {
+        if (!await adminService.IsAdminAsync(GetSub()))
+        {
+            return Forbid();
+        }
+
+        var result = await adminService.PrefillShowAsync(name, seasonId);
+
+        if (result is null)
+        {
+            return NotFound(new { error = "Could not fetch show info from DCI. Check the show name and try again." });
+        }
+
+        return Ok(result);
     }
 
     [HttpDelete("shows/{id}")]

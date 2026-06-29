@@ -27,7 +27,10 @@ public class ScrapeSchedulerService(
 
         var shows = await db.Shows
             .Include(s => s.ShowCorps)
-            .Where(s => s.ScoresAnnouncedTime > DateTimeOffset.UtcNow)
+            .Where(s => !s.IsExhibition
+                     && s.Url != null
+                     && s.ScoresAnnouncedTime.HasValue
+                     && s.ScoresAnnouncedTime.Value > DateTimeOffset.UtcNow)
             .ToListAsync(stoppingToken);
 
         foreach (var show in shows)
@@ -38,15 +41,15 @@ public class ScrapeSchedulerService(
 
     public void ScheduleScrape(ShowEntity show)
     {
+        if (show.IsExhibition || show.Url is null || show.ScoresAnnouncedTime is null)
+        {
+            return;
+        }
+
         if (_scheduled.TryRemove(show.Id, out var existing))
         {
             existing.Cancel();
             existing.Dispose();
-        }
-
-        if (!show.ScoresAnnouncedTime.HasValue)
-        {
-            return;
         }
 
         var cts = new CancellationTokenSource();
@@ -93,15 +96,15 @@ public class ScrapeSchedulerService(
 
         var freshShow = await db.Shows.Include(s => s.ShowCorps).FirstOrDefaultAsync(s => s.Id == show.Id);
 
-        if (freshShow is null)
+        if (freshShow is null || freshShow.IsExhibition || freshShow.Url is null)
         {
-            logger.LogWarning("Show {ShowId} not found during scrape", show.Id);
+            logger.LogWarning("Show {ShowId} cannot be scraped", show.Id);
 
             return;
         }
 
         var showCorpsIds = freshShow.ShowCorps.Select(sc => sc.CorpsId).ToHashSet();
-        var scraperShow = new Show(freshShow.Id, freshShow.Name, freshShow.Url ?? string.Empty, freshShow.Date);
+        var scraperShow = new Show(freshShow.Id, freshShow.Name, freshShow.Url, freshShow.Date);
         var scraper = scope.ServiceProvider.GetRequiredService<IRecapScraperTask>();
 
         freshShow.LastScrapeAttemptAt = DateTimeOffset.UtcNow;
