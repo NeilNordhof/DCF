@@ -1,4 +1,4 @@
-import type { ActiveSeason, Corps, CreateLeagueRequest, League, MemberScoreBreakdown, PublicLeague, Season, SeasonCorps, SeasonDetail, Show, Standing, UpdateLeagueRequest, UserProfile } from '../types/api';
+import type { ActiveSeason, Corps, CreateLeagueRequest, League, MemberScoreBreakdown, PublicLeague, Season, SeasonCorps, SeasonDetail, Show, ShowPrefillResponse, Standing, UpdateLeagueRequest, UserProfile } from '../types/api';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 
@@ -109,30 +109,49 @@ export const api = {
     request<Show[]>(`/api/admin/seasons/${seasonId}/shows`),
   adminCreateShow: (
     seasonId: string,
-    name: string,
-    url: string,
-    date: string,
-    startTime: string | null,
-    scoresAnnouncedTime: string,
-    timezone: string,
-    corpsIds: string[]
+    body: {
+      name: string;
+      url?: string | null;
+      date: string;
+      startTime: string | null;
+      scoresAnnouncedTime: string | null;
+      timezone?: string;
+      isExhibition: boolean;
+      location?: string | null;
+      latitude?: number | null;
+      longitude?: number | null;
+      corpsIds: string[];
+      schedule: { time: string; label: string; corpsId: string | null }[];
+    }
   ) =>
     request<{ id: string; name: string }>(`/api/admin/seasons/${seasonId}/shows`, {
       method: 'POST',
-      body: JSON.stringify({ name, url, date, startTime, scoresAnnouncedTime, timezone, corpsIds }),
+      body: JSON.stringify(body),
     }),
   adminUpdateSeasonDates: (id: string, startDate: string, endDate: string) =>
     request<void>(`/api/admin/seasons/${id}/dates`, { method: 'PATCH', body: JSON.stringify({ startDate, endDate }) }),
-  adminUpdateShow: (id: string, body: {
-    name: string;
-    url: string;
-    date: string;
-    startTime: string | null;
-    scoresAnnouncedTime: string;
-    timezone: string;
-    corpsIds: string[];
-  }) =>
+  adminUpdateShow: (
+    id: string,
+    body: {
+      name: string;
+      url?: string | null;
+      date: string;
+      startTime: string | null;
+      scoresAnnouncedTime: string | null;
+      timezone?: string;
+      isExhibition: boolean;
+      location?: string | null;
+      latitude?: number | null;
+      longitude?: number | null;
+      corpsIds: string[];
+      schedule: { time: string; label: string; corpsId: string | null }[];
+    }
+  ) =>
     request<void>(`/api/admin/shows/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   adminDeleteShow: (id: string) =>
     request<void>(`/api/admin/shows/${id}`, { method: 'DELETE' }),
+  adminPrefillShow: (seasonId: string, name: string) =>
+    request<ShowPrefillResponse>(
+      `/api/admin/seasons/${seasonId}/shows/prefill?name=${encodeURIComponent(name)}`
+    ),
 };

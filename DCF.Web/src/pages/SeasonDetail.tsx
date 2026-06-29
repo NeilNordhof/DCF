@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Corps, SeasonDetail as SeasonDetailType, Show } from '../types/api';
+import type { Corps, SeasonDetail as SeasonDetailType, Show, ShowPrefillScheduleEntry } from '../types/api';
 import { CorpsIcon } from '../components/CorpsIcon';
 import { TimePicker } from '../components/TimePicker';
 
@@ -19,7 +19,7 @@ function hasStarted(show: Show): boolean {
 }
 
 function hasScoresAnnounced(show: Show): boolean {
-  return new Date(show.scoresAnnouncedTime) <= new Date();
+  return !!show.scoresAnnouncedTime && new Date(show.scoresAnnouncedTime) <= new Date();
 }
 
 const inputStyle: CSSProperties = {
@@ -82,6 +82,13 @@ export function SeasonDetail() {
   const [addShowOpen, setAddShowOpen] = useState(false);
   const [showCorpsIds, setShowCorpsIds] = useState<Set<string>>(new Set());
   const [addingShow, setAddingShow] = useState(false);
+  const [isExhibition, setIsExhibition] = useState(false);
+  const [showLocation, setShowLocation] = useState('');
+  const [showLatitude, setShowLatitude] = useState<number | null>(null);
+  const [showLongitude, setShowLongitude] = useState<number | null>(null);
+  const [showSchedule, setShowSchedule] = useState<ShowPrefillScheduleEntry[]>([]);
+  const [prefetchError, setPrefetchError] = useState<string | null>(null);
+  const [prefetching, setPrefetching] = useState(false);
 
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const [editShow, setEditShow] = useState<{
@@ -203,28 +210,91 @@ export function SeasonDetail() {
     });
   };
 
+  const fetchFromDci = async () => {
+    if (!id || !showName || prefetching) return;
+    setPrefetching(true);
+    setPrefetchError(null);
+
+    try {
+      const data = await api.adminPrefillShow(id, showName);
+      setIsExhibition(data.isExhibition);
+      setShowLocation(data.location ?? '');
+      setShowLatitude(data.latitude ?? null);
+      setShowLongitude(data.longitude ?? null);
+
+      if (data.startTime) {
+        setShowStartTime(data.startTime);
+      }
+
+      if (data.scoresAnnouncedTime) {
+        setShowScoresTime(data.scoresAnnouncedTime);
+      }
+
+      if (data.timezone) {
+        setShowTz(data.timezone);
+      }
+
+      if (data.corpsIds.length > 0) {
+        setShowCorpsIds(new Set(data.corpsIds));
+      }
+
+      setShowSchedule(data.schedule);
+    } catch {
+      setPrefetchError('Could not fetch from DCI — fill in manually.');
+    } finally {
+      setPrefetching(false);
+    }
+  };
+
   const addShow = async (e: FormEvent) => {
     e.preventDefault();
     if (!id || addingShow) return;
-    if (showCorpsIds.size === 0) { setError('Select at least one corps.'); return; }
+    if (!isExhibition && showCorpsIds.size === 0) { setError('Select at least one corps.'); return; }
+    if (!isExhibition && !showScoresTime) { setError('Scores announced time is required for competitive shows.'); return; }
     setAddingShow(true);
     setError(null);
 
     try {
       const startTimeIso = showStartTime ? buildDateTime(showDate, showStartTime, showTz) : null;
-      const scoresTimeIso = buildDateTime(showDate, showScoresTime, showTz);
+      const scoresTimeIso = showScoresTime ? buildDateTime(showDate, showScoresTime, showTz) : null;
+      const schedulePayload = showSchedule.map(entry => ({
+        time: buildDateTime(showDate, entry.time, showTz),
+        label: entry.label,
+        corpsId: entry.corpsId,
+      }));
 
-      await api.adminCreateShow(id, showName, showUrl, showDate, startTimeIso, scoresTimeIso, showTz, Array.from(showCorpsIds));
+      await api.adminCreateShow(id, {
+        name: showName,
+        url: isExhibition ? null : showUrl,
+        date: showDate,
+        startTime: startTimeIso,
+        scoresAnnouncedTime: scoresTimeIso,
+        timezone: showTz,
+        isExhibition,
+        location: showLocation || null,
+        latitude: showLatitude,
+        longitude: showLongitude,
+        corpsIds: Array.from(showCorpsIds),
+        schedule: schedulePayload,
+      });
+
       const updated = await api.adminGetShows(id);
       setShows(updated);
       setShowName('');
       setShowUrl('');
+      setUrlManuallyEdited(false);
       setShowDate('');
+      setShowTz('ET');
       setShowStartTime('');
       setShowScoresTime('');
       setShowCorpsIds(new Set());
+      setIsExhibition(false);
+      setShowLocation('');
+      setShowLatitude(null);
+      setShowLongitude(null);
+      setShowSchedule([]);
+      setPrefetchError(null);
       setAddShowOpen(false);
-      setUrlManuallyEdited(false);
     } catch {
       setError('Failed to add show.');
     } finally {
@@ -264,10 +334,10 @@ export function SeasonDetail() {
     setExpandedShowId(show.id);
     setEditShow({
       name: show.name,
-      url: show.url,
+      url: show.url ?? '',
       date: show.date,
       startTime: show.startTime ? toHHMM(show.startTime) : '',
-      scoresTime: toHHMM(show.scoresAnnouncedTime),
+      scoresTime: show.scoresAnnouncedTime ? toHHMM(show.scoresAnnouncedTime) : '',
       tz,
       corpsIds: new Set(show.corpsIds),
     });
@@ -279,19 +349,31 @@ export function SeasonDetail() {
     setError(null);
 
     try {
+      const show = shows.find(s => s.id === showId)!;
       const startTimeIso = editShow.startTime
         ? buildDateTime(editShow.date, editShow.startTime, editShow.tz)
         : null;
-      const scoresTimeIso = buildDateTime(editShow.date, editShow.scoresTime, editShow.tz);
+      const scoresTimeIso = editShow.scoresTime
+        ? buildDateTime(editShow.date, editShow.scoresTime, editShow.tz)
+        : null;
 
       await api.adminUpdateShow(showId, {
         name: editShow.name,
-        url: editShow.url,
+        url: show.isExhibition ? null : editShow.url,
         date: editShow.date,
         startTime: startTimeIso,
         scoresAnnouncedTime: scoresTimeIso,
         timezone: editShow.tz,
+        isExhibition: show.isExhibition,
+        location: show.location ?? null,
+        latitude: show.latitude ?? null,
+        longitude: show.longitude ?? null,
         corpsIds: Array.from(editShow.corpsIds),
+        schedule: show.schedule.map(e => ({
+          time: new Date(e.time).toISOString(),
+          label: e.label,
+          corpsId: e.corpsId,
+        })),
       });
 
       const updated = await api.adminGetShows(id!);
@@ -562,22 +644,76 @@ export function SeasonDetail() {
 
             {addShowOpen && (
               <form onSubmit={addShow} style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <label style={labelStyle}>Name</label>
-                  <input value={showName} onChange={e => {
-                    setShowName(e.target.value);
-                    if (!urlManuallyEdited) {
-                      const url = generateRecapUrl(e.target.value, season?.year ?? new Date().getFullYear());
-                      setShowUrl(url);
-                    }
-                  }} required style={{ ...inputStyle, flex: 1 }} />
+                {/* Name + Fetch row */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <span style={labelStyle}>Name</span>
+                      <input
+                        style={inputStyle}
+                        value={showName}
+                        onChange={e => {
+                          setShowName(e.target.value);
+
+                          if (!urlManuallyEdited && season) {
+                            setShowUrl(generateRecapUrl(e.target.value, season.year));
+                          }
+                        }}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={fetchFromDci}
+                    disabled={!showName || prefetching}
+                    style={{
+                      padding: '7px 12px', borderRadius: 5, fontSize: 10, fontWeight: 600,
+                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      color: 'var(--text-muted)', cursor: showName && !prefetching ? 'pointer' : 'not-allowed',
+                      opacity: !showName || prefetching ? 0.5 : 1, whiteSpace: 'nowrap', marginBottom: 6,
+                    }}
+                  >
+                    {prefetching ? 'Fetching…' : 'Fetch from DCI'}
+                  </button>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <label style={labelStyle}>URL</label>
-                  <input value={showUrl} onChange={e => {
-                    setUrlManuallyEdited(true);
-                    setShowUrl(e.target.value);                    
-                  }} placeholder="DCI recap URL" required style={{ ...inputStyle, flex: 1 }} />
+
+                {prefetchError && (
+                  <p style={{ fontSize: 10, color: 'var(--red)', margin: '2px 0 6px' }}>{prefetchError}</p>
+                )}
+
+                {/* IsExhibition toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={labelStyle}>Exhibition</span>
+                  <input
+                    type="checkbox"
+                    checked={isExhibition}
+                    onChange={e => setIsExhibition(e.target.checked)}
+                  />
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Non-competitive show (no scores)</span>
+                </div>
+
+                {/* Scores URL (hide for exhibition) */}
+                {!isExhibition && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={labelStyle}>Recap URL</span>
+                    <input
+                      style={inputStyle}
+                      value={showUrl}
+                      onChange={e => { setShowUrl(e.target.value); setUrlManuallyEdited(true); }}
+                    />
+                  </div>
+                )}
+
+                {/* Location */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={labelStyle}>Location</span>
+                  <input
+                    style={inputStyle}
+                    value={showLocation}
+                    onChange={e => setShowLocation(e.target.value)}
+                    placeholder="Venue Name, City, ST 00000"
+                  />
                 </div>
                 {/* Date / TZ */}
                 <div className="admin-show-form-row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -612,6 +748,24 @@ export function SeasonDetail() {
                     ))}
                   </div>
                 </div>
+
+                {showSchedule.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <p style={{ ...labelStyle, textAlign: 'left', marginBottom: 4 }}>Schedule</p>
+                    <div style={{
+                      background: 'var(--bg)', border: '1px solid var(--border)',
+                      borderRadius: 5, padding: '6px 10px', fontSize: 10, color: 'var(--text-muted)',
+                    }}>
+                      {showSchedule.map((entry, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 12, padding: '2px 0' }}>
+                          <span style={{ minWidth: 40, fontVariantNumeric: 'tabular-nums' }}>{entry.time}</span>
+                          <span>{entry.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <button type="submit" disabled={addingShow} style={{
                   padding: '7px 0', borderRadius: 5, fontSize: 11, fontWeight: 800,
                   background: addingShow ? 'var(--border)' : 'var(--accent)',
@@ -743,7 +897,9 @@ export function SeasonDetail() {
                           </button>
                         </div>
                       </>
-                    ) : (
+                    ) : null}
+
+                    {!s.isExhibition && (started || hasScoresAnnounced(s)) && (
                       <div style={{ marginTop: 10 }}>
                         <button
                           type="button"
@@ -763,6 +919,7 @@ export function SeasonDetail() {
                         >
                           Trigger Score Scrape
                         </button>
+
                         {scrapeSuccessId === s.id && (
                           <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: 'var(--green)', textAlign: 'center' }}>
                             ✓ Scrape triggered successfully
