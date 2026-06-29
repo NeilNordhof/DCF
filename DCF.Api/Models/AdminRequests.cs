@@ -45,4 +45,5 @@ public record ShowPrefillResponse(
     string? Timezone,
     bool IsExhibition,
     List<Guid> CorpsIds,
-    List<ShowPrefillScheduleEntryResponse> Schedule);
+    List<ShowPrefillScheduleEntryResponse> Schedule,
+    string? Date);

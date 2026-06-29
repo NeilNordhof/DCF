@@ -29,6 +29,11 @@ public class ShowInfoScraperTaskTests
     private const string ExhibitionHtml = """
         <html><body>
         <strong>NON-COMPETITION FORMAT: </strong>
+        <div class="inner-hero-inner">
+          <p>Thursday, July 2, 2026 7:50 PM</p>
+          <h1>MidCal Showcase</h1>
+          <span class="location">Camarillo, CA</span>
+        </div>
         <div class="lineup-times-table">
           <p>All times PT and subject to change</p>
           <table><tbody>
@@ -39,15 +44,17 @@ public class ShowInfoScraperTaskTests
             <tr><td>10:00 PM</td><td><strong>Event Concludes</strong></td></tr>
           </tbody></table>
         </div>
-        <div class="address-info">
-          <address>Camarillo High School Stadium<br>4660 Mission Oaks Blvd<br>Camarillo, CA 93012</address>
-        </div>
-        <a href="https://maps.google.com/?q=34.2228,-119.0307" target="_blank">Get Directions</a>
+        <a href="https://www.google.com/maps/dir/Current+Location/34.2228,-119.0307" target="_blank">Get Directions</a>
         </body></html>
         """;
 
     private const string CompetitiveHtml = """
         <html><body>
+        <div class="inner-hero-inner">
+          <p>Saturday, August 15, 2026 7:00 PM</p>
+          <h1>Test Show</h1>
+          <span class="location">Indianapolis, IN</span>
+        </div>
         <div class="lineup-times-table">
           <p>All times ET and subject to change</p>
           <table><tbody>
@@ -58,10 +65,7 @@ public class ShowInfoScraperTaskTests
             <tr><td>9:45 PM</td><td><strong>Scores Announced</strong></td></tr>
           </tbody></table>
         </div>
-        <div class="address-info">
-          <address>Lucas Oil Stadium<br>500 S Capitol Ave<br>Indianapolis, IN 46225</address>
-        </div>
-        <a href="https://www.google.com/maps/search/?api=1&query=39.7684%2C-86.1581" target="_blank">Map</a>
+        <a href="https://www.google.com/maps/dir/Current+Location/39.7684,-86.1581" target="_blank">Get Directions</a>
         </body></html>
         """;
 
@@ -88,23 +92,27 @@ public class ShowInfoScraperTaskTests
     }
 
     [Fact]
-    public async Task ScrapeAsync_ParsesLocationFromAddressElement()
+    public async Task ScrapeAsync_ParsesLocationFromHeroSection()
     {
         var scraper = CreateScraper(ExhibitionHtml);
 
         var result = await scraper.ScrapeAsync("https://www.dci.org/events/2026-midcal-showcase/");
 
         Assert.NotNull(result);
-        Assert.Contains("Camarillo High School Stadium", result.Location);
-        Assert.Contains("Camarillo, CA 93012", result.Location);
+        Assert.Equal("Camarillo, CA", result.Location);
     }
 
     [Fact]
     public async Task ScrapeAsync_ParsesLatLngFromGoogleMapsLink_QParam()
     {
-        var scraper = CreateScraper(ExhibitionHtml);
+        const string html = """
+            <html><body>
+            <a href="https://maps.google.com/?q=34.2228,-119.0307">Directions</a>
+            </body></html>
+            """;
+        var scraper = CreateScraper(html);
 
-        var result = await scraper.ScrapeAsync("https://www.dci.org/events/2026-midcal-showcase/");
+        var result = await scraper.ScrapeAsync("https://www.dci.org/events/2026-test/");
 
         Assert.NotNull(result);
         Assert.Equal(34.2228, result.Latitude!.Value, precision: 4);
@@ -114,7 +122,12 @@ public class ShowInfoScraperTaskTests
     [Fact]
     public async Task ScrapeAsync_ParsesLatLngFromGoogleMapsLink_QueryParam()
     {
-        var scraper = CreateScraper(CompetitiveHtml);
+        const string html = """
+            <html><body>
+            <a href="https://www.google.com/maps/search/?api=1&query=39.7684%2C-86.1581">Map</a>
+            </body></html>
+            """;
+        var scraper = CreateScraper(html);
 
         var result = await scraper.ScrapeAsync("https://www.dci.org/events/2026-test/");
 
@@ -143,6 +156,46 @@ public class ShowInfoScraperTaskTests
         Assert.NotNull(result);
         Assert.Null(result.Latitude);
         Assert.Null(result.Longitude);
+    }
+
+    [Fact]
+    public async Task ScrapeAsync_ParsesLatLngFromGoogleMapsLink_DirFormat()
+    {
+        var scraper = CreateScraper(ExhibitionHtml);
+
+        var result = await scraper.ScrapeAsync("https://www.dci.org/events/2026-midcal-showcase/");
+
+        Assert.NotNull(result);
+        Assert.Equal(34.2228, result.Latitude!.Value, precision: 4);
+        Assert.Equal(-119.0307, result.Longitude!.Value, precision: 4);
+    }
+
+    [Fact]
+    public async Task ScrapeAsync_ParsesLatLngFromGoogleMapsLink_AtFormat()
+    {
+        const string html = """
+            <html><body>
+            <a href="https://www.google.com/maps/place/Lucas+Oil+Stadium/@39.7684,-86.1581,17z">Stadium</a>
+            </body></html>
+            """;
+        var scraper = CreateScraper(html);
+
+        var result = await scraper.ScrapeAsync("https://www.dci.org/events/2026-test/");
+
+        Assert.NotNull(result);
+        Assert.Equal(39.7684, result.Latitude!.Value, precision: 4);
+        Assert.Equal(-86.1581, result.Longitude!.Value, precision: 4);
+    }
+
+    [Fact]
+    public async Task ScrapeAsync_ParsesDateFromHeroSection()
+    {
+        var scraper = CreateScraper(ExhibitionHtml);
+
+        var result = await scraper.ScrapeAsync("https://www.dci.org/events/2026-midcal-showcase/");
+
+        Assert.NotNull(result);
+        Assert.Equal("2026-07-02", result.Date);
     }
 
     [Fact]

@@ -10,8 +10,8 @@ public record ShowPrefillData(
     string? StartTime,
     string? ScoresAnnouncedTime,
     string? Timezone,
-    IReadOnlyList<ShowPrefillScheduleEntry> ScheduleEntries
-);
+    IReadOnlyList<ShowPrefillScheduleEntry> ScheduleEntries,
+    string? Date);
 
 public interface IShowInfoScraperTask
 {

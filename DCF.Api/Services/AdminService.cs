@@ -483,7 +483,8 @@ public class AdminService(
             prefillData.Timezone,
             prefillData.IsExhibition,
             corpsIds,
-            scheduleEntries);
+            scheduleEntries,
+            prefillData.Date);
     }
 
     private static string Slugify(string name)

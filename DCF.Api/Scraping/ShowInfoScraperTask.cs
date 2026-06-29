@@ -24,6 +24,12 @@ public class ShowInfoScraperTask(IHtmlFetcher fetcher) : IShowInfoScraperTask
     private static readonly Regex WhitespacePattern =
         new(@"\s{2,}", RegexOptions.Compiled);
 
+    private static readonly Regex LatLngDirPattern =
+        new(@"maps/dir/[^/]+/(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)", RegexOptions.Compiled);
+
+    private static readonly Regex DatePattern =
+        new(@"\w+,\s+\w+\s+\d{1,2},\s+\d{4}", RegexOptions.Compiled);
+
     public async Task<ShowPrefillData?> ScrapeAsync(string url)
     {
         string html;
@@ -43,7 +49,8 @@ public class ShowInfoScraperTask(IHtmlFetcher fetcher) : IShowInfoScraperTask
         var isExhibition = doc.DocumentNode.InnerText.Contains(
             "NON-COMPETITION FORMAT", StringComparison.OrdinalIgnoreCase);
 
-        var location = ParseLocation(doc);
+        var location = ParseHeroLocation(doc);
+        var date = ParseHeroDate(doc);
         var (lat, lng) = ParseLatLng(doc);
         var (timezone, allEntries) = ParseScheduleEntries(doc);
 
@@ -67,25 +74,52 @@ public class ShowInfoScraperTask(IHtmlFetcher fetcher) : IShowInfoScraperTask
             startTime,
             scoresAnnouncedTime,
             timezone,
-            filteredEntries.AsReadOnly());
+            filteredEntries.AsReadOnly(),
+            date);
     }
 
-    private static string? ParseLocation(HtmlDocument doc)
+    private static string? ParseHeroLocation(HtmlDocument doc)
     {
-        var addressNode = doc.DocumentNode
-            .SelectSingleNode("//div[contains(@class,'address-info')]//address");
+        var locationNode = doc.DocumentNode
+            .SelectSingleNode("//div[contains(@class,'inner-hero-inner')]//span[contains(@class,'location')]");
 
-        if (addressNode is null)
+        if (locationNode is null)
         {
             return null;
         }
 
-        var text = addressNode.InnerText
-            .Replace("\r\n", " ")
-            .Replace("\r", " ")
-            .Replace("\n", " ");
+        return WhitespacePattern.Replace(locationNode.InnerText, " ").Trim();
+    }
 
-        return WhitespacePattern.Replace(text, " ").Trim();
+    private static string? ParseHeroDate(HtmlDocument doc)
+    {
+        var pNode = doc.DocumentNode
+            .SelectSingleNode("//div[contains(@class,'inner-hero-inner')]//p[1]");
+
+        if (pNode is null)
+        {
+            return null;
+        }
+
+        var text = pNode.InnerText.Trim();
+        var match = DatePattern.Match(text);
+
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        if (!DateTime.TryParseExact(
+                match.Value,
+                "dddd, MMMM d, yyyy",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var date))
+        {
+            return null;
+        }
+
+        return date.ToString("yyyy-MM-dd");
     }
 
     private static (double? Lat, double? Lng) ParseLatLng(HtmlDocument doc)
@@ -112,6 +146,11 @@ public class ShowInfoScraperTask(IHtmlFetcher fetcher) : IShowInfoScraperTask
             if (!m.Success)
             {
                 m = LatLngAtPattern.Match(href);
+            }
+
+            if (!m.Success)
+            {
+                m = LatLngDirPattern.Match(href);
             }
 
             if (m.Success &&
