@@ -169,6 +169,7 @@ export interface ShowPrefillResponse {
   isExhibition: boolean;
   corpsIds: string[];
   schedule: ShowPrefillScheduleEntry[];
+  date?: string;
 }
 
 export interface Show {

@@ -151,7 +151,9 @@ export function SeasonDetail() {
 
     try {
       await api.adminSetSeasonCorps(id, Array.from(selectedCorpsIds));
+
       const updated = await api.adminGetSeason(id);
+
       setSeason(updated);
       setSelectedCorpsIds(new Set(updated.corpsIds));
     } catch {
@@ -171,8 +173,11 @@ export function SeasonDetail() {
         corpsId,
         sortOrder: parseInt(val) > 0 ? parseInt(val) : null,
       }));
+
       await api.adminSetCorpsOrder(id, orders);
+
       const updated = await api.adminGetSeason(id);
+
       setSeason(updated);
       setCorpsSortInputs(
         Object.fromEntries(
@@ -193,7 +198,9 @@ export function SeasonDetail() {
 
     try {
       await api.adminPublishSeason(id);
+
       const updated = await api.adminGetSeason(id);
+
       setSeason(updated);
     } catch {
       setError('Failed to publish season.');
@@ -217,6 +224,7 @@ export function SeasonDetail() {
 
     try {
       const data = await api.adminPrefillShow(id, showName);
+
       setIsExhibition(data.isExhibition);
       setShowLocation(data.location ?? '');
       setShowLatitude(data.latitude ?? null);
@@ -232,6 +240,10 @@ export function SeasonDetail() {
 
       if (data.timezone) {
         setShowTz(data.timezone);
+      }
+
+      if (data.date) {
+        setShowDate(data.date);
       }
 
       if (data.corpsIds.length > 0) {
@@ -257,11 +269,25 @@ export function SeasonDetail() {
     try {
       const startTimeIso = showStartTime ? buildDateTime(showDate, showStartTime, showTz) : null;
       const scoresTimeIso = showScoresTime ? buildDateTime(showDate, showScoresTime, showTz) : null;
-      const schedulePayload = showSchedule.map(entry => ({
-        time: buildDateTime(showDate, entry.time, showTz),
-        label: entry.label,
-        corpsId: entry.corpsId,
-      }));
+
+      let rolloverDate = showDate;
+      let prevTime = '';
+
+      const schedulePayload = showSchedule.map(entry => {
+        if (prevTime && entry.time < prevTime && prevTime >= '12:00') {
+          const d = new Date(`${rolloverDate}T00:00:00`);
+          d.setDate(d.getDate() + 1);
+          rolloverDate = d.toISOString().slice(0, 10);
+        }
+
+        prevTime = entry.time;
+
+        return {
+          time: buildDateTime(rolloverDate, entry.time, showTz),
+          label: entry.label,
+          corpsId: entry.corpsId,
+        };
+      });
 
       await api.adminCreateShow(id, {
         name: showName,
@@ -279,6 +305,7 @@ export function SeasonDetail() {
       });
 
       const updated = await api.adminGetShows(id);
+
       setShows(updated);
       setShowName('');
       setShowUrl('');
@@ -309,7 +336,9 @@ export function SeasonDetail() {
 
     try {
       await api.adminUpdateSeasonDates(id, editStartDate, editEndDate);
+
       const updated = await api.adminGetSeason(id);
+
       setSeason(updated);
       setEditingDates(false);
     } catch {
@@ -377,6 +406,7 @@ export function SeasonDetail() {
       });
 
       const updated = await api.adminGetShows(id!);
+
       setShows(updated);
       setExpandedShowId(null);
       setEditShow(null);
@@ -394,7 +424,9 @@ export function SeasonDetail() {
 
     try {
       await api.adminDeleteShow(showId);
+
       const updated = await api.adminGetShows(id!);
+
       setShows(updated);
       setExpandedShowId(null);
       setEditShow(null);
@@ -669,9 +701,11 @@ export function SeasonDetail() {
                     disabled={!showName || prefetching}
                     style={{
                       padding: '7px 12px', borderRadius: 5, fontSize: 10, fontWeight: 600,
-                      background: 'var(--surface)', border: '1px solid var(--border)',
-                      color: 'var(--text-muted)', cursor: showName && !prefetching ? 'pointer' : 'not-allowed',
-                      opacity: !showName || prefetching ? 0.5 : 1, whiteSpace: 'nowrap', marginBottom: 6,
+                      background: prefetching ? 'var(--accent)' : 'var(--surface)',
+                      border: prefetching ? 'none' : '1px solid var(--border)',
+                      color: prefetching ? 'var(--bg)' : showName ? 'var(--text-muted)' : 'var(--text-faint)',
+                      cursor: showName && !prefetching ? 'pointer' : 'not-allowed',
+                      opacity: !showName ? 0.5 : 1, whiteSpace: 'nowrap', marginBottom: 6,
                     }}
                   >
                     {prefetching ? 'Fetching…' : 'Fetch from DCI'}
@@ -705,14 +739,29 @@ export function SeasonDetail() {
                   </div>
                 )}
 
-                {/* Location */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <span style={labelStyle}>Location</span>
                   <input
-                    style={inputStyle}
+                    style={{ ...inputStyle, flex: 2 }}
                     value={showLocation}
                     onChange={e => setShowLocation(e.target.value)}
-                    placeholder="Venue Name, City, ST 00000"
+                    placeholder="City, ST"
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="Lat"
+                    style={{ ...inputStyle, width: 90 }}
+                    value={showLatitude ?? ''}
+                    onChange={e => setShowLatitude(e.target.value ? parseFloat(e.target.value) : null)}
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="Lng"
+                    style={{ ...inputStyle, width: 90 }}
+                    value={showLongitude ?? ''}
+                    onChange={e => setShowLongitude(e.target.value ? parseFloat(e.target.value) : null)}
                   />
                 </div>
                 {/* Date / TZ */}
@@ -740,31 +789,33 @@ export function SeasonDetail() {
                     <TimePicker value={showScoresTime} onChange={setShowScoresTime} required style={{ flex: 1 }} />
                   </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {seasonCorps.map(c => (
-                      <Chip key={c.id} label={c.name} selected={showCorpsIds.has(c.id)} onClick={() => toggleShowCorps(c.id)} />
-                    ))}
-                  </div>
-                </div>
-
-                {showSchedule.length > 0 && (
-                  <div style={{ marginTop: 8 }}>
-                    <p style={{ ...labelStyle, textAlign: 'left', marginBottom: 4 }}>Schedule</p>
-                    <div style={{
-                      background: 'var(--bg)', border: '1px solid var(--border)',
-                      borderRadius: 5, padding: '6px 10px', fontSize: 10, color: 'var(--text-muted)',
-                    }}>
-                      {showSchedule.map((entry, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 12, padding: '2px 0' }}>
-                          <span style={{ minWidth: 40, fontVariantNumeric: 'tabular-nums' }}>{entry.time}</span>
-                          <span>{entry.label}</span>
-                        </div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {seasonCorps.map(c => (
+                        <Chip key={c.id} label={c.name} selected={showCorpsIds.has(c.id)} onClick={() => toggleShowCorps(c.id)} />
                       ))}
                     </div>
                   </div>
-                )}
+
+                  {showSchedule.length > 0 && (
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Schedule</div>
+                      <div style={{
+                        background: 'var(--bg)', border: '1px solid var(--border)',
+                        borderRadius: 5, padding: '4px 8px', fontSize: 10, color: 'var(--text-muted)',
+                      }}>
+                        {showSchedule.map((entry, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
+                            <span style={{ minWidth: 36, fontVariantNumeric: 'tabular-nums' }}>{entry.time}</span>
+                            <span>{entry.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <button type="submit" disabled={addingShow} style={{
                   padding: '7px 0', borderRadius: 5, fontSize: 11, fontWeight: 800,
@@ -821,10 +872,12 @@ export function SeasonDetail() {
                           <label style={labelStyle}>Name</label>
                           <input value={editShow.name} onChange={e => setEditShow(p => p && ({ ...p, name: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <label style={labelStyle}>URL</label>
-                          <input value={editShow.url} onChange={e => setEditShow(p => p && ({ ...p, url: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
-                        </div>
+                        {!s.isExhibition && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <label style={labelStyle}>URL</label>
+                            <input value={editShow.url} onChange={e => setEditShow(p => p && ({ ...p, url: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                          </div>
+                        )}
                         {/* Date / TZ */}
                         <div className="admin-show-form-row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div className="admin-show-form-pair">
