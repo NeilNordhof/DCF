@@ -342,6 +342,15 @@ public class AdminService(
             return (true, false);
         }
 
+        var scheduleEntries = await db.ShowScheduleEntries
+            .Where(e => e.CorpsId == id)
+            .ToListAsync();
+
+        foreach (var entry in scheduleEntries)
+        {
+            entry.CorpsId = null;
+        }
+
         var unpublishedSeasonCorps = await db.SeasonCorps.Where(sc => sc.CorpsId == id).ToListAsync();
         db.SeasonCorps.RemoveRange(unpublishedSeasonCorps);
         db.Corps.Remove(corps);

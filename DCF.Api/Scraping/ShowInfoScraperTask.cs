@@ -21,6 +21,9 @@ public class ShowInfoScraperTask(IHtmlFetcher fetcher) : IShowInfoScraperTask
     private static readonly Regex LatLngAtPattern =
         new(@"@(-?\d+\.\d+),(-?\d+\.\d+)", RegexOptions.Compiled);
 
+    private static readonly Regex WhitespacePattern =
+        new(@"\s{2,}", RegexOptions.Compiled);
+
     public async Task<ShowPrefillData?> ScrapeAsync(string url)
     {
         string html;
@@ -82,7 +85,7 @@ public class ShowInfoScraperTask(IHtmlFetcher fetcher) : IShowInfoScraperTask
             .Replace("\r", " ")
             .Replace("\n", " ");
 
-        return Regex.Replace(text, @"\s{2,}", " ").Trim();
+        return WhitespacePattern.Replace(text, " ").Trim();
     }
 
     private static (double? Lat, double? Lng) ParseLatLng(HtmlDocument doc)

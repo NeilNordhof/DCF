@@ -428,6 +428,7 @@ public class AdminServiceTests
         Assert.Null(entries[1].CorpsId);
 
         var savedShow = await db.Shows.FindAsync(show.Id);
+
         Assert.True(savedShow!.IsExhibition);
         Assert.Equal("Test Venue, City, ST", savedShow.Location);
         Assert.Equal(39.7684, savedShow.Latitude);
@@ -466,7 +467,6 @@ public class AdminServiceTests
             [corps.Id], schedule);
 
         var entries = db.ShowScheduleEntries
-            .Where(e => true)
             .OrderBy(e => e.SortOrder)
             .ToList();
 
