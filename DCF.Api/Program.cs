@@ -43,6 +43,7 @@ builder.Services.AddHttpClient<IHtmlFetcher, HttpHtmlFetcher>(client =>
     client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.5");
 });
 builder.Services.AddTransient<IRecapScraperTask, RecapScraperTask>();
+builder.Services.AddTransient<IShowInfoScraperTask, ShowInfoScraperTask>();
 
 builder.Services.AddSingleton<IPresenceService, PresenceService>();
 builder.Services.AddSingleton<IMqttService, MqttService>();
