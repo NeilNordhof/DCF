@@ -1,5 +1,7 @@
 import { Auth0LockPasswordless } from 'auth0-lock';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { api } from '../api/client';
+import { REMEMBER_TOKEN_STORAGE_KEY, resolveSession } from './authSession';
 import { DevAuthProvider, useDevAuth } from './DevAuthContext';
 
 export interface AuthValue {
@@ -18,9 +20,19 @@ const TOKEN_KEY = 'dcf_access_token';
 const TOKEN_EXPIRY_KEY = 'dcf_token_expiry';
 const USER_KEY = 'dcf_user';
 
-function storedTokenValid(): boolean {
-  const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY);
-  return !!expiry && Date.now() < parseInt(expiry, 10);
+function readStoredSession() {
+  const expiryStr = localStorage.getItem(TOKEN_EXPIRY_KEY);
+  const userStr = localStorage.getItem(USER_KEY);
+
+  return resolveSession(
+    {
+      accessToken: localStorage.getItem(TOKEN_KEY),
+      tokenExpiry: expiryStr ? parseInt(expiryStr, 10) : null,
+      rememberToken: localStorage.getItem(REMEMBER_TOKEN_STORAGE_KEY),
+      user: userStr ? (JSON.parse(userStr) as { name: string; email: string }) : null,
+    },
+    Date.now()
+  );
 }
 
 function DevAuthBridge({ children }: { children: React.ReactNode }) {
@@ -41,13 +53,12 @@ function DevAuthBridge({ children }: { children: React.ReactNode }) {
 
 function ProductionLockProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState(() => {
-    const valid = storedTokenValid();
-    const userStr = localStorage.getItem(USER_KEY);
+    const session = readStoredSession();
 
     return {
-      isAuthenticated: valid,
+      isAuthenticated: session.isAuthenticated,
       isLoading: false,
-      user: valid && userStr ? (JSON.parse(userStr) as { name: string; email: string }) : null,
+      user: session.user,
     };
   });
 
@@ -92,11 +103,15 @@ function ProductionLockProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(USER_KEY, JSON.stringify(user));
 
       setState({ isAuthenticated: true, isLoading: false, user });
+
+      api.issueRememberMeToken()
+        .then(({ token }) => localStorage.setItem(REMEMBER_TOKEN_STORAGE_KEY, token))
+        .catch((err) => console.error('Failed to issue remember-me token:', err));
     });
 
     lockRef.current = lock;
 
-    if (!storedTokenValid() && document.getElementById('auth0-lock-container')) {
+    if (!readStoredSession().isAuthenticated && document.getElementById('auth0-lock-container')) {
       lock.show();
     }
   }, []);
@@ -106,17 +121,22 @@ function ProductionLockProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    const rememberToken = localStorage.getItem(REMEMBER_TOKEN_STORAGE_KEY);
+
+    api.logout(rememberToken).catch((err) => console.error('Failed to revoke remember-me token:', err));
+
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(TOKEN_EXPIRY_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(REMEMBER_TOKEN_STORAGE_KEY);
     setState({ isAuthenticated: false, isLoading: false, user: null });
   }, []);
 
   const getAccessTokenSilently = useCallback((): Promise<string> => {
-    const token = localStorage.getItem(TOKEN_KEY);
+    const session = readStoredSession();
 
-    if (token && storedTokenValid()) {
-      return Promise.resolve(token);
+    if (session.bearerToken) {
+      return Promise.resolve(session.bearerToken);
     }
 
     return Promise.reject(new Error('Session expired — please sign in again'));

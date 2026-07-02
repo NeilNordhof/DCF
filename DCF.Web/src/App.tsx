@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
-import { api, setTokenGetter } from './api/client';
+import { api, AuthExpiredError, setTokenGetter } from './api/client';
 import { Nav } from './components/Nav';
 import { useAuth } from './context/AuthContext';
 import { useUser } from './context/UserContext';
@@ -17,7 +17,7 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
 }
 
 export default function App() {
-  const { getAccessTokenSilently, isAuthenticated } = useAuth();
+  const { getAccessTokenSilently, isAuthenticated, logout } = useAuth();
   const { setUser } = useUser();
 
   setTokenGetter(() => getAccessTokenSilently());
@@ -30,9 +30,14 @@ export default function App() {
         setUser(profile);
       }
     }).catch((err) => {
+      if (err instanceof AuthExpiredError) {
+        logout();
+        return;
+      }
+
       console.error('Failed to load user profile:', err);
     });
-  }, [isAuthenticated, setUser]);
+  }, [isAuthenticated, setUser, logout]);
 
   return <Outlet />;
 }
