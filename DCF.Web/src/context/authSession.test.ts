@@ -49,4 +49,13 @@ describe('resolveSession', () => {
 
     expect(result).toEqual({ isAuthenticated: false, user: null, bearerToken: null });
   });
+
+  it('falls back to the remember token when tokenExpiry is valid but accessToken is missing (desync)', () => {
+    const result = resolveSession(
+      { accessToken: null, tokenExpiry: now + 1000, rememberToken: 'remember-1', user },
+      now
+    );
+
+    expect(result).toEqual({ isAuthenticated: true, user, bearerToken: 'remember-1' });
+  });
 });
