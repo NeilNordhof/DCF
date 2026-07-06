@@ -13,7 +13,8 @@
 - Retry count is 5 retries *after* the initial attempt (6 attempts total) — confirmed against the worked timing example in the spec (`docs/superpowers/specs/2026-07-06-scrape-retry-design.md`): with default `Scraper:DelayMinutes=5` and `Scraper:RetryIntervalMinutes=5`, the 6th and final attempt lands at `ScoresAnnouncedTime + 30 minutes`.
 - The manual "Trigger Score Scrape" button/endpoint (`AdminController.TriggerScrape` → `AdminService.TriggerScrapeAsync` → `ExecuteScrapeAsync`) must NOT be wrapped in retries — it stays exactly one attempt, called directly, never through `ExecuteScrapeWithRetriesAsync`.
 - No new `ScrapeStatus` value, no frontend changes, no retry-state persistence across API restarts — all explicitly out of scope per the spec.
-- This repo has no mocking framework (no Moq/NSubstitute in `DCF.Tests.csproj`) — all test doubles are hand-rolled classes implementing the real interface, following `LeagueServiceTests.cs`'s `NullEmailService`/`NoOpStandings` pattern. Simple no-op fakes are declared `internal sealed class` at namespace scope (not nested) so other test files in `DCF.Tests.Services` can reuse them, matching how `NullEmailService` already works.
+- This repo has no mocking framework (no Moq/NSubstitute in `DCF.Tests.csproj`) — all test doubles are hand-rolled classes implementing the real interface, following `LeagueServiceTests.cs`'s `NullEmailService`/`NoOpStandings` pattern.
+- Test infrastructure shared across more than one test file lives in a dedicated `DCF.Tests/Services/ScrapeTestHelpers.cs` (created in Task 1) rather than being duplicated per file — this was a deliberate pre-flight decision (favoring DRY over this repo's more common per-file `CreateDb`-style duplication) since both `ScrapeSchedulerServiceTests.cs` and `AdminServiceTests.cs` need an identical `ScrapeSchedulerService` construction helper. Simple fakes (`NullMqttService`, `FakeRecapScraperTask`, `RecordingEmailService`) are declared `internal sealed class` at namespace scope inside that same file, matching how `NullEmailService` already works in `LeagueServiceTests.cs`.
 - C# style (user's global CLAUDE.md): curly braces always on their own line, all blocks braced even one-liners, one blank line before `return`, one blank line before/after `await` expressions and before/after blocks, never more than one blank line in a row.
 - `DCF.Tests` gets `Microsoft.Extensions.DependencyInjection`'s `ServiceCollection`/`BuildServiceProvider` for free — `DCF.Api.csproj` uses `Sdk="Microsoft.NET.Sdk.Web"`, whose implicit `FrameworkReference` to `Microsoft.AspNetCore.App` flows transitively through `DCF.Tests`'s `<ProjectReference Include="..\DCF.Api\DCF.Api.csproj" />`. No `DCF.Tests.csproj` changes needed (confirmed: `NullLogger<T>`/`Options.Create` already work today in `LeagueServiceTests.cs` via this exact mechanism, with no explicit package reference).
 
@@ -23,29 +24,27 @@
 
 **Files:**
 - Modify: `DCF.Api/Services/ScrapeSchedulerService.cs` (add enum above the class; change `ExecuteScrapeAsync`'s signature and its 3 return points)
-- Modify: `DCF.Tests/Services/ScrapeSchedulerServiceTests.cs` (add test fakes/helpers; add outcome tests)
+- Create: `DCF.Tests/Services/ScrapeTestHelpers.cs` (shared fakes + `ScrapeSchedulerService` construction helper, reused by Task 2, Task 3, and Task 4)
+- Modify: `DCF.Tests/Services/ScrapeSchedulerServiceTests.cs` (add outcome tests)
 
 **Interfaces:**
-- Produces: `public enum ScrapeOutcome { Succeeded, Failed, Skipped }` in `DCF.Api.Services`; `ScrapeSchedulerService.ExecuteScrapeAsync(ShowEntity show) : Task<(ScrapeOutcome Outcome, string? Error)>` (was `Task`)
+- Produces: `public enum ScrapeOutcome { Succeeded, Failed, Skipped }` in `DCF.Api.Services`; `ScrapeSchedulerService.ExecuteScrapeAsync(ShowEntity show) : Task<(ScrapeOutcome Outcome, string? Error)>` (was `Task`); `ScrapeTestHelpers.CreateSvc(DcfDbContext db, IRecapScraperTask scraperTask, Dictionary<string, string?>? configValues = null, IEmailService? emailService = null) : ScrapeSchedulerService` in `DCF.Tests.Services`
 
 This is a 3-state result rather than a plain bool because of a case already in the code today: the early-return guard (`freshShow is null || freshShow.IsExhibition || freshShow.Url is null`) means "this show can no longer be scraped," which is neither success nor a real failure — retrying it would loop against a guard that can never pass, and alerting on it would be a false "scrape failed" report for a show nobody expects to be scraped.
 
 - [ ] **Step 1: Write the failing tests**
 
-Replace the full contents of `DCF.Tests/Services/ScrapeSchedulerServiceTests.cs`:
+Create `DCF.Tests/Services/ScrapeTestHelpers.cs`:
 
 ```csharp
 using DCF.Api.Scraping;
 using DCF.Api.Services;
 using DCF.Data;
-using DCF.Data.Entities;
 using DCF.Data.Models;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace DCF.Tests.Services;
 
@@ -74,18 +73,9 @@ internal sealed class FakeRecapScraperTask(int failuresBeforeSuccess = int.MaxVa
     }
 }
 
-public class ScrapeSchedulerServiceTests
+internal static class ScrapeTestHelpers
 {
-    private static DcfDbContext CreateDb(string name)
-    {
-        var opts = new DbContextOptionsBuilder<DcfDbContext>()
-            .UseInMemoryDatabase(name)
-            .Options;
-
-        return new DcfDbContext(opts);
-    }
-
-    private static ScrapeSchedulerService CreateSvc(
+    public static ScrapeSchedulerService CreateSvc(
         DcfDbContext db,
         IRecapScraperTask scraperTask,
         Dictionary<string, string?>? configValues = null,
@@ -112,6 +102,33 @@ public class ScrapeSchedulerServiceTests
             emailOpts,
             tokenSvc,
             NullLogger<ScrapeSchedulerService>.Instance);
+    }
+}
+```
+
+(`NullEmailService` is already visible here without a `using` — it's declared at namespace scope in `LeagueServiceTests.cs`, and this file shares the same `namespace DCF.Tests.Services`.)
+
+Replace the full contents of `DCF.Tests/Services/ScrapeSchedulerServiceTests.cs`:
+
+```csharp
+using DCF.Data;
+using DCF.Data.Entities;
+using DCF.Data.Models;
+using Microsoft.EntityFrameworkCore;
+using Xunit;
+using static DCF.Tests.Services.ScrapeTestHelpers;
+
+namespace DCF.Tests.Services;
+
+public class ScrapeSchedulerServiceTests
+{
+    private static DcfDbContext CreateDb(string name)
+    {
+        var opts = new DbContextOptionsBuilder<DcfDbContext>()
+            .UseInMemoryDatabase(name)
+            .Options;
+
+        return new DcfDbContext(opts);
     }
 
     private static ShowEntity CreateShow(bool isExhibition = false, string? url = "https://example.test/recap")
@@ -258,7 +275,7 @@ Note: `show` is never added to `db` in `ExecuteScrapeAsync_ShowDeleted_ReturnsSk
 dotnet test DCF.Tests/DCF.Tests.csproj --filter "FullyQualifiedName~ScrapeSchedulerServiceTests"
 ```
 
-Expected: compile errors — `ExecuteScrapeAsync` returns `Task`, not something with an `.Outcome`/`.Error` member, and `ScrapeOutcome` doesn't exist yet.
+Expected: compile errors — `ExecuteScrapeAsync` returns `Task`, not something with an `.Outcome`/`.Error` member, and `ScrapeOutcome` doesn't exist yet. `ScrapeTestHelpers.cs` itself compiles cleanly on its own (it doesn't reference anything not-yet-existing); the failure is isolated to the new outcome-based assertions in the test file.
 
 - [ ] **Step 3: Add the `ScrapeOutcome` enum and change `ExecuteScrapeAsync`'s outcome reporting**
 
@@ -378,7 +395,7 @@ Expected: build succeeds. `ScheduleScrape`'s existing `await ExecuteScrapeAsync(
 - [ ] **Step 6: Commit**
 
 ```bash
-git add DCF.Api/Services/ScrapeSchedulerService.cs DCF.Tests/Services/ScrapeSchedulerServiceTests.cs
+git add DCF.Api/Services/ScrapeSchedulerService.cs DCF.Tests/Services/ScrapeTestHelpers.cs DCF.Tests/Services/ScrapeSchedulerServiceTests.cs
 git commit -m "feat: report a real ScrapeOutcome from ExecuteScrapeAsync"
 ```
 
@@ -392,7 +409,7 @@ git commit -m "feat: report a real ScrapeOutcome from ExecuteScrapeAsync"
 - Modify: `CLAUDE.md` (document the two new config vars)
 
 **Interfaces:**
-- Consumes: `ScrapeOutcome`, `ExecuteScrapeAsync` (Task 1)
+- Consumes: `ScrapeOutcome`, `ExecuteScrapeAsync` (Task 1), `ScrapeTestHelpers.CreateSvc` (Task 1)
 - Produces: `ScrapeSchedulerService.ExecuteScrapeWithRetriesAsync(ShowEntity show, CancellationToken token) : Task<(ScrapeOutcome Outcome, string? Error)>` — `public`, for the same testability reason `ExecuteScrapeAsync` itself is already `public` rather than being called only from inside a fire-and-forget `Task.Run`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -577,11 +594,12 @@ git commit -m "feat: retry failed scrapes with a bounded backoff before giving u
 - Modify: `DCF.Api/Services/EmailTemplate.cs` (add `ScrapeFailed`)
 - Modify: `DCF.Tests/Services/EmailTemplateTests.cs` (add test)
 - Modify: `DCF.Api/Services/ScrapeSchedulerService.cs` (add `SendScrapeFailedAlertAsync`; wire into `ExecuteScrapeWithRetriesAsync`)
-- Modify: `DCF.Tests/Services/ScrapeSchedulerServiceTests.cs` (add `RecordingEmailService` fake + alert tests)
+- Modify: `DCF.Tests/Services/ScrapeTestHelpers.cs` (add `RecordingEmailService` fake)
+- Modify: `DCF.Tests/Services/ScrapeSchedulerServiceTests.cs` (add alert tests)
 
 **Interfaces:**
-- Consumes: `ExecuteScrapeWithRetriesAsync` (Task 2), `EmailTemplate.Layout`, `IEmailService`, `EmailTokenService.GenerateToken`
-- Produces: `EmailTemplate.ScrapeFailed(string showName, string errorMessage, Guid seasonId, string frontendUrl, string unsubscribeToken) : (string subject, string html)`
+- Consumes: `ExecuteScrapeWithRetriesAsync` (Task 2), `EmailTemplate.Layout`, `IEmailService`, `EmailTokenService.GenerateToken`, `ScrapeTestHelpers.CreateSvc` (Task 1)
+- Produces: `EmailTemplate.ScrapeFailed(string showName, string errorMessage, Guid seasonId, string frontendUrl, string unsubscribeToken) : (string subject, string html)`; `RecordingEmailService : IEmailService` in `DCF.Tests.Services` (reusable by any future test needing to assert on sent emails)
 
 - [ ] **Step 1: Write the failing template test**
 
@@ -652,7 +670,7 @@ Expected: all 8 tests pass (7 existing + 1 new).
 
 - [ ] **Step 5: Write the failing alert-sending tests**
 
-Add this fake to `DCF.Tests/Services/ScrapeSchedulerServiceTests.cs`, alongside `NullMqttService`/`FakeRecapScraperTask`:
+Add this fake to `DCF.Tests/Services/ScrapeTestHelpers.cs`, alongside `NullMqttService`/`FakeRecapScraperTask`:
 
 ```csharp
 internal sealed class RecordingEmailService : IEmailService
@@ -668,7 +686,7 @@ internal sealed class RecordingEmailService : IEmailService
 }
 ```
 
-Add these four `[Fact]` methods to the `ScrapeSchedulerServiceTests` class, just before the final closing `}`:
+Add these four `[Fact]` methods to the `ScrapeSchedulerServiceTests` class in `DCF.Tests/Services/ScrapeSchedulerServiceTests.cs`, just before the final closing `}`:
 
 ```csharp
     [Fact]
@@ -846,7 +864,7 @@ Expected: all 16 tests pass (12 from Tasks 1–2 + 4 new alert tests).
 - [ ] **Step 9: Commit**
 
 ```bash
-git add DCF.Api/Services/EmailTemplate.cs DCF.Tests/Services/EmailTemplateTests.cs DCF.Api/Services/ScrapeSchedulerService.cs DCF.Tests/Services/ScrapeSchedulerServiceTests.cs
+git add DCF.Api/Services/EmailTemplate.cs DCF.Tests/Services/EmailTemplateTests.cs DCF.Api/Services/ScrapeSchedulerService.cs DCF.Tests/Services/ScrapeTestHelpers.cs DCF.Tests/Services/ScrapeSchedulerServiceTests.cs
 git commit -m "feat: email admins when a show exhausts all scrape retries"
 ```
 
@@ -858,52 +876,24 @@ git commit -m "feat: email admins when a show exhausts all scrape retries"
 - Modify: `DCF.Api/Services/IAdminService.cs:27`
 - Modify: `DCF.Api/Services/AdminService.cs:274-288` (`TriggerScrapeAsync`)
 - Modify: `DCF.Api/Controllers/AdminController.cs:329-338` (`TriggerScrape`)
-- Modify: `DCF.Tests/Services/AdminServiceTests.cs` (add tests)
+- Modify: `DCF.Tests/Services/AdminServiceTests.cs` (add tests, reusing `ScrapeTestHelpers.CreateSvc` from Task 1)
 
 **Interfaces:**
-- Consumes: `ScrapeOutcome`, `ExecuteScrapeAsync` (Task 1)
+- Consumes: `ScrapeOutcome`, `ExecuteScrapeAsync` (Task 1), `ScrapeTestHelpers.CreateSvc` and its fakes (Task 1)
 - Produces: `IAdminService.TriggerScrapeAsync(Guid showId) : Task<(bool Found, ScrapeOutcome Outcome, string? Error)>` (was `Task<bool>`); `POST /api/admin/shows/{id}/scrape` now responds `200 { outcome, error }` instead of always `204`
 
 This task has no dedicated HTTP-level test — `WebApplicationFactory`-style controller integration tests are already an established out-of-scope decision for this codebase (see `docs/superpowers/specs/2026-06-24-testing-and-ci-design.md`). `AdminService.TriggerScrapeAsync` itself (not the HTTP layer) is a plain method callable directly from a unit test, so that's what gets covered.
 
 - [ ] **Step 1: Write the failing tests**
 
-Add these new `using` statements to the top of `DCF.Tests/Services/AdminServiceTests.cs` (alongside the existing ones):
+Add this new `using` statement to the top of `DCF.Tests/Services/AdminServiceTests.cs` (alongside the existing ones):
 
 ```csharp
 using DCF.Api.Scraping;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
+using static DCF.Tests.Services.ScrapeTestHelpers;
 ```
 
-Add this helper method to the `AdminServiceTests` class, alongside the existing `CreateDb`/`NoOpSeasonStatus`:
-
-```csharp
-    private static ScrapeSchedulerService CreateScrapeScheduler(DcfDbContext db, IRecapScraperTask scraperTask)
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton(db);
-        services.AddSingleton(scraperTask);
-        services.AddSingleton<IEmailService>(new NullEmailService());
-
-        var scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
-        var config = new ConfigurationBuilder().Build();
-        var emailOpts = Options.Create(new EmailOptions { UnsubscribeSecret = "test-secret", FrontendUrl = "http://test.local" });
-        var tokenSvc = new EmailTokenService(emailOpts);
-
-        return new ScrapeSchedulerService(
-            scopeFactory,
-            new NullMqttService(),
-            config,
-            emailOpts,
-            tokenSvc,
-            NullLogger<ScrapeSchedulerService>.Instance);
-    }
-```
-
-(`NullMqttService`, `FakeRecapScraperTask`, and `NullEmailService` are already visible here without a `using` — they're declared at namespace scope in `ScrapeSchedulerServiceTests.cs`/`LeagueServiceTests.cs`, and this file shares the same `namespace DCF.Tests.Services`.)
+(No other new usings are needed — `CreateSvc` from `ScrapeTestHelpers` already builds a fully-wired `ScrapeSchedulerService` internally, so `AdminServiceTests.cs` doesn't need `Microsoft.Extensions.DependencyInjection`/`Configuration`/`Options`/`Logging.Abstractions` itself. `NullMqttService`, `FakeRecapScraperTask`, and `NullEmailService` are already visible without a `using` — they're declared at namespace scope in `ScrapeTestHelpers.cs`/`LeagueServiceTests.cs`, and this file shares the same `namespace DCF.Tests.Services`.)
 
 Add these three `[Fact]` methods to the `AdminServiceTests` class, just before the final closing `}`:
 
@@ -912,7 +902,7 @@ Add these three `[Fact]` methods to the `AdminServiceTests` class, just before t
     public async Task TriggerScrapeAsync_MissingShow_ReturnsFoundFalse()
     {
         using var db = CreateDb("trigger_scrape_missing");
-        var scrapeScheduler = CreateScrapeScheduler(db, new FakeRecapScraperTask());
+        var scrapeScheduler = CreateSvc(db, new FakeRecapScraperTask());
         var svc = new AdminService(db, scrapeScheduler, new NullMqttService(), new NoOpSeasonStatus(), null!);
 
         var (found, outcome, error) = await svc.TriggerScrapeAsync(Guid.NewGuid());
@@ -935,7 +925,7 @@ Add these three `[Fact]` methods to the `AdminServiceTests` class, just before t
         db.Shows.Add(show);
         await db.SaveChangesAsync();
 
-        var scrapeScheduler = CreateScrapeScheduler(db, new FakeRecapScraperTask(failuresBeforeSuccess: 0));
+        var scrapeScheduler = CreateSvc(db, new FakeRecapScraperTask(failuresBeforeSuccess: 0));
         var svc = new AdminService(db, scrapeScheduler, new NullMqttService(), new NoOpSeasonStatus(), null!);
 
         var (found, outcome, error) = await svc.TriggerScrapeAsync(show.Id);
@@ -958,7 +948,7 @@ Add these three `[Fact]` methods to the `AdminServiceTests` class, just before t
         db.Shows.Add(show);
         await db.SaveChangesAsync();
 
-        var scrapeScheduler = CreateScrapeScheduler(db, new FakeRecapScraperTask());
+        var scrapeScheduler = CreateSvc(db, new FakeRecapScraperTask());
         var svc = new AdminService(db, scrapeScheduler, new NullMqttService(), new NoOpSeasonStatus(), null!);
 
         var (found, outcome, error) = await svc.TriggerScrapeAsync(show.Id);
