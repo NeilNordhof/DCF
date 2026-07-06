@@ -21,12 +21,26 @@ if (builder.Environment.IsDevelopment())
 }
 else
 {
+    const string Auth0Scheme = "Auth0Jwt";
+    const string RememberMeScheme = "RememberMe";
+
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer(opt =>
+        .AddPolicyScheme(JwtBearerDefaults.AuthenticationScheme, "Auth0 or RememberMe", opt =>
+        {
+            opt.ForwardDefaultSelector = context =>
+            {
+                var authHeader = context.Request.Headers.Authorization.FirstOrDefault() ?? string.Empty;
+                var token = authHeader.StartsWith("Bearer ") ? authHeader["Bearer ".Length..].Trim() : string.Empty;
+
+                return token.Count(c => c == '.') == 2 ? Auth0Scheme : RememberMeScheme;
+            };
+        })
+        .AddJwtBearer(Auth0Scheme, opt =>
         {
             opt.Authority = $"https://{builder.Configuration["Auth0:Domain"]}/";
             opt.Audience = builder.Configuration["Auth0:Audience"];
-        });
+        })
+        .AddScheme<AuthenticationSchemeOptions, RememberMeAuthHandler>(RememberMeScheme, null);
 }
 
 builder.Services.AddAuthorization();
@@ -68,6 +82,7 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<ILeagueService, LeagueService>();
 builder.Services.AddScoped<IStandingsService, StandingsService>();
 builder.Services.AddScoped<IDraftService, DraftService>();
+builder.Services.AddScoped<IRememberMeTokenService, RememberMeTokenService>();
 
 builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
 {

@@ -19,6 +19,7 @@ public class DcfDbContext(DbContextOptions<DcfDbContext> options) : DbContext(op
     public DbSet<DraftPickEntity> DraftPicks => Set<DraftPickEntity>();
     public DbSet<ComputedScoreEntity> ComputedScores => Set<ComputedScoreEntity>();
     public DbSet<ShowScheduleEntryEntity> ShowScheduleEntries => Set<ShowScheduleEntryEntity>();
+    public DbSet<RememberMeTokenEntity> RememberMeTokens => Set<RememberMeTokenEntity>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -74,5 +75,8 @@ public class DcfDbContext(DbContextOptions<DcfDbContext> options) : DbContext(op
             .HasIndex(e => e.SeasonId);
 
         mb.Entity<ShowScheduleEntryEntity>().HasIndex(e => e.ShowId);
+
+        mb.Entity<RememberMeTokenEntity>().HasIndex(e => e.TokenHash).IsUnique();
+        mb.Entity<RememberMeTokenEntity>().HasIndex(e => e.UserId);
     }
 }

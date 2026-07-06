@@ -12,4 +12,5 @@ public class UserEntity
     public List<LeagueMemberEntity> LeagueMemberships { get; set; } = [];
     public List<LeagueEntity> CommissionedLeagues { get; set; } = [];
     public List<DraftPickEntity> DraftPicks { get; set; } = [];
+    public List<RememberMeTokenEntity> RememberMeTokens { get; set; } = [];
 }

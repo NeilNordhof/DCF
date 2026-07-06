@@ -1,6 +1,9 @@
 import type { ActiveSeason, Corps, CreateLeagueRequest, League, MemberScoreBreakdown, PublicLeague, Season, SeasonCorps, SeasonDetail, Show, ShowPrefillResponse, Standing, UpdateLeagueRequest, UserProfile } from '../types/api';
+import { REMEMBER_TOKEN_STORAGE_KEY } from '../context/authSession';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
+
+export class AuthExpiredError extends Error {}
 
 let getToken: (() => Promise<string>) | null = null;
 
@@ -26,14 +29,19 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   getUser: async (): Promise<UserProfile | null> => {
     const token = getToken ? await getToken() : null;
+    const rememberToken = localStorage.getItem(REMEMBER_TOKEN_STORAGE_KEY);
     const res = await fetch(`${API_URL}/api/auth/me`, {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(rememberToken ? { 'X-Remember-Token': rememberToken } : {}),
       },
     });
+
     if (res.status === 404) return null;
+    if (res.status === 401) throw new AuthExpiredError('Session expired');
     if (!res.ok) throw new Error(await res.text());
+
     return res.json() as Promise<UserProfile>;
   },
   upsertUser: (displayName: string, email: string) =>
@@ -42,6 +50,10 @@ export const api = {
     request<void>('/api/notifications/unsubscribe', { method: 'POST', body: JSON.stringify({ token }) }),
   updateNotificationPreferences: (emailNotificationsEnabled: boolean) =>
     request<void>('/api/notifications/preferences', { method: 'PATCH', body: JSON.stringify({ emailNotificationsEnabled }) }),
+  issueRememberMeToken: (): Promise<{ token: string }> =>
+    request<{ token: string }>('/api/auth/remember-me', { method: 'POST' }),
+  logout: (rememberToken: string | null) =>
+    request<void>('/api/auth/logout', { method: 'POST', body: JSON.stringify({ rememberToken }) }),
   getLeagues: () => request<League[]>('/api/leagues'),
   getLeague: (id: string, code?: string) => {
     const params = code ? `?code=${encodeURIComponent(code)}` : '';
