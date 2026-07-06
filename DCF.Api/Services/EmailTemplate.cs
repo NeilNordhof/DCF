@@ -140,6 +140,26 @@ public static class EmailTemplate
                 unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
     }
 
+    public static (string subject, string html) ScrapeFailed(
+        string showName,
+        string errorMessage,
+        Guid seasonId,
+        string frontendUrl,
+        string unsubscribeToken)
+    {
+        var safeName = WebUtility.HtmlEncode(showName);
+        var safeError = WebUtility.HtmlEncode(errorMessage);
+
+        return (
+            $"Scrape failed — {showName}",
+            Layout(
+                heading: "Scrape failed",
+                body: $"Scraping scores for <strong style=\"color: #f3f4f6;\">{safeName}</strong> failed after multiple attempts: {safeError}. A manual re-trigger may be needed.",
+                ctaText: "View Show",
+                ctaUrl: $"{frontendUrl}/admin/seasons/{seasonId}",
+                unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
+    }
+
     private static string Layout(
         string heading,
         string body,

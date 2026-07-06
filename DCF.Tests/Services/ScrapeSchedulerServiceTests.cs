@@ -215,4 +215,104 @@ public class ScrapeSchedulerServiceTests
         Assert.Equal(ScrapeOutcome.Skipped, result.Outcome);
         Assert.Equal(0, scraperTask.CallCount);
     }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_ExhaustsRetries_EmailsAdminsWithNotificationsEnabled()
+    {
+        using var db = CreateDb("alert_sent_to_admin");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        db.Users.Add(new UserEntity
+        {
+            Id = Guid.NewGuid(), Auth0Sub = "admin1", Email = "admin@example.com",
+            DisplayName = "Admin", IsAdmin = true, EmailNotificationsEnabled = true
+        });
+        await db.SaveChangesAsync();
+
+        var emailService = new RecordingEmailService();
+        var svc = CreateSvc(db, new FakeRecapScraperTask(), new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "1"
+        }, emailService);
+
+        await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Equal(["admin@example.com"], emailService.SentToEmails);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_ExhaustsRetries_DoesNotEmailAdminsWithNotificationsDisabled()
+    {
+        using var db = CreateDb("alert_skips_opted_out_admin");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        db.Users.Add(new UserEntity
+        {
+            Id = Guid.NewGuid(), Auth0Sub = "admin1", Email = "admin@example.com",
+            DisplayName = "Admin", IsAdmin = true, EmailNotificationsEnabled = false
+        });
+        await db.SaveChangesAsync();
+
+        var emailService = new RecordingEmailService();
+        var svc = CreateSvc(db, new FakeRecapScraperTask(), new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "1"
+        }, emailService);
+
+        await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Empty(emailService.SentToEmails);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_ExhaustsRetries_DoesNotEmailNonAdmins()
+    {
+        using var db = CreateDb("alert_skips_non_admin");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        db.Users.Add(new UserEntity
+        {
+            Id = Guid.NewGuid(), Auth0Sub = "user1", Email = "user@example.com",
+            DisplayName = "User", IsAdmin = false, EmailNotificationsEnabled = true
+        });
+        await db.SaveChangesAsync();
+
+        var emailService = new RecordingEmailService();
+        var svc = CreateSvc(db, new FakeRecapScraperTask(), new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "1"
+        }, emailService);
+
+        await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Empty(emailService.SentToEmails);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_EventuallySucceeds_DoesNotSendAlertEmail()
+    {
+        using var db = CreateDb("alert_not_sent_on_recovery");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        db.Users.Add(new UserEntity
+        {
+            Id = Guid.NewGuid(), Auth0Sub = "admin1", Email = "admin@example.com",
+            DisplayName = "Admin", IsAdmin = true, EmailNotificationsEnabled = true
+        });
+        await db.SaveChangesAsync();
+
+        var emailService = new RecordingEmailService();
+        var svc = CreateSvc(db, new FakeRecapScraperTask(failuresBeforeSuccess: 1), new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "5"
+        }, emailService);
+
+        await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Empty(emailService.SentToEmails);
+    }
 }

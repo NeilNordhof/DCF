@@ -34,6 +34,18 @@ internal sealed class FakeRecapScraperTask(int failuresBeforeSuccess = int.MaxVa
     }
 }
 
+internal sealed class RecordingEmailService : IEmailService
+{
+    public List<string> SentToEmails { get; } = [];
+
+    public Task SendAsync(string toEmail, string toName, string subject, string htmlBody)
+    {
+        SentToEmails.Add(toEmail);
+
+        return Task.CompletedTask;
+    }
+}
+
 internal static class ScrapeTestHelpers
 {
     public static ScrapeSchedulerService CreateSvc(

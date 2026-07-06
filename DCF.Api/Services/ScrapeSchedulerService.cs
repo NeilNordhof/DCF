@@ -103,6 +103,11 @@ public class ScrapeSchedulerService(
             retry++;
         }
 
+        if (result.Outcome == ScrapeOutcome.Failed)
+        {
+            await SendScrapeFailedAlertAsync(show, result.Error);
+        }
+
         await mqtt.PublishAsync("dcf/scores/updated", new { ShowId = show.Id });
 
         return result;
@@ -220,6 +225,32 @@ public class ScrapeSchedulerService(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to send scores-updated notifications for show {ShowName}", showName);
+        }
+    }
+
+    private async Task SendScrapeFailedAlertAsync(ShowEntity show, string? error)
+    {
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
+            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+            var admins = await db.Users
+                .Where(u => u.IsAdmin && u.EmailNotificationsEnabled)
+                .ToListAsync();
+
+            foreach (var admin in admins)
+            {
+                var token = emailTokenService.GenerateToken(admin.Id);
+                var (subject, html) = EmailTemplate.ScrapeFailed(show.Name, error ?? "Unknown error", show.SeasonId, emailOptions.Value.FrontendUrl, token);
+
+                await emailService.SendAsync(admin.Email, admin.DisplayName, subject, html);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to send scrape-failed alert for show {ShowId}", show.Id);
         }
     }
 
