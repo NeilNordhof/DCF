@@ -152,4 +152,67 @@ public class ScrapeSchedulerServiceTests
 
         Assert.Equal(ScrapeOutcome.Skipped, result.Outcome);
     }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_FailsTwiceThenSucceeds_MakesThreeAttemptsAndSucceeds()
+    {
+        using var db = CreateDb("retry_recovers");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scraperTask = new FakeRecapScraperTask(failuresBeforeSuccess: 2);
+        var svc = CreateSvc(db, scraperTask, new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "5"
+        });
+
+        var result = await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Equal(ScrapeOutcome.Succeeded, result.Outcome);
+        Assert.Equal(3, scraperTask.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_AlwaysFails_MakesInitialAttemptPlusMaxRetriesAttempts()
+    {
+        using var db = CreateDb("retry_exhausts");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scraperTask = new FakeRecapScraperTask();
+        var svc = CreateSvc(db, scraperTask, new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "3"
+        });
+
+        var result = await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Equal(ScrapeOutcome.Failed, result.Outcome);
+        Assert.Equal(4, scraperTask.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_ShowSkipped_MakesOnlyOneAttempt()
+    {
+        using var db = CreateDb("retry_skipped");
+        var show = CreateShow(isExhibition: true);
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scraperTask = new FakeRecapScraperTask();
+        var svc = CreateSvc(db, scraperTask, new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "5"
+        });
+
+        var result = await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Equal(ScrapeOutcome.Skipped, result.Outcome);
+        Assert.Equal(0, scraperTask.CallCount);
+    }
 }

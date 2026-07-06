@@ -21,6 +21,8 @@ public class ScrapeSchedulerService(
 {
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _scheduled = new();
     private readonly int _delayMinutes = config.GetValue<int>("Scraper:DelayMinutes", 5);
+    private readonly int _maxRetries = config.GetValue<int>("Scraper:MaxRetries", 5);
+    private readonly int _retryIntervalMinutes = config.GetValue<int>("Scraper:RetryIntervalMinutes", 5);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -73,9 +75,7 @@ public class ScrapeSchedulerService(
                     return;
                 }
 
-                await ExecuteScrapeAsync(show);
-
-                await mqtt.PublishAsync("dcf/scores/updated", new { ShowId = show.Id });
+                await ExecuteScrapeWithRetriesAsync(show, cts.Token);
             }
             catch (OperationCanceledException)
             {
@@ -86,6 +86,26 @@ public class ScrapeSchedulerService(
                 logger.LogError(ex, "Scheduled scrape task failed for show {ShowId}", show.Id);
             }
         });
+    }
+
+    public async Task<(ScrapeOutcome Outcome, string? Error)> ExecuteScrapeWithRetriesAsync(ShowEntity show, CancellationToken token)
+    {
+        var result = await ExecuteScrapeAsync(show);
+
+        var retry = 0;
+
+        while (result.Outcome == ScrapeOutcome.Failed && retry < _maxRetries)
+        {
+            await Task.Delay(TimeSpan.FromMinutes(_retryIntervalMinutes), token);
+
+            result = await ExecuteScrapeAsync(show);
+
+            retry++;
+        }
+
+        await mqtt.PublishAsync("dcf/scores/updated", new { ShowId = show.Id });
+
+        return result;
     }
 
     public static TimeSpan GetScrapeDelay(DateTimeOffset scoresAnnouncedTime, int delayMinutes, DateTimeOffset now)
