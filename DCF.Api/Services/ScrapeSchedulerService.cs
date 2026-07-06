@@ -9,6 +9,8 @@ using Microsoft.Extensions.Options;
 
 namespace DCF.Api.Services;
 
+public enum ScrapeOutcome { Succeeded, Failed, Skipped }
+
 public class ScrapeSchedulerService(
     IServiceScopeFactory scopeFactory,
     IMqttService mqtt,
@@ -89,7 +91,7 @@ public class ScrapeSchedulerService(
     public static TimeSpan GetScrapeDelay(DateTimeOffset scoresAnnouncedTime, int delayMinutes, DateTimeOffset now)
         => scoresAnnouncedTime.AddMinutes(delayMinutes) - now;
 
-    public async Task ExecuteScrapeAsync(ShowEntity show)
+    public async Task<(ScrapeOutcome Outcome, string? Error)> ExecuteScrapeAsync(ShowEntity show)
     {
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
@@ -100,7 +102,7 @@ public class ScrapeSchedulerService(
         {
             logger.LogWarning("Show {ShowId} cannot be scraped", show.Id);
 
-            return;
+            return (ScrapeOutcome.Skipped, null);
         }
 
         var showCorpsIds = freshShow.ShowCorps.Select(sc => sc.CorpsId).ToHashSet();
@@ -124,7 +126,7 @@ public class ScrapeSchedulerService(
 
             await db.SaveChangesAsync();
 
-            return;
+            return (ScrapeOutcome.Failed, ex.Message);
         }
 
         freshShow.ScrapeStatus = ScrapeStatus.Succeeded;
@@ -162,6 +164,8 @@ public class ScrapeSchedulerService(
         var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
         await SendScoresUpdatedNotificationsAsync(db, emailService, freshShow.SeasonId, freshShow.Name);
+
+        return (ScrapeOutcome.Succeeded, null);
     }
 
     private async Task SendScoresUpdatedNotificationsAsync(DcfDbContext db, IEmailService emailService, Guid seasonId, string showName)
