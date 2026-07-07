@@ -1,10 +1,12 @@
 using DCF.Api.Models;
+using DCF.Api.Scraping;
 using DCF.Api.Services;
 using DCF.Data;
 using DCF.Data.Entities;
 using DCF.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
+using static DCF.Tests.Services.ScrapeTestHelpers;
 
 namespace DCF.Tests.Services;
 
@@ -555,5 +557,65 @@ public class AdminServiceTests
         await svc.DeleteShowAsync(show.Id);
 
         Assert.Empty(db.ShowScheduleEntries.Where(e => e.ShowId == show.Id).ToList());
+    }
+
+    [Fact]
+    public async Task TriggerScrapeAsync_MissingShow_ReturnsFoundFalse()
+    {
+        using var db = CreateDb("trigger_scrape_missing");
+        var scrapeScheduler = CreateSvc(db, new FakeRecapScraperTask());
+        var svc = new AdminService(db, scrapeScheduler, new NullMqttService(), new NoOpSeasonStatus(), null!);
+
+        var (found, outcome, error) = await svc.TriggerScrapeAsync(Guid.NewGuid());
+
+        Assert.False(found);
+        Assert.Equal(ScrapeOutcome.Skipped, outcome);
+        Assert.Null(error);
+    }
+
+    [Fact]
+    public async Task TriggerScrapeAsync_SuccessfulScrape_ReturnsSucceededOutcome()
+    {
+        using var db = CreateDb("trigger_scrape_success");
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(), Name = "Test Show", Url = "https://example.test/recap",
+            Date = new DateOnly(2026, 7, 4), ScoresAnnouncedTime = DateTimeOffset.UtcNow,
+            SeasonId = Guid.NewGuid()
+        };
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scrapeScheduler = CreateSvc(db, new FakeRecapScraperTask(failuresBeforeSuccess: 0));
+        var svc = new AdminService(db, scrapeScheduler, new NullMqttService(), new NoOpSeasonStatus(), null!);
+
+        var (found, outcome, error) = await svc.TriggerScrapeAsync(show.Id);
+
+        Assert.True(found);
+        Assert.Equal(ScrapeOutcome.Succeeded, outcome);
+        Assert.Null(error);
+    }
+
+    [Fact]
+    public async Task TriggerScrapeAsync_FailedScrape_ReturnsFailedOutcomeWithError()
+    {
+        using var db = CreateDb("trigger_scrape_failure");
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(), Name = "Test Show", Url = "https://example.test/recap",
+            Date = new DateOnly(2026, 7, 4), ScoresAnnouncedTime = DateTimeOffset.UtcNow,
+            SeasonId = Guid.NewGuid()
+        };
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scrapeScheduler = CreateSvc(db, new FakeRecapScraperTask());
+        var svc = new AdminService(db, scrapeScheduler, new NullMqttService(), new NoOpSeasonStatus(), null!);
+
+        var (found, outcome, error) = await svc.TriggerScrapeAsync(show.Id);
+
+        Assert.True(found);
+        Assert.Equal(ScrapeOutcome.Failed, outcome);
+        Assert.Equal("Simulated scrape failure", error);
     }
 }
