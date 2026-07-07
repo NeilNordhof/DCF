@@ -6,6 +6,7 @@ namespace DCF.Tests.Services;
 public class EmailTemplateTests
 {
     private static readonly Guid TestLeagueId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+    private static readonly Guid TestSeasonId = Guid.Parse("00000000-0000-0000-0000-000000000002");
     private const string FrontendUrl = "http://app.test";
     private const string Token = "test-token";
 
@@ -103,5 +104,18 @@ public class EmailTemplateTests
 
         Assert.DoesNotContain("<script>", html);
         Assert.Contains("&lt;script&gt;", html);
+    }
+
+    [Fact]
+    public void ScrapeFailed_SubjectAndHtmlContainShowNameAndError()
+    {
+        var (subject, html) = EmailTemplate.ScrapeFailed(
+            "Drum Corps West", "HTTP request failed", TestSeasonId, FrontendUrl, Token);
+
+        Assert.Equal("Scrape failed — Drum Corps West", subject);
+        Assert.Contains("Drum Corps West", html);
+        Assert.Contains("HTTP request failed", html);
+        Assert.Contains($"/admin/seasons/{TestSeasonId}", html);
+        Assert.Contains($"/unsubscribe?token={Token}", html);
     }
 }

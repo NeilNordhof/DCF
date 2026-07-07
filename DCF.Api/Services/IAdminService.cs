@@ -24,7 +24,7 @@ public interface IAdminService
         DateTimeOffset? startTime, DateTimeOffset? scoresAnnouncedTime, string? timezone,
         bool isExhibition, string? location, double? latitude, double? longitude,
         List<Guid> corpsIds, List<ShowScheduleEntryRequest> schedule);
-    Task<bool> TriggerScrapeAsync(Guid showId);
+    Task<(bool Found, ScrapeOutcome Outcome, string? Error)> TriggerScrapeAsync(Guid showId);
     Task<CorpsSummary?> RenameCorpsAsync(Guid id, string name);
     Task<(bool Found, string? OldIconPath)> SetCorpsIconAsync(Guid id, string iconPath);
     Task<(bool Found, bool Deletable)> DeleteCorpsAsync(Guid id);

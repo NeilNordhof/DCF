@@ -271,20 +271,20 @@ public class AdminService(
         return true;
     }
 
-    public async Task<bool> TriggerScrapeAsync(Guid showId)
+    public async Task<(bool Found, ScrapeOutcome Outcome, string? Error)> TriggerScrapeAsync(Guid showId)
     {
         var show = await db.Shows.Include(s => s.ShowCorps).FirstOrDefaultAsync(s => s.Id == showId);
 
         if (show is null)
         {
-            return false;
+            return (false, ScrapeOutcome.Skipped, null);
         }
 
-        await scrapeScheduler.ExecuteScrapeAsync(show);
+        var result = await scrapeScheduler.ExecuteScrapeAsync(show);
 
         await mqtt.PublishAsync("dcf/scores/updated", new { ShowId = showId });
 
-        return true;
+        return (true, result.Outcome, result.Error);
     }
 
     public async Task<CorpsSummary?> RenameCorpsAsync(Guid id, string name)

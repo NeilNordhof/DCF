@@ -1,10 +1,38 @@
 using DCF.Api.Services;
+using DCF.Data;
+using DCF.Data.Entities;
+using DCF.Data.Models;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
+using static DCF.Tests.Services.ScrapeTestHelpers;
 
 namespace DCF.Tests.Services;
 
 public class ScrapeSchedulerServiceTests
 {
+    private static DcfDbContext CreateDb(string name)
+    {
+        var opts = new DbContextOptionsBuilder<DcfDbContext>()
+            .UseInMemoryDatabase(name)
+            .Options;
+
+        return new DcfDbContext(opts);
+    }
+
+    private static ShowEntity CreateShow(bool isExhibition = false, string? url = "https://example.test/recap")
+    {
+        return new ShowEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test Show",
+            Url = url,
+            Date = new DateOnly(2026, 7, 4),
+            ScoresAnnouncedTime = DateTimeOffset.UtcNow,
+            IsExhibition = isExhibition,
+            SeasonId = Guid.NewGuid()
+        };
+    }
+
     [Fact]
     public void GetScrapeDelay_AddsDelayMinutesToAnnouncedTime()
     {
@@ -47,5 +75,268 @@ public class ScrapeSchedulerServiceTests
         var delay = ScrapeSchedulerService.GetScrapeDelay(announced, 0, now);
 
         Assert.Equal(TimeSpan.FromMinutes(150), delay);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeAsync_SuccessfulScrape_ReturnsSucceededAndSetsStatus()
+    {
+        using var db = CreateDb("execute_scrape_success");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var svc = CreateSvc(db, new FakeRecapScraperTask(failuresBeforeSuccess: 0));
+        var result = await svc.ExecuteScrapeAsync(show);
+
+        Assert.Equal(ScrapeOutcome.Succeeded, result.Outcome);
+        Assert.Null(result.Error);
+        Assert.Equal(ScrapeStatus.Succeeded, db.Shows.Single(s => s.Id == show.Id).ScrapeStatus);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeAsync_ScraperThrows_ReturnsFailedWithErrorAndSetsStatus()
+    {
+        using var db = CreateDb("execute_scrape_failure");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var svc = CreateSvc(db, new FakeRecapScraperTask());
+        var result = await svc.ExecuteScrapeAsync(show);
+
+        Assert.Equal(ScrapeOutcome.Failed, result.Outcome);
+        Assert.Equal("Simulated scrape failure", result.Error);
+        var updated = db.Shows.Single(s => s.Id == show.Id);
+        Assert.Equal(ScrapeStatus.Failed, updated.ScrapeStatus);
+        Assert.Equal("Simulated scrape failure", updated.ScrapeError);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeAsync_ShowIsExhibition_ReturnsSkippedWithoutTouchingStatus()
+    {
+        using var db = CreateDb("execute_scrape_skipped_exhibition");
+        var show = CreateShow(isExhibition: true);
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var svc = CreateSvc(db, new FakeRecapScraperTask());
+        var result = await svc.ExecuteScrapeAsync(show);
+
+        Assert.Equal(ScrapeOutcome.Skipped, result.Outcome);
+        Assert.Null(result.Error);
+        Assert.Equal(ScrapeStatus.NotStarted, db.Shows.Single(s => s.Id == show.Id).ScrapeStatus);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeAsync_ShowHasNoUrl_ReturnsSkipped()
+    {
+        using var db = CreateDb("execute_scrape_skipped_no_url");
+        var show = CreateShow(url: null);
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var svc = CreateSvc(db, new FakeRecapScraperTask());
+        var result = await svc.ExecuteScrapeAsync(show);
+
+        Assert.Equal(ScrapeOutcome.Skipped, result.Outcome);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeAsync_ShowDeleted_ReturnsSkipped()
+    {
+        using var db = CreateDb("execute_scrape_skipped_deleted");
+        var show = CreateShow();
+
+        var svc = CreateSvc(db, new FakeRecapScraperTask());
+        var result = await svc.ExecuteScrapeAsync(show);
+
+        Assert.Equal(ScrapeOutcome.Skipped, result.Outcome);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_FailsTwiceThenSucceeds_MakesThreeAttemptsAndSucceeds()
+    {
+        using var db = CreateDb("retry_recovers");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scraperTask = new FakeRecapScraperTask(failuresBeforeSuccess: 2);
+        var svc = CreateSvc(db, scraperTask, new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "5"
+        });
+
+        var result = await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Equal(ScrapeOutcome.Succeeded, result.Outcome);
+        Assert.Equal(3, scraperTask.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_AlwaysFails_MakesInitialAttemptPlusMaxRetriesAttempts()
+    {
+        using var db = CreateDb("retry_exhausts");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scraperTask = new FakeRecapScraperTask();
+        var svc = CreateSvc(db, scraperTask, new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "3"
+        });
+
+        var result = await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Equal(ScrapeOutcome.Failed, result.Outcome);
+        Assert.Equal(4, scraperTask.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_ShowSkipped_MakesOnlyOneAttempt()
+    {
+        using var db = CreateDb("retry_skipped");
+        var show = CreateShow(isExhibition: true);
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scraperTask = new FakeRecapScraperTask();
+        var svc = CreateSvc(db, scraperTask, new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "5"
+        });
+
+        var result = await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Equal(ScrapeOutcome.Skipped, result.Outcome);
+        Assert.Equal(0, scraperTask.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_TokenAlreadyCancelled_ThrowsBeforeRetrying()
+    {
+        using var db = CreateDb("retry_cancelled_mid_wait");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scraperTask = new FakeRecapScraperTask();
+        var svc = CreateSvc(db, scraperTask, new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "1",
+            ["Scraper:MaxRetries"] = "5"
+        });
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAsync<TaskCanceledException>(
+            () => svc.ExecuteScrapeWithRetriesAsync(show, cts.Token));
+
+        Assert.Equal(1, scraperTask.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_ExhaustsRetries_EmailsAdminsWithNotificationsEnabled()
+    {
+        using var db = CreateDb("alert_sent_to_admin");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        db.Users.Add(new UserEntity
+        {
+            Id = Guid.NewGuid(), Auth0Sub = "admin1", Email = "admin@example.com",
+            DisplayName = "Admin", IsAdmin = true, EmailNotificationsEnabled = true
+        });
+        await db.SaveChangesAsync();
+
+        var emailService = new RecordingEmailService();
+        var svc = CreateSvc(db, new FakeRecapScraperTask(), new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "1"
+        }, emailService);
+
+        await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Equal(["admin@example.com"], emailService.SentToEmails);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_ExhaustsRetries_DoesNotEmailAdminsWithNotificationsDisabled()
+    {
+        using var db = CreateDb("alert_skips_opted_out_admin");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        db.Users.Add(new UserEntity
+        {
+            Id = Guid.NewGuid(), Auth0Sub = "admin1", Email = "admin@example.com",
+            DisplayName = "Admin", IsAdmin = true, EmailNotificationsEnabled = false
+        });
+        await db.SaveChangesAsync();
+
+        var emailService = new RecordingEmailService();
+        var svc = CreateSvc(db, new FakeRecapScraperTask(), new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "1"
+        }, emailService);
+
+        await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Empty(emailService.SentToEmails);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_ExhaustsRetries_DoesNotEmailNonAdmins()
+    {
+        using var db = CreateDb("alert_skips_non_admin");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        db.Users.Add(new UserEntity
+        {
+            Id = Guid.NewGuid(), Auth0Sub = "user1", Email = "user@example.com",
+            DisplayName = "User", IsAdmin = false, EmailNotificationsEnabled = true
+        });
+        await db.SaveChangesAsync();
+
+        var emailService = new RecordingEmailService();
+        var svc = CreateSvc(db, new FakeRecapScraperTask(), new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "1"
+        }, emailService);
+
+        await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Empty(emailService.SentToEmails);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_EventuallySucceeds_DoesNotSendAlertEmail()
+    {
+        using var db = CreateDb("alert_not_sent_on_recovery");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        db.Users.Add(new UserEntity
+        {
+            Id = Guid.NewGuid(), Auth0Sub = "admin1", Email = "admin@example.com",
+            DisplayName = "Admin", IsAdmin = true, EmailNotificationsEnabled = true
+        });
+        await db.SaveChangesAsync();
+
+        var emailService = new RecordingEmailService();
+        var svc = CreateSvc(db, new FakeRecapScraperTask(failuresBeforeSuccess: 1), new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "0",
+            ["Scraper:MaxRetries"] = "5"
+        }, emailService);
+
+        await svc.ExecuteScrapeWithRetriesAsync(show, CancellationToken.None);
+
+        Assert.Empty(emailService.SentToEmails);
     }
 }

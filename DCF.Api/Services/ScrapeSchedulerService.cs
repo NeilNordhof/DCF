@@ -9,6 +9,8 @@ using Microsoft.Extensions.Options;
 
 namespace DCF.Api.Services;
 
+public enum ScrapeOutcome { Succeeded, Failed, Skipped }
+
 public class ScrapeSchedulerService(
     IServiceScopeFactory scopeFactory,
     IMqttService mqtt,
@@ -19,6 +21,8 @@ public class ScrapeSchedulerService(
 {
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _scheduled = new();
     private readonly int _delayMinutes = config.GetValue<int>("Scraper:DelayMinutes", 5);
+    private readonly int _maxRetries = config.GetValue<int>("Scraper:MaxRetries", 5);
+    private readonly int _retryIntervalMinutes = config.GetValue<int>("Scraper:RetryIntervalMinutes", 5);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -71,9 +75,7 @@ public class ScrapeSchedulerService(
                     return;
                 }
 
-                await ExecuteScrapeAsync(show);
-
-                await mqtt.PublishAsync("dcf/scores/updated", new { ShowId = show.Id });
+                await ExecuteScrapeWithRetriesAsync(show, cts.Token);
             }
             catch (OperationCanceledException)
             {
@@ -86,10 +88,37 @@ public class ScrapeSchedulerService(
         });
     }
 
+    public async Task<(ScrapeOutcome Outcome, string? Error)> ExecuteScrapeWithRetriesAsync(ShowEntity show, CancellationToken token)
+    {
+        var result = await ExecuteScrapeAsync(show);
+
+        var retry = 0;
+
+        // _maxRetries counts retries after the initial attempt above, so this loop
+        // runs at most _maxRetries additional times (1 + _maxRetries attempts total).
+        while (result.Outcome == ScrapeOutcome.Failed && retry < _maxRetries)
+        {
+            await Task.Delay(TimeSpan.FromMinutes(_retryIntervalMinutes), token);
+
+            result = await ExecuteScrapeAsync(show);
+
+            retry++;
+        }
+
+        if (result.Outcome == ScrapeOutcome.Failed)
+        {
+            await SendScrapeFailedAlertAsync(show, result.Error);
+        }
+
+        await mqtt.PublishAsync("dcf/scores/updated", new { ShowId = show.Id });
+
+        return result;
+    }
+
     public static TimeSpan GetScrapeDelay(DateTimeOffset scoresAnnouncedTime, int delayMinutes, DateTimeOffset now)
         => scoresAnnouncedTime.AddMinutes(delayMinutes) - now;
 
-    public async Task ExecuteScrapeAsync(ShowEntity show)
+    public async Task<(ScrapeOutcome Outcome, string? Error)> ExecuteScrapeAsync(ShowEntity show)
     {
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
@@ -100,7 +129,7 @@ public class ScrapeSchedulerService(
         {
             logger.LogWarning("Show {ShowId} cannot be scraped", show.Id);
 
-            return;
+            return (ScrapeOutcome.Skipped, null);
         }
 
         var showCorpsIds = freshShow.ShowCorps.Select(sc => sc.CorpsId).ToHashSet();
@@ -124,7 +153,7 @@ public class ScrapeSchedulerService(
 
             await db.SaveChangesAsync();
 
-            return;
+            return (ScrapeOutcome.Failed, ex.Message);
         }
 
         freshShow.ScrapeStatus = ScrapeStatus.Succeeded;
@@ -162,6 +191,8 @@ public class ScrapeSchedulerService(
         var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
         await SendScoresUpdatedNotificationsAsync(db, emailService, freshShow.SeasonId, freshShow.Name);
+
+        return (ScrapeOutcome.Succeeded, null);
     }
 
     private async Task SendScoresUpdatedNotificationsAsync(DcfDbContext db, IEmailService emailService, Guid seasonId, string showName)
@@ -196,6 +227,32 @@ public class ScrapeSchedulerService(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to send scores-updated notifications for show {ShowName}", showName);
+        }
+    }
+
+    private async Task SendScrapeFailedAlertAsync(ShowEntity show, string? error)
+    {
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
+            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+            var admins = await db.Users
+                .Where(u => u.IsAdmin && u.EmailNotificationsEnabled)
+                .ToListAsync();
+
+            foreach (var admin in admins)
+            {
+                var token = emailTokenService.GenerateToken(admin.Id);
+                var (subject, html) = EmailTemplate.ScrapeFailed(show.Name, error ?? "Unknown error", show.SeasonId, emailOptions.Value.FrontendUrl, token);
+
+                await emailService.SendAsync(admin.Email, admin.DisplayName, subject, html);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to send scrape-failed alert for show {ShowId}", show.Id);
         }
     }
 

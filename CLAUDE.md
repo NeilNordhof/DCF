@@ -74,6 +74,8 @@ SMTP (Mailpit dev / Resend prod) ← API sends email notifications
 - `Auth0__Domain`, `Auth0__Audience`
 - `Mqtt__Host`, `Mqtt__Port` (default 1883)
 - `Scraper__DelayMinutes` — buffer after `ScoresAnnouncedTime` before scraping
+- `Scraper__MaxRetries` — number of retries after a scrape failure before giving up and alerting admins (default 5)
+- `Scraper__RetryIntervalMinutes` — delay between retries (default 5)
 - `Email__*` — SMTP `Host`/`Port`/`Username`/`Password`/`StartTls`, `FromAddress`/`FromName`, `FrontendUrl` (used to build links in emails), `UnsubscribeSecret` (HMAC key for unsubscribe tokens)
 - `AllowedOrigins` — CORS
 
