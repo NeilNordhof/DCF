@@ -609,7 +609,8 @@ public class AdminServiceTests
         db.Shows.Add(show);
         await db.SaveChangesAsync();
 
-        var scrapeScheduler = CreateSvc(db, new FakeRecapScraperTask());
+        var scraperTask = new FakeRecapScraperTask();
+        var scrapeScheduler = CreateSvc(db, scraperTask);
         var svc = new AdminService(db, scrapeScheduler, new NullMqttService(), new NoOpSeasonStatus(), null!);
 
         var (found, outcome, error) = await svc.TriggerScrapeAsync(show.Id);
@@ -617,5 +618,6 @@ public class AdminServiceTests
         Assert.True(found);
         Assert.Equal(ScrapeOutcome.Failed, outcome);
         Assert.Equal("Simulated scrape failure", error);
+        Assert.Equal(1, scraperTask.CallCount);
     }
 }

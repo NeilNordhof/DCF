@@ -94,6 +94,8 @@ public class ScrapeSchedulerService(
 
         var retry = 0;
 
+        // _maxRetries counts retries after the initial attempt above, so this loop
+        // runs at most _maxRetries additional times (1 + _maxRetries attempts total).
         while (result.Outcome == ScrapeOutcome.Failed && retry < _maxRetries)
         {
             await Task.Delay(TimeSpan.FromMinutes(_retryIntervalMinutes), token);

@@ -217,6 +217,30 @@ public class ScrapeSchedulerServiceTests
     }
 
     [Fact]
+    public async Task ExecuteScrapeWithRetriesAsync_TokenAlreadyCancelled_ThrowsBeforeRetrying()
+    {
+        using var db = CreateDb("retry_cancelled_mid_wait");
+        var show = CreateShow();
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scraperTask = new FakeRecapScraperTask();
+        var svc = CreateSvc(db, scraperTask, new Dictionary<string, string?>
+        {
+            ["Scraper:RetryIntervalMinutes"] = "1",
+            ["Scraper:MaxRetries"] = "5"
+        });
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAsync<TaskCanceledException>(
+            () => svc.ExecuteScrapeWithRetriesAsync(show, cts.Token));
+
+        Assert.Equal(1, scraperTask.CallCount);
+    }
+
+    [Fact]
     public async Task ExecuteScrapeWithRetriesAsync_ExhaustsRetries_EmailsAdminsWithNotificationsEnabled()
     {
         using var db = CreateDb("alert_sent_to_admin");
