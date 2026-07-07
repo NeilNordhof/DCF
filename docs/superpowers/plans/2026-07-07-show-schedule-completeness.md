@@ -147,13 +147,15 @@ git commit -m "feat: make ShowScheduleEntryEntity.Time nullable to represent uns
 
 ### Task 2: Thread nullable `Time` through the Create/Update Show DTOs
 
+> **Update (post Task 1):** Task 1's implementer found that `AdminService.GetShowsAsync` (`DCF.Api/Services/AdminService.cs:159`, `new ShowScheduleEntryResponse(e.Time, e.Label, e.CorpsId)`) would not compile once the entity's `Time` went nullable, since assigning a nullable value into `ShowScheduleEntryResponse`'s still-non-nullable `Time` is a CS1503. That one field (`ShowScheduleEntryResponse.Time`) was therefore already made nullable as part of Task 1's commit, confirmed as the minimal correct fix by Task 1's review. **`AdminRequests.cs` currently reads `public record ShowScheduleEntryResponse(DateTimeOffset? Time, string Label, Guid? CorpsId);` already — do not edit that line again.** This task now only needs to touch `ShowScheduleEntryRequest.Time` and `ShowPrefillScheduleEntryResponse.Time`.
+
 **Files:**
 - Modify: `DCF.Api/Models/AdminRequests.cs`
 - Test: `DCF.Tests/Services/AdminServiceTests.cs`
 
 **Interfaces:**
-- Consumes: `ShowScheduleEntryEntity.Time : DateTimeOffset?` (Task 1)
-- Produces: `ShowScheduleEntryRequest.Time`, `ShowScheduleEntryResponse.Time`, `ShowPrefillScheduleEntryResponse.Time` all as nullable — Task 4 relies on `ShowPrefillScheduleEntryResponse.Time` being nullable.
+- Consumes: `ShowScheduleEntryEntity.Time : DateTimeOffset?` (Task 1), `ShowScheduleEntryResponse.Time : DateTimeOffset?` (already done, Task 1)
+- Produces: `ShowScheduleEntryRequest.Time` and `ShowPrefillScheduleEntryResponse.Time` as nullable — Task 4 relies on `ShowPrefillScheduleEntryResponse.Time` being nullable.
 
 `AdminService.CreateShowAsync`/`UpdateShowAsync`/`GetShowsAsync`/`PrefillShowAsync` all assign directly between these types (e.g. `Time = entry.Time`) with no branching logic — once both sides of each assignment are nullable, they compile unchanged. No changes to `AdminService.cs` are needed in this task.
 
@@ -205,7 +207,7 @@ Note: no equivalent test is added for `UpdateShowAsync` — it builds `ShowSched
 Run: `dotnet build DCF.slnx`
 Expected: FAIL — `CS1503` (or similar): cannot convert `null` to `DateTimeOffset` in `new(null, "Blue Devils - Concord, CA", corps.Id)`, since `ShowScheduleEntryRequest`'s first parameter is still non-nullable.
 
-- [ ] **Step 3: Make the three Time fields nullable**
+- [ ] **Step 3: Make the remaining two Time fields nullable**
 
 In `DCF.Api/Models/AdminRequests.cs`, change:
 
@@ -217,16 +219,16 @@ to:
 public record ShowScheduleEntryRequest(DateTimeOffset? Time, string Label, Guid? CorpsId);
 ```
 
-and:
+and change:
 ```csharp
-public record ShowScheduleEntryResponse(DateTimeOffset Time, string Label, Guid? CorpsId);
 public record ShowPrefillScheduleEntryResponse(string Time, string Label, Guid? CorpsId);
 ```
 to:
 ```csharp
-public record ShowScheduleEntryResponse(DateTimeOffset? Time, string Label, Guid? CorpsId);
 public record ShowPrefillScheduleEntryResponse(string? Time, string Label, Guid? CorpsId);
 ```
+
+Leave `ShowScheduleEntryResponse` alone — it already reads `DateTimeOffset? Time` from Task 1 (see the update note above).
 
 - [ ] **Step 4: Run build and test to verify it passes**
 
