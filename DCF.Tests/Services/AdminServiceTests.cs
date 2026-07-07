@@ -521,6 +521,41 @@ public class AdminServiceTests
     }
 
     [Fact]
+    public async Task CreateShowAsync_NullScheduleTime_PersistsAsUnscheduled()
+    {
+        using var db = CreateDb("admin_create_show_null_time");
+
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(),
+            Year = 2030,
+            StartDate = new DateOnly(2030, 6, 1),
+            EndDate = new DateOnly(2030, 8, 31)
+        };
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
+        var schedule = new List<ShowScheduleEntryRequest>
+        {
+            new(null, "Blue Devils - Concord, CA", corps.Id)
+        };
+
+        await svc.CreateShowAsync(
+            season.Id, "Test Show", null, new DateOnly(2030, 7, 4),
+            null, null, "PT", true, "Test Venue", null, null,
+            [corps.Id], schedule);
+
+        var entry = db.ShowScheduleEntries.Single(e => e.CorpsId == corps.Id);
+
+        Assert.Null(entry.Time);
+        Assert.Equal("Blue Devils - Concord, CA", entry.Label);
+    }
+
+    [Fact]
     public async Task UpdateShowAsync_ReplacesScheduleEntries()
     {
         using var db = CreateDb("admin_update_show_schedule");

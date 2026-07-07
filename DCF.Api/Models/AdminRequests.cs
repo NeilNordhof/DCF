@@ -2,7 +2,7 @@ namespace DCF.Api.Models;
 
 public record CreateSeasonRequest(int Year, DateOnly StartDate, DateOnly EndDate);
 public record CreateCorpsRequest(string Name);
-public record ShowScheduleEntryRequest(DateTimeOffset Time, string Label, Guid? CorpsId);
+public record ShowScheduleEntryRequest(DateTimeOffset? Time, string Label, Guid? CorpsId);
 public record CreateShowRequest(
     string Name,
     string? Url,
@@ -35,7 +35,7 @@ public record SetCorpsOrderRequest(List<CorpsOrderItem> Orders);
 public record RenameCorpsRequest(string Name);
 public record UpdateSeasonDatesRequest(DateOnly StartDate, DateOnly EndDate);
 public record ShowScheduleEntryResponse(DateTimeOffset? Time, string Label, Guid? CorpsId);
-public record ShowPrefillScheduleEntryResponse(string Time, string Label, Guid? CorpsId);
+public record ShowPrefillScheduleEntryResponse(string? Time, string Label, Guid? CorpsId);
 public record ShowPrefillResponse(
     string? Location,
     double? Latitude,
