@@ -213,7 +213,7 @@ def main():
 
         # Trigger scores scrape
         resp = api("POST", f"/api/admin/shows/{show_id}/scrape", "smoke-admin")
-        assert_status(resp, 204, "Trigger scores scrape")
+        assert_status(resp, 200, "Trigger scores scrape")
 
         # Wait for the scores to be updated
         wait_for_message(scores_queue, timeout=10)
