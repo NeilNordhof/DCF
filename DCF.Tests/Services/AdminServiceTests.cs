@@ -438,6 +438,48 @@ public class AdminServiceTests
     }
 
     [Fact]
+    public async Task ShowScheduleEntryEntity_NullTime_PersistsAsUnscheduled()
+    {
+        using var db = CreateDb("schedule_entity_null_time");
+
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(),
+            Year = 2030,
+            StartDate = new DateOnly(2030, 6, 1),
+            EndDate = new DateOnly(2030, 8, 31)
+        };
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Unscheduled Corps" };
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test Show",
+            Date = new DateOnly(2030, 7, 4),
+            SeasonId = season.Id
+        };
+
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        db.Shows.Add(show);
+        db.ShowScheduleEntries.Add(new ShowScheduleEntryEntity
+        {
+            Id = Guid.NewGuid(),
+            ShowId = show.Id,
+            SortOrder = 0,
+            Time = null,
+            Label = "Unscheduled Corps",
+            CorpsId = corps.Id
+        });
+
+        await db.SaveChangesAsync();
+
+        var entry = db.ShowScheduleEntries.Single(e => e.ShowId == show.Id);
+
+        Assert.Null(entry.Time);
+        Assert.Equal("Unscheduled Corps", entry.Label);
+    }
+
+    [Fact]
     public async Task CreateShowAsync_PersistsScheduleEntries()
     {
         using var db = CreateDb("admin_create_show_with_schedule");

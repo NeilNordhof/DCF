@@ -34,7 +34,7 @@ public record CorpsOrderItem(Guid CorpsId, int? SortOrder);
 public record SetCorpsOrderRequest(List<CorpsOrderItem> Orders);
 public record RenameCorpsRequest(string Name);
 public record UpdateSeasonDatesRequest(DateOnly StartDate, DateOnly EndDate);
-public record ShowScheduleEntryResponse(DateTimeOffset Time, string Label, Guid? CorpsId);
+public record ShowScheduleEntryResponse(DateTimeOffset? Time, string Label, Guid? CorpsId);
 public record ShowPrefillScheduleEntryResponse(string Time, string Label, Guid? CorpsId);
 public record ShowPrefillResponse(
     string? Location,
