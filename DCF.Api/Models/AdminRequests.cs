@@ -29,6 +29,7 @@ public record UpdateShowRequest(
     double? Longitude,
     List<Guid> CorpsIds,
     List<ShowScheduleEntryRequest> Schedule);
+public record SetNoScoreReasonRequest(string? Reason);
 public record SetSeasonCorpsRequest(List<Guid> CorpsIds);
 public record CorpsOrderItem(Guid CorpsId, int? SortOrder);
 public record SetCorpsOrderRequest(List<CorpsOrderItem> Orders);

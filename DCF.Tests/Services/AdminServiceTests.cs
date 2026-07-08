@@ -759,4 +759,102 @@ public class AdminServiceTests
         var tbdEntry = result.Schedule.Single(e => e.Label.StartsWith("Blue Devils"));
         Assert.Null(tbdEntry.Time);
     }
+
+    [Fact]
+    public async Task SetNoScoreReasonAsync_SetsReason_CancelsScheduledScrapeAndAppearsInShowSummary()
+    {
+        using var db = CreateDb("set_no_score_reason_sets");
+        var seasonId = Guid.NewGuid();
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(), Name = "Test Show", Url = "https://example.test/recap",
+            Date = new DateOnly(2026, 7, 4), ScoresAnnouncedTime = DateTimeOffset.UtcNow.AddMilliseconds(100),
+            SeasonId = seasonId
+        };
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scraperTask = new FakeRecapScraperTask();
+        var scrapeScheduler = CreateSvc(db, scraperTask, new Dictionary<string, string?> { ["Scraper:DelayMinutes"] = "0" });
+        var svc = new AdminService(db, scrapeScheduler, new NullMqttService(), new NoOpSeasonStatus(), null!);
+
+        // Refresh the near-future timestamp here, right before racing it against SetNoScoreReasonAsync
+        // below: DcfDbContext's one-time EF model build (paid by the SaveChangesAsync above) can itself
+        // take longer than the 100ms window, which would silently exhaust the margin before ScheduleScrape
+        // even ran and make this test order-dependent (only passing when some earlier test already warmed
+        // the model). Capturing "now" after that cost keeps the race — and the assertion below — meaningful
+        // regardless of run order.
+        show.ScoresAnnouncedTime = DateTimeOffset.UtcNow.AddMilliseconds(100);
+        scrapeScheduler.ScheduleScrape(show);
+
+        var result = await svc.SetNoScoreReasonAsync(show.Id, "Storm forced standstill exhibition");
+
+        await Task.Delay(400);
+
+        Assert.True(result);
+        Assert.Equal(0, scraperTask.CallCount);
+
+        var summary = (await svc.GetShowsAsync(seasonId)).Single();
+        Assert.Equal("Storm forced standstill exhibition", summary.NoScoreReason);
+    }
+
+    [Fact]
+    public async Task SetNoScoreReasonAsync_ClearsReason_ReschedulesScrape()
+    {
+        using var db = CreateDb("set_no_score_reason_clears");
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(), Name = "Test Show", Url = "https://example.test/recap",
+            Date = new DateOnly(2026, 7, 4), ScoresAnnouncedTime = DateTimeOffset.UtcNow.AddMilliseconds(-1000),
+            NoScoreReason = "Storm forced standstill exhibition",
+            SeasonId = Guid.NewGuid()
+        };
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scraperTask = new FakeRecapScraperTask(failuresBeforeSuccess: 0);
+        var scrapeScheduler = CreateSvc(db, scraperTask, new Dictionary<string, string?> { ["Scraper:DelayMinutes"] = "0" });
+        var svc = new AdminService(db, scrapeScheduler, new NullMqttService(), new NoOpSeasonStatus(), null!);
+
+        var result = await svc.SetNoScoreReasonAsync(show.Id, null);
+
+        await Task.Delay(300);
+
+        Assert.True(result);
+        Assert.Null(db.Shows.Single(s => s.Id == show.Id).NoScoreReason);
+        Assert.Equal(1, scraperTask.CallCount);
+    }
+
+    [Fact]
+    public async Task SetNoScoreReasonAsync_WhitespaceReason_NormalizesToNull()
+    {
+        using var db = CreateDb("set_no_score_reason_whitespace");
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(), Name = "Test Show",
+            Date = new DateOnly(2026, 7, 4), NoScoreReason = "Old reason",
+            SeasonId = Guid.NewGuid()
+        };
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
+
+        var result = await svc.SetNoScoreReasonAsync(show.Id, "   ");
+
+        Assert.True(result);
+        Assert.Null(db.Shows.Single(s => s.Id == show.Id).NoScoreReason);
+    }
+
+    [Fact]
+    public async Task SetNoScoreReasonAsync_MissingShow_ReturnsFalse()
+    {
+        using var db = CreateDb("set_no_score_reason_missing");
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
+
+        var result = await svc.SetNoScoreReasonAsync(Guid.NewGuid(), "Cancelled");
+
+        Assert.False(result);
+    }
 }
