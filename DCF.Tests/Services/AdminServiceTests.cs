@@ -637,6 +637,28 @@ public class AdminServiceTests
     }
 
     [Fact]
+    public async Task ShowEntity_NoScoreReason_PersistsAndDefaultsToNull()
+    {
+        using var db = CreateDb("show_entity_no_score_reason");
+
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(), Name = "Test Show",
+            Date = new DateOnly(2030, 7, 4), SeasonId = Guid.NewGuid()
+        };
+
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        Assert.Null(db.Shows.Single(s => s.Id == show.Id).NoScoreReason);
+
+        show.NoScoreReason = "Storm forced standstill exhibition";
+        await db.SaveChangesAsync();
+
+        Assert.Equal("Storm forced standstill exhibition", db.Shows.Single(s => s.Id == show.Id).NoScoreReason);
+    }
+
+    [Fact]
     public async Task TriggerScrapeAsync_MissingShow_ReturnsFoundFalse()
     {
         using var db = CreateDb("trigger_scrape_missing");
