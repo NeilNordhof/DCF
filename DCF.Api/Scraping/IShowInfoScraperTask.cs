@@ -1,6 +1,6 @@
 namespace DCF.Api.Scraping;
 
-public record ShowPrefillScheduleEntry(string Time24h, string Label);
+public record ShowPrefillScheduleEntry(string? Time24h, string Label);
 
 public record ShowPrefillData(
     bool IsExhibition,

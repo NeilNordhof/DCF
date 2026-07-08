@@ -69,6 +69,26 @@ public class ShowInfoScraperTaskTests
         </body></html>
         """;
 
+    private const string CompetitiveWithTbdHtml = """
+        <html><body>
+        <div class="inner-hero-inner">
+          <p>Saturday, August 15, 2026 1:30 PM</p>
+          <h1>Test Championship</h1>
+          <span class="location">San Antonio, TX</span>
+        </div>
+        <div class="lineup-times-table">
+          <p>All times CT and subject to change</p>
+          <table><tbody>
+            <tr><td>12:00 PM</td><td><strong>Gates Open</strong></td></tr>
+            <tr><td>1:40 PM</td><td><strong>Guardians</strong> - McKinney, TX</td></tr>
+            <tr><td>10:11 PM</td><td><strong>Scores Announced</strong></td></tr>
+            <tr><td>TBD</td><td><strong>Blue Devils</strong> - Concord, CA</td></tr>
+            <tr><td>TBD</td><td><strong>Bluecoats</strong> - Canton, OH</td></tr>
+          </tbody></table>
+        </div>
+        </body></html>
+        """;
+
     [Fact]
     public async Task ScrapeAsync_ExhibitionShow_SetsIsExhibitionTrue()
     {
@@ -268,5 +288,42 @@ public class ShowInfoScraperTaskTests
         var result = await scraper.ScrapeAsync("https://www.dci.org/events/2026-test/");
 
         Assert.Equal("20:00", result!.StartTime);
+    }
+
+    [Fact]
+    public async Task ScrapeAsync_TbdRows_AreKeptInScheduleNotDropped()
+    {
+        var scraper = CreateScraper(CompetitiveWithTbdHtml);
+
+        var result = await scraper.ScrapeAsync("https://www.dci.org/events/2026-test-championship/");
+
+        Assert.NotNull(result);
+        Assert.Equal(4, result!.ScheduleEntries.Count);
+        Assert.Contains(result.ScheduleEntries, e => e.Label == "Blue Devils");
+        Assert.Contains(result.ScheduleEntries, e => e.Label == "Bluecoats");
+    }
+
+    [Fact]
+    public async Task ScrapeAsync_TbdRows_HaveNullTime24h()
+    {
+        var scraper = CreateScraper(CompetitiveWithTbdHtml);
+
+        var result = await scraper.ScrapeAsync("https://www.dci.org/events/2026-test-championship/");
+
+        var tbdEntry = result!.ScheduleEntries.Single(e => e.Label == "Blue Devils");
+        var timedEntry = result.ScheduleEntries.Single(e => e.Label == "Guardians");
+
+        Assert.Null(tbdEntry.Time24h);
+        Assert.Equal("13:40", timedEntry.Time24h);
+    }
+
+    [Fact]
+    public async Task ScrapeAsync_ExhibitionShow_ScoresAnnouncedTimeParsesFromEventConcludesLabel()
+    {
+        var scraper = CreateScraper(ExhibitionHtml);
+
+        var result = await scraper.ScrapeAsync("https://www.dci.org/events/2026-midcal-showcase/");
+
+        Assert.Equal("22:00", result!.ScoresAnnouncedTime);
     }
 }
