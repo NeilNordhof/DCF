@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildDateTime, buildScheduleEntryTime, toNullableIso } from './SeasonDetail';
+import { buildDateTime, buildScheduleEntryTime, toNullableIso } from './SeasonDetail.helpers';
 
 describe('buildDateTime', () => {
   it('composes a date, HH:MM time, and timezone into a UTC ISO string', () => {
