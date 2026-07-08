@@ -34,6 +34,14 @@ internal sealed class FakeRecapScraperTask(int failuresBeforeSuccess = int.MaxVa
     }
 }
 
+internal sealed class FakeShowInfoScraperTask(ShowPrefillData? result) : IShowInfoScraperTask
+{
+    public Task<ShowPrefillData?> ScrapeAsync(string url)
+    {
+        return Task.FromResult(result);
+    }
+}
+
 internal sealed class RecordingEmailService : IEmailService
 {
     public List<string> SentToEmails { get; } = [];

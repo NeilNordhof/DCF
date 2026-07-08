@@ -5,14 +5,7 @@ import { api } from '../api/client';
 import type { Corps, SeasonDetail as SeasonDetailType, Show, ShowPrefillScheduleEntry } from '../types/api';
 import { CorpsIcon } from '../components/CorpsIcon';
 import { TimePicker } from '../components/TimePicker';
-
-const TZ_HOURS: Record<string, number> = { PT: 7, MT: 6, CT: 5, ET: 4 };
-
-function buildDateTime(date: string, time: string, tz: string): string {
-  const d = new Date(`${date}T${time}:00Z`);
-  d.setUTCHours(d.getUTCHours() + (TZ_HOURS[tz] ?? 4));
-  return d.toISOString();
-}
+import { TZ_HOURS, buildDateTime, buildScheduleEntryTime, toNullableIso } from './SeasonDetail.helpers';
 
 function hasStarted(show: Show): boolean {
   return !!show.startTime && new Date(show.startTime) <= new Date();
@@ -264,7 +257,7 @@ export function SeasonDetail() {
     e.preventDefault();
     if (!id || addingShow) return;
     if (!isExhibition && showCorpsIds.size === 0) { setError('Select at least one corps.'); return; }
-    if (!isExhibition && !showScoresTime) { setError('Scores announced time is required for competitive shows.'); return; }
+    if (!showScoresTime) { setError('Scores/concludes time is required.'); return; }
     setAddingShow(true);
     setError(null);
 
@@ -276,16 +269,18 @@ export function SeasonDetail() {
       let prevTime = '';
 
       const schedulePayload = showSchedule.map(entry => {
-        if (prevTime && entry.time < prevTime && prevTime >= '12:00') {
+        if (entry.time && prevTime && entry.time < prevTime && prevTime >= '12:00') {
           const d = new Date(`${rolloverDate}T00:00:00`);
           d.setDate(d.getDate() + 1);
           rolloverDate = d.toISOString().slice(0, 10);
         }
 
-        prevTime = entry.time;
+        if (entry.time) {
+          prevTime = entry.time;
+        }
 
         return {
-          time: buildDateTime(rolloverDate, entry.time, showTz),
+          time: buildScheduleEntryTime(rolloverDate, entry.time, showTz),
           label: entry.label,
           corpsId: entry.corpsId,
         };
@@ -402,7 +397,7 @@ export function SeasonDetail() {
         longitude: show.longitude ?? null,
         corpsIds: Array.from(editShow.corpsIds),
         schedule: show.schedule.map(e => ({
-          time: new Date(e.time).toISOString(),
+          time: toNullableIso(e.time),
           label: e.label,
           corpsId: e.corpsId,
         })),
@@ -789,7 +784,7 @@ export function SeasonDetail() {
                     <TimePicker value={showStartTime} onChange={setShowStartTime} style={{ flex: 1 }} />
                   </div>
                   <div className="admin-show-form-pair">
-                    <label style={labelStyle}>Scores</label>
+                    <label style={labelStyle}>{isExhibition ? 'Concludes' : 'Scores'}</label>
                     <TimePicker value={showScoresTime} onChange={setShowScoresTime} required style={{ flex: 1 }} />
                   </div>
                 </div>
@@ -812,7 +807,12 @@ export function SeasonDetail() {
                       }}>
                         {showSchedule.map((entry, i) => (
                           <div key={i} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
-                            <span style={{ minWidth: 36, fontVariantNumeric: 'tabular-nums' }}>{entry.time}</span>
+                            <span style={{
+                              minWidth: 36, fontVariantNumeric: 'tabular-nums',
+                              color: entry.time ? undefined : 'var(--text-faint)',
+                            }}>
+                              {entry.time ?? 'TBD'}
+                            </span>
                             <span>{entry.label}</span>
                           </div>
                         ))}
@@ -903,7 +903,7 @@ export function SeasonDetail() {
                             <TimePicker value={editShow.startTime} onChange={v => setEditShow(p => p && ({ ...p, startTime: v }))} style={{ flex: 1 }} />
                           </div>
                           <div className="admin-show-form-pair">
-                            <label style={labelStyle}>Scores</label>
+                            <label style={labelStyle}>{s.isExhibition ? 'Concludes' : 'Scores'}</label>
                             <TimePicker value={editShow.scoresTime} onChange={v => setEditShow(p => p && ({ ...p, scoresTime: v }))} required style={{ flex: 1 }} />
                           </div>
                         </div>

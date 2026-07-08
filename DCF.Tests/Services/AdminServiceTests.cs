@@ -438,6 +438,48 @@ public class AdminServiceTests
     }
 
     [Fact]
+    public async Task ShowScheduleEntryEntity_NullTime_PersistsAsUnscheduled()
+    {
+        using var db = CreateDb("schedule_entity_null_time");
+
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(),
+            Year = 2030,
+            StartDate = new DateOnly(2030, 6, 1),
+            EndDate = new DateOnly(2030, 8, 31)
+        };
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Unscheduled Corps" };
+        var show = new ShowEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test Show",
+            Date = new DateOnly(2030, 7, 4),
+            SeasonId = season.Id
+        };
+
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        db.Shows.Add(show);
+        db.ShowScheduleEntries.Add(new ShowScheduleEntryEntity
+        {
+            Id = Guid.NewGuid(),
+            ShowId = show.Id,
+            SortOrder = 0,
+            Time = null,
+            Label = "Unscheduled Corps",
+            CorpsId = corps.Id
+        });
+
+        await db.SaveChangesAsync();
+
+        var entry = db.ShowScheduleEntries.Single(e => e.ShowId == show.Id);
+
+        Assert.Null(entry.Time);
+        Assert.Equal("Unscheduled Corps", entry.Label);
+    }
+
+    [Fact]
     public async Task CreateShowAsync_PersistsScheduleEntries()
     {
         using var db = CreateDb("admin_create_show_with_schedule");
@@ -476,6 +518,41 @@ public class AdminServiceTests
         Assert.Equal("Blue Devils", entries[0].Label);
         Assert.Equal(corps.Id, entries[0].CorpsId);
         Assert.Null(entries[1].CorpsId);
+    }
+
+    [Fact]
+    public async Task CreateShowAsync_NullScheduleTime_PersistsAsUnscheduled()
+    {
+        using var db = CreateDb("admin_create_show_null_time");
+
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(),
+            Year = 2030,
+            StartDate = new DateOnly(2030, 6, 1),
+            EndDate = new DateOnly(2030, 8, 31)
+        };
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), null!);
+        var schedule = new List<ShowScheduleEntryRequest>
+        {
+            new(null, "Blue Devils - Concord, CA", corps.Id)
+        };
+
+        await svc.CreateShowAsync(
+            season.Id, "Test Show", null, new DateOnly(2030, 7, 4),
+            null, null, "PT", true, "Test Venue", null, null,
+            [corps.Id], schedule);
+
+        var entry = db.ShowScheduleEntries.Single(e => e.CorpsId == corps.Id);
+
+        Assert.Null(entry.Time);
+        Assert.Equal("Blue Devils - Concord, CA", entry.Label);
     }
 
     [Fact]
@@ -619,5 +696,45 @@ public class AdminServiceTests
         Assert.Equal(ScrapeOutcome.Failed, outcome);
         Assert.Equal("Simulated scrape failure", error);
         Assert.Equal(1, scraperTask.CallCount);
+    }
+
+    [Fact]
+    public async Task PrefillShowAsync_TbdScheduleEntry_CorpsIncludedAndTimeNull()
+    {
+        using var db = CreateDb("prefill_tbd_corps");
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(), Year = 2026,
+            StartDate = new DateOnly(2026, 6, 1), EndDate = new DateOnly(2026, 8, 31)
+        };
+        var timedCorps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Guardians" };
+        var tbdCorps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Seasons.Add(season);
+        db.Corps.AddRange(timedCorps, tbdCorps);
+        db.SeasonCorps.AddRange(
+            new SeasonCorpsEntity { SeasonId = season.Id, CorpsId = timedCorps.Id },
+            new SeasonCorpsEntity { SeasonId = season.Id, CorpsId = tbdCorps.Id }
+        );
+        await db.SaveChangesAsync();
+
+        var prefillData = new ShowPrefillData(
+            false, "San Antonio, TX", null, null,
+            "13:30", "22:11", "CT",
+            [
+                new ShowPrefillScheduleEntry("13:40", "Guardians - McKinney, TX"),
+                new ShowPrefillScheduleEntry(null, "Blue Devils - Concord, CA")
+            ],
+            "2026-08-15");
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), new FakeShowInfoScraperTask(prefillData));
+
+        var result = await svc.PrefillShowAsync("Test Championship", season.Id);
+
+        Assert.NotNull(result);
+        Assert.Contains(timedCorps.Id, result!.CorpsIds);
+        Assert.Contains(tbdCorps.Id, result.CorpsIds);
+
+        var tbdEntry = result.Schedule.Single(e => e.Label.StartsWith("Blue Devils"));
+        Assert.Null(tbdEntry.Time);
     }
 }

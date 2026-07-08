@@ -63,7 +63,8 @@ public class ShowInfoScraperTask(IHtmlFetcher fetcher) : IShowInfoScraperTask
         var scoresAnnouncedTime = filteredEntries
             .FirstOrDefault(e =>
                 e.Label.Contains("score", StringComparison.OrdinalIgnoreCase) ||
-                e.Label.Contains("recap", StringComparison.OrdinalIgnoreCase))
+                e.Label.Contains("recap", StringComparison.OrdinalIgnoreCase) ||
+                e.Label.Contains("conclude", StringComparison.OrdinalIgnoreCase))
             ?.Time24h;
 
         return new ShowPrefillData(
@@ -211,11 +212,6 @@ public class ShowInfoScraperTask(IHtmlFetcher fetcher) : IShowInfoScraperTask
             var rawLabel = HtmlEntity.DeEntitize(cells[1].InnerText).Trim();
             var label = StripCity(rawLabel);
             var time24h = ConvertTo24h(rawTime);
-
-            if (time24h is null)
-            {
-                continue;
-            }
 
             entries.Add(new ShowPrefillScheduleEntry(time24h, label));
         }
