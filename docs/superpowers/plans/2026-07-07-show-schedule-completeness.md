@@ -501,6 +501,8 @@ git commit -m "test: prove PrefillShowAsync includes TBD corps once scraper stop
 
 ### Task 5: Frontend types + null-safety bug fixes
 
+> **Update (post task-review):** this task's review found that exporting the three pure helpers from `SeasonDetail.tsx` (Step 5 below) trips the `react-refresh/only-export-components` lint rule. The human partner chose to fix this by extracting the helpers rather than suppress the rule — see the follow-up commits `1d95ba1`/`a9bdf7d`. **The file this task creates is actually `DCF.Web/src/pages/SeasonDetail.helpers.ts` (not part of `SeasonDetail.tsx`), and its test is `DCF.Web/src/pages/SeasonDetail.helpers.test.ts`** (`.test.ts`, not `.test.tsx` — no JSX in that file, matching the repo's existing `authSession.ts`/`.test.ts` convention). The steps below are kept as originally written for the historical record of what was first implemented and reviewed; read them with that substitution in mind.
+
 **Files:**
 - Modify: `DCF.Web/src/types/api.ts`
 - Modify: `DCF.Web/src/api/client.ts`
