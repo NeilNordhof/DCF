@@ -78,6 +78,10 @@ public class ScrapeSchedulerService(
             {
                 // expected when rescheduled
             }
+            catch (ObjectDisposedException)
+            {
+                // expected when cancelled before the delay/token registration was reached
+            }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Scheduled scrape task failed for show {ShowId}", show.Id);
