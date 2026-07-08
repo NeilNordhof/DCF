@@ -697,4 +697,44 @@ public class AdminServiceTests
         Assert.Equal("Simulated scrape failure", error);
         Assert.Equal(1, scraperTask.CallCount);
     }
+
+    [Fact]
+    public async Task PrefillShowAsync_TbdScheduleEntry_CorpsIncludedAndTimeNull()
+    {
+        using var db = CreateDb("prefill_tbd_corps");
+        var season = new SeasonEntity
+        {
+            Id = Guid.NewGuid(), Year = 2026,
+            StartDate = new DateOnly(2026, 6, 1), EndDate = new DateOnly(2026, 8, 31)
+        };
+        var timedCorps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Guardians" };
+        var tbdCorps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Seasons.Add(season);
+        db.Corps.AddRange(timedCorps, tbdCorps);
+        db.SeasonCorps.AddRange(
+            new SeasonCorpsEntity { SeasonId = season.Id, CorpsId = timedCorps.Id },
+            new SeasonCorpsEntity { SeasonId = season.Id, CorpsId = tbdCorps.Id }
+        );
+        await db.SaveChangesAsync();
+
+        var prefillData = new ShowPrefillData(
+            false, "San Antonio, TX", null, null,
+            "13:30", "22:11", "CT",
+            [
+                new ShowPrefillScheduleEntry("13:40", "Guardians - McKinney, TX"),
+                new ShowPrefillScheduleEntry(null, "Blue Devils - Concord, CA")
+            ],
+            "2026-08-15");
+
+        var svc = new AdminService(db, null!, null!, new NoOpSeasonStatus(), new FakeShowInfoScraperTask(prefillData));
+
+        var result = await svc.PrefillShowAsync("Test Championship", season.Id);
+
+        Assert.NotNull(result);
+        Assert.Contains(timedCorps.Id, result!.CorpsIds);
+        Assert.Contains(tbdCorps.Id, result.CorpsIds);
+
+        var tbdEntry = result.Schedule.Single(e => e.Label.StartsWith("Blue Devils"));
+        Assert.Null(tbdEntry.Time);
+    }
 }
