@@ -257,7 +257,7 @@ export function SeasonDetail() {
     e.preventDefault();
     if (!id || addingShow) return;
     if (!isExhibition && showCorpsIds.size === 0) { setError('Select at least one corps.'); return; }
-    if (!isExhibition && !showScoresTime) { setError('Scores announced time is required for competitive shows.'); return; }
+    if (!showScoresTime) { setError('Scores/concludes time is required.'); return; }
     setAddingShow(true);
     setError(null);
 
@@ -784,7 +784,7 @@ export function SeasonDetail() {
                     <TimePicker value={showStartTime} onChange={setShowStartTime} style={{ flex: 1 }} />
                   </div>
                   <div className="admin-show-form-pair">
-                    <label style={labelStyle}>Scores</label>
+                    <label style={labelStyle}>{isExhibition ? 'Concludes' : 'Scores'}</label>
                     <TimePicker value={showScoresTime} onChange={setShowScoresTime} required style={{ flex: 1 }} />
                   </div>
                 </div>
@@ -807,7 +807,12 @@ export function SeasonDetail() {
                       }}>
                         {showSchedule.map((entry, i) => (
                           <div key={i} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
-                            <span style={{ minWidth: 36, fontVariantNumeric: 'tabular-nums' }}>{entry.time}</span>
+                            <span style={{
+                              minWidth: 36, fontVariantNumeric: 'tabular-nums',
+                              color: entry.time ? undefined : 'var(--text-faint)',
+                            }}>
+                              {entry.time ?? 'TBD'}
+                            </span>
                             <span>{entry.label}</span>
                           </div>
                         ))}
@@ -898,7 +903,7 @@ export function SeasonDetail() {
                             <TimePicker value={editShow.startTime} onChange={v => setEditShow(p => p && ({ ...p, startTime: v }))} style={{ flex: 1 }} />
                           </div>
                           <div className="admin-show-form-pair">
-                            <label style={labelStyle}>Scores</label>
+                            <label style={labelStyle}>{s.isExhibition ? 'Concludes' : 'Scores'}</label>
                             <TimePicker value={editShow.scoresTime} onChange={v => setEditShow(p => p && ({ ...p, scoresTime: v }))} required style={{ flex: 1 }} />
                           </div>
                         </div>
