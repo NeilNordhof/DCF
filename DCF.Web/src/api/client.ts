@@ -1,4 +1,4 @@
-import type { ActiveSeason, Corps, CreateLeagueRequest, League, MemberScoreBreakdown, PublicLeague, Season, SeasonCorps, SeasonDetail, Show, ShowPrefillResponse, Standing, UpdateLeagueRequest, UserProfile } from '../types/api';
+import type { ActiveSeason, Corps, CreateLeagueRequest, League, MemberScoreBreakdown, PublicLeague, Season, SeasonCorps, SeasonDetail, Show, ShowPrefillResponse, ShowScheduleEntry, Standing, UpdateLeagueRequest, UserProfile } from '../types/api';
 import { REMEMBER_TOKEN_STORAGE_KEY } from '../context/authSession';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
@@ -133,7 +133,7 @@ export const api = {
       latitude?: number | null;
       longitude?: number | null;
       corpsIds: string[];
-      schedule: { time: string; label: string; corpsId: string | null }[];
+      schedule: ShowScheduleEntry[];
     }
   ) =>
     request<{ id: string; name: string }>(`/api/admin/seasons/${seasonId}/shows`, {
@@ -156,7 +156,7 @@ export const api = {
       latitude?: number | null;
       longitude?: number | null;
       corpsIds: string[];
-      schedule: { time: string; label: string; corpsId: string | null }[];
+      schedule: ShowScheduleEntry[];
     }
   ) =>
     request<void>(`/api/admin/shows/${id}`, { method: 'PUT', body: JSON.stringify(body) }),

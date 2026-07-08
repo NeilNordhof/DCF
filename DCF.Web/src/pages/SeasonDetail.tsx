@@ -8,10 +8,18 @@ import { TimePicker } from '../components/TimePicker';
 
 const TZ_HOURS: Record<string, number> = { PT: 7, MT: 6, CT: 5, ET: 4 };
 
-function buildDateTime(date: string, time: string, tz: string): string {
+export function buildDateTime(date: string, time: string, tz: string): string {
   const d = new Date(`${date}T${time}:00Z`);
   d.setUTCHours(d.getUTCHours() + (TZ_HOURS[tz] ?? 4));
   return d.toISOString();
+}
+
+export function buildScheduleEntryTime(date: string, time: string | null, tz: string): string | null {
+  return time ? buildDateTime(date, time, tz) : null;
+}
+
+export function toNullableIso(time: string | null): string | null {
+  return time ? new Date(time).toISOString() : null;
 }
 
 function hasStarted(show: Show): boolean {
@@ -276,16 +284,18 @@ export function SeasonDetail() {
       let prevTime = '';
 
       const schedulePayload = showSchedule.map(entry => {
-        if (prevTime && entry.time < prevTime && prevTime >= '12:00') {
+        if (entry.time && prevTime && entry.time < prevTime && prevTime >= '12:00') {
           const d = new Date(`${rolloverDate}T00:00:00`);
           d.setDate(d.getDate() + 1);
           rolloverDate = d.toISOString().slice(0, 10);
         }
 
-        prevTime = entry.time;
+        if (entry.time) {
+          prevTime = entry.time;
+        }
 
         return {
-          time: buildDateTime(rolloverDate, entry.time, showTz),
+          time: buildScheduleEntryTime(rolloverDate, entry.time, showTz),
           label: entry.label,
           corpsId: entry.corpsId,
         };
@@ -402,7 +412,7 @@ export function SeasonDetail() {
         longitude: show.longitude ?? null,
         corpsIds: Array.from(editShow.corpsIds),
         schedule: show.schedule.map(e => ({
-          time: new Date(e.time).toISOString(),
+          time: toNullableIso(e.time),
           label: e.label,
           corpsId: e.corpsId,
         })),

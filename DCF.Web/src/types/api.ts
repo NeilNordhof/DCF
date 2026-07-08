@@ -148,13 +148,13 @@ export interface SeasonDetail extends Season {
 }
 
 export interface ShowScheduleEntry {
-  time: string;
+  time: string | null;
   label: string;
   corpsId: string | null;
 }
 
 export interface ShowPrefillScheduleEntry {
-  time: string;
+  time: string | null;
   label: string;
   corpsId: string | null;
 }
