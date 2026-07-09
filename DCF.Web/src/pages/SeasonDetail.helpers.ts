@@ -66,3 +66,36 @@ export function getScrapeResultMessage(result: TriggerScrapeResult): ScrapeResul
 
   return { text: 'Scrape skipped', color: 'var(--accent)', sticky: false };
 }
+
+export interface SchedulePayloadEntry {
+  time: string | null;
+  label: string;
+  corpsId: string | null;
+}
+
+export function buildSchedulePayload(
+  entries: SchedulePayloadEntry[],
+  baseDate: string,
+  tz: string
+): SchedulePayloadEntry[] {
+  let rolloverDate = baseDate;
+  let prevTime = '';
+
+  return entries.map(entry => {
+    if (entry.time && prevTime && entry.time < prevTime && prevTime >= '12:00') {
+      const d = new Date(`${rolloverDate}T00:00:00`);
+      d.setDate(d.getDate() + 1);
+      rolloverDate = d.toISOString().slice(0, 10);
+    }
+
+    if (entry.time) {
+      prevTime = entry.time;
+    }
+
+    return {
+      time: buildScheduleEntryTime(rolloverDate, entry.time, tz),
+      label: entry.label,
+      corpsId: entry.corpsId,
+    };
+  });
+}

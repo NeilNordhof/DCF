@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildDateTime, buildScheduleEntryTime, toNullableIso, getShowStatusBadge, getScrapeResultMessage } from './SeasonDetail.helpers';
+import { buildDateTime, buildScheduleEntryTime, toNullableIso, getShowStatusBadge, getScrapeResultMessage, buildSchedulePayload } from './SeasonDetail.helpers';
 import type { Show } from '../types/api';
 
 describe('buildDateTime', () => {
@@ -100,5 +100,35 @@ describe('getScrapeResultMessage', () => {
     expect(getScrapeResultMessage({ outcome: 'Skipped', error: null })).toEqual({
       text: 'Scrape skipped', color: 'var(--accent)', sticky: false,
     });
+  });
+});
+
+describe('buildSchedulePayload', () => {
+  it('builds ISO times for each entry using the base date', () => {
+    const entries = [
+      { time: '13:40', label: 'Guardians - McKinney, TX', corpsId: 'c1' },
+      { time: '14:20', label: 'Bluecoats - Canton, OH', corpsId: 'c2' },
+    ];
+    expect(buildSchedulePayload(entries, '2026-08-15', 'CT')).toEqual([
+      { time: '2026-08-15T18:40:00.000Z', label: 'Guardians - McKinney, TX', corpsId: 'c1' },
+      { time: '2026-08-15T19:20:00.000Z', label: 'Bluecoats - Canton, OH', corpsId: 'c2' },
+    ]);
+  });
+
+  it('passes through null (TBD) entries without a time', () => {
+    const entries = [{ time: null, label: 'Blue Devils - Concord, CA', corpsId: 'c3' }];
+    expect(buildSchedulePayload(entries, '2026-08-15', 'CT')).toEqual([
+      { time: null, label: 'Blue Devils - Concord, CA', corpsId: 'c3' },
+    ]);
+  });
+
+  it('rolls the date forward when a late-night entry wraps past midnight', () => {
+    const entries = [
+      { time: '23:30', label: 'Late Corps', corpsId: 'c1' },
+      { time: '00:15', label: 'After Midnight Corps', corpsId: 'c2' },
+    ];
+    const result = buildSchedulePayload(entries, '2026-08-15', 'CT');
+    expect(result[0].time).toBe('2026-08-16T04:30:00.000Z');
+    expect(result[1].time).toBe('2026-08-16T05:15:00.000Z');
   });
 });

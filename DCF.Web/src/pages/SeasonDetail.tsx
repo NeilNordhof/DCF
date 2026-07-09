@@ -6,8 +6,8 @@ import type { Corps, SeasonDetail as SeasonDetailType, Show, ShowPrefillSchedule
 import { CorpsIcon } from '../components/CorpsIcon';
 import { TimePicker } from '../components/TimePicker';
 import {
-  TZ_HOURS, buildDateTime, buildScheduleEntryTime, toNullableIso,
-  hasStarted, hasScoresAnnounced, getShowStatusBadge, getScrapeResultMessage,
+  TZ_HOURS, buildDateTime, toNullableIso,
+  hasStarted, hasScoresAnnounced, getShowStatusBadge, getScrapeResultMessage, buildSchedulePayload,
 } from './SeasonDetail.helpers';
 import type { TriggerScrapeResult } from '../types/api';
 
@@ -265,26 +265,7 @@ export function SeasonDetail() {
       const startTimeIso = showStartTime ? buildDateTime(showDate, showStartTime, showTz) : null;
       const scoresTimeIso = showScoresTime ? buildDateTime(showDate, showScoresTime, showTz) : null;
 
-      let rolloverDate = showDate;
-      let prevTime = '';
-
-      const schedulePayload = showSchedule.map(entry => {
-        if (entry.time && prevTime && entry.time < prevTime && prevTime >= '12:00') {
-          const d = new Date(`${rolloverDate}T00:00:00`);
-          d.setDate(d.getDate() + 1);
-          rolloverDate = d.toISOString().slice(0, 10);
-        }
-
-        if (entry.time) {
-          prevTime = entry.time;
-        }
-
-        return {
-          time: buildScheduleEntryTime(rolloverDate, entry.time, showTz),
-          label: entry.label,
-          corpsId: entry.corpsId,
-        };
-      });
+      const schedulePayload = buildSchedulePayload(showSchedule, showDate, showTz);
 
       await api.adminCreateShow(id, {
         name: showName,
