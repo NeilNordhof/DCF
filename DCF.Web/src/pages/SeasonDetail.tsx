@@ -1187,9 +1187,13 @@ export function SeasonDetail() {
                                 setError(null);
                                 setScrapeResult({ showId: s.id, result });
 
-                                const updated = await api.adminGetShows(id!);
-
-                                setShows(updated);
+                                try {
+                                  const updated = await api.adminGetShows(id!);
+                                  setShows(updated);
+                                } catch {
+                                  // trigger itself succeeded; don't let a refetch failure
+                                  // surface as a misleading "trigger failed" error below
+                                }
 
                                 if (!getScrapeResultMessage(result).sticky) {
                                   setTimeout(() => setScrapeResult(null), 3000);
