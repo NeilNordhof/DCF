@@ -5,15 +5,10 @@ import { api } from '../api/client';
 import type { Corps, SeasonDetail as SeasonDetailType, Show, ShowPrefillScheduleEntry } from '../types/api';
 import { CorpsIcon } from '../components/CorpsIcon';
 import { TimePicker } from '../components/TimePicker';
-import { TZ_HOURS, buildDateTime, buildScheduleEntryTime, toNullableIso } from './SeasonDetail.helpers';
-
-function hasStarted(show: Show): boolean {
-  return !!show.startTime && new Date(show.startTime) <= new Date();
-}
-
-function hasScoresAnnounced(show: Show): boolean {
-  return !!show.scoresAnnouncedTime && new Date(show.scoresAnnouncedTime) <= new Date();
-}
+import {
+  TZ_HOURS, buildDateTime, buildScheduleEntryTime, toNullableIso,
+  hasStarted, hasScoresAnnounced, getShowStatusBadge,
+} from './SeasonDetail.helpers';
 
 const inputStyle: CSSProperties = {
   width: '100%', padding: '7px 10px', borderRadius: 5,
@@ -92,6 +87,8 @@ export function SeasonDetail() {
   } | null>(null);
   const [savingShowEdit, setSavingShowEdit] = useState(false);
   const [deletingShowId, setDeletingShowId] = useState<string | null>(null);
+  const [noScoreReasonInput, setNoScoreReasonInput] = useState('');
+  const [savingNoScoreReason, setSavingNoScoreReason] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [scrapeSuccessId, setScrapeSuccessId] = useState<string | null>(null);
@@ -350,6 +347,7 @@ export function SeasonDetail() {
     if (expandedShowId === show.id) {
       setExpandedShowId(null);
       setEditShow(null);
+      setNoScoreReasonInput('');
       return;
     }
     const tz = show.timezone ?? 'ET';
@@ -368,6 +366,7 @@ export function SeasonDetail() {
       tz,
       corpsIds: new Set(show.corpsIds),
     });
+    setNoScoreReasonInput(show.noScoreReason ?? '');
   }
 
   const saveShowEdit = async (showId: string) => {
@@ -432,6 +431,25 @@ export function SeasonDetail() {
       setError('Failed to delete show.');
     } finally {
       setDeletingShowId(null);
+    }
+  };
+
+  const saveNoScoreReason = async (showId: string, reason: string | null) => {
+    if (savingNoScoreReason) return;
+    setSavingNoScoreReason(true);
+    setError(null);
+
+    try {
+      await api.adminSetNoScoreReason(showId, reason);
+
+      const updated = await api.adminGetShows(id!);
+
+      setShows(updated);
+      setNoScoreReasonInput(reason ?? '');
+    } catch {
+      setError('Failed to update no-score reason.');
+    } finally {
+      setSavingNoScoreReason(false);
     }
   };
 
@@ -840,6 +858,7 @@ export function SeasonDetail() {
           {shows.map(s => {
             const expanded = expandedShowId === s.id;
             const started = hasStarted(s);
+            const statusBadge = getShowStatusBadge(s);
 
             return (
               <div key={s.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, overflow: 'hidden' }}>
@@ -853,16 +872,21 @@ export function SeasonDetail() {
                       {s.date}
                       {s.startTime && ` · starts ${new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                       {s.scoresAnnouncedTime && ` · scores ${new Date(s.scoresAnnouncedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-                      {hasScoresAnnounced(s)
-                        ? <span style={{ color: 'var(--green)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>SCORES ANNOUNCED</span>
-                        : started && <span style={{ color: 'var(--accent)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>STARTED</span>
-                      }
-                      {s.scrapeStatus === 'Succeeded'
-                        ? <span style={{ color: 'var(--green)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>SCRAPE COMPLETED</span>
-                        : s.scrapeStatus === 'Failed'
-                        ? <span style={{ color: 'var(--red)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>SCRAPE FAILED</span>
-                        : <span/>
-                      }
+                      {statusBadge && (
+                        <span
+                          style={{ color: statusBadge.color, marginLeft: 6, fontWeight: 700, fontSize: 8 }}
+                          title={s.noScoreReason ?? undefined}
+                        >
+                          {statusBadge.label}
+                        </span>
+                      )}
+                      {!s.noScoreReason && (
+                        s.scrapeStatus === 'Succeeded'
+                          ? <span style={{ color: 'var(--green)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>SCRAPE COMPLETED</span>
+                          : s.scrapeStatus === 'Failed'
+                          ? <span style={{ color: 'var(--red)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>SCRAPE FAILED</span>
+                          : <span/>
+                      )}
                     </div>
                   </div>
                   <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{expanded ? '▲' : '▼'}</span>
@@ -956,7 +980,53 @@ export function SeasonDetail() {
                       </>
                     ) : null}
 
-                    {!s.isExhibition && (started || hasScoresAnnounced(s)) && (
+                    {!s.isExhibition && (
+                      <div style={{ marginTop: 10 }}>
+                        {s.noScoreReason ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ flex: 1, fontSize: 10, color: 'var(--text-muted)' }}>
+                              <strong style={{ color: 'var(--red)' }}>No scores:</strong> {s.noScoreReason}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => saveNoScoreReason(s.id, null)}
+                              disabled={savingNoScoreReason}
+                              style={{
+                                padding: '6px 10px', borderRadius: 5, fontSize: 10, fontWeight: 700,
+                                background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)',
+                                cursor: savingNoScoreReason ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              value={noScoreReasonInput}
+                              onChange={e => setNoScoreReasonInput(e.target.value)}
+                              placeholder="Reason, e.g. rained out"
+                              style={{ ...inputStyle, flex: 1 }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => saveNoScoreReason(s.id, noScoreReasonInput)}
+                              disabled={savingNoScoreReason || !noScoreReasonInput.trim()}
+                              style={{
+                                padding: '6px 10px', borderRadius: 5, fontSize: 10, fontWeight: 700,
+                                background: 'var(--red)', color: 'var(--bg)', border: 'none',
+                                cursor: savingNoScoreReason || !noScoreReasonInput.trim() ? 'not-allowed' : 'pointer',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Mark No Scores
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {!s.isExhibition && !s.noScoreReason && (started || hasScoresAnnounced(s)) && (
                       <div style={{ marginTop: 10 }}>
                         <button
                           type="button"
