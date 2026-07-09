@@ -374,25 +374,28 @@ export function SeasonDetail() {
 
   const editFetchFromDci = async () => {
     if (!id || !editShow || editPrefetching || editPrefetched) return;
+    const targetShowId = expandedShowIdRef.current;
     setEditPrefetching(true);
     setEditPrefetchError(null);
 
     try {
       const data = await api.adminPrefillShow(id, editShow.name);
 
-      setEditShow(p => p && ({
-        ...p,
-        date: data.date ?? p.date,
-        startTime: data.startTime ?? p.startTime,
-        scoresTime: data.scoresAnnouncedTime ?? p.scoresTime,
-        tz: data.timezone ?? p.tz,
-        corpsIds: data.corpsIds.length > 0 ? new Set(data.corpsIds) : p.corpsIds,
-        location: data.location ?? '',
-        latitude: data.latitude ?? null,
-        longitude: data.longitude ?? null,
-        schedule: data.schedule,
-      }));
-      setEditPrefetched(true);
+      if (expandedShowIdRef.current === targetShowId) {
+        setEditShow(p => p && ({
+          ...p,
+          date: data.date ?? p.date,
+          startTime: data.startTime ?? p.startTime,
+          scoresTime: data.scoresAnnouncedTime ?? p.scoresTime,
+          tz: data.timezone ?? p.tz,
+          corpsIds: data.corpsIds.length > 0 ? new Set(data.corpsIds) : p.corpsIds,
+          location: data.location ?? '',
+          latitude: data.latitude ?? null,
+          longitude: data.longitude ?? null,
+          schedule: data.schedule,
+        }));
+        setEditPrefetched(true);
+      }
     } catch {
       setEditPrefetchError('Could not fetch from DCI — fill in manually.');
     } finally {
