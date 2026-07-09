@@ -397,7 +397,9 @@ export function SeasonDetail() {
         setEditPrefetched(true);
       }
     } catch {
-      setEditPrefetchError('Could not fetch from DCI — fill in manually.');
+      if (expandedShowIdRef.current === targetShowId) {
+        setEditPrefetchError('Could not fetch from DCI — fill in manually.');
+      }
     } finally {
       setEditPrefetching(false);
     }
