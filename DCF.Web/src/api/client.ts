@@ -1,4 +1,4 @@
-import type { ActiveSeason, Corps, CreateLeagueRequest, League, MemberScoreBreakdown, PublicLeague, Season, SeasonCorps, SeasonDetail, Show, ShowPrefillResponse, ShowScheduleEntry, Standing, UpdateLeagueRequest, UserProfile } from '../types/api';
+import type { ActiveSeason, Corps, CreateLeagueRequest, League, MemberScoreBreakdown, PublicLeague, Season, SeasonCorps, SeasonDetail, Show, ShowPrefillResponse, ShowScheduleEntry, Standing, TriggerScrapeResult, UpdateLeagueRequest, UserProfile } from '../types/api';
 import { REMEMBER_TOKEN_STORAGE_KEY } from '../context/authSession';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
@@ -102,7 +102,7 @@ export const api = {
     return res.json() as Promise<{ iconUrl: string }>;
   },
   adminTriggerScrape: (showId: string) =>
-    request<void>(`/api/admin/shows/${showId}/scrape`, { method: 'POST' }),
+    request<TriggerScrapeResult>(`/api/admin/shows/${showId}/scrape`, { method: 'POST' }),
   adminGetSeasons: () =>
     request<Season[]>('/api/admin/seasons'),
   adminGetSeason: (id: string) =>

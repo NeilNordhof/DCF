@@ -6,9 +6,12 @@ import type { Corps, SeasonDetail as SeasonDetailType, Show, ShowPrefillSchedule
 import { CorpsIcon } from '../components/CorpsIcon';
 import { TimePicker } from '../components/TimePicker';
 import {
-  TZ_HOURS, buildDateTime, buildScheduleEntryTime, toNullableIso,
-  hasStarted, hasScoresAnnounced, getShowStatusBadge,
+  TZ_HOURS, buildDateTime,
+  hasStarted, hasScoresAnnounced, getShowStatusBadge, getScrapeResultMessage, buildSchedulePayload,
+  getShowFilterBucket,
 } from './SeasonDetail.helpers';
+import type { ShowFilterBucket } from './SeasonDetail.helpers';
+import type { TriggerScrapeResult } from '../types/api';
 
 const inputStyle: CSSProperties = {
   width: '100%', padding: '7px 10px', borderRadius: 5,
@@ -85,14 +88,20 @@ export function SeasonDetail() {
     name: string; url: string; date: string;
     startTime: string; scoresTime: string; tz: string;
     corpsIds: Set<string>;
+    location: string; latitude: number | null; longitude: number | null;
+    schedule: ShowPrefillScheduleEntry[];
   } | null>(null);
   const [savingShowEdit, setSavingShowEdit] = useState(false);
   const [deletingShowId, setDeletingShowId] = useState<string | null>(null);
+  const [editPrefetchError, setEditPrefetchError] = useState<string | null>(null);
+  const [editPrefetching, setEditPrefetching] = useState(false);
+  const [editPrefetched, setEditPrefetched] = useState(false);
   const [noScoreReasonInput, setNoScoreReasonInput] = useState('');
   const [savingNoScoreReason, setSavingNoScoreReason] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
-  const [scrapeSuccessId, setScrapeSuccessId] = useState<string | null>(null);
+  const [triggeringScrapeId, setTriggeringScrapeId] = useState<string | null>(null);
+  const [scrapeResult, setScrapeResult] = useState<{ showId: string; result: TriggerScrapeResult } | null>(null);
 
   const [editingDates, setEditingDates] = useState(false);
   const [editStartDate, setEditStartDate] = useState('');
@@ -102,6 +111,8 @@ export function SeasonDetail() {
   const [corpsSortInputs, setCorpsSortInputs] = useState<Record<string, string>>({});
   const [savingOrder, setSavingOrder] = useState(false);
   const [corpsOpen, setCorpsOpen] = useState(false);
+  const [showSearch, setShowSearch] = useState('');
+  const [showFilter, setShowFilter] = useState<'all' | ShowFilterBucket>('all');
 
   useEffect(() => {
     if (!id) return;
@@ -263,26 +274,7 @@ export function SeasonDetail() {
       const startTimeIso = showStartTime ? buildDateTime(showDate, showStartTime, showTz) : null;
       const scoresTimeIso = showScoresTime ? buildDateTime(showDate, showScoresTime, showTz) : null;
 
-      let rolloverDate = showDate;
-      let prevTime = '';
-
-      const schedulePayload = showSchedule.map(entry => {
-        if (entry.time && prevTime && entry.time < prevTime && prevTime >= '12:00') {
-          const d = new Date(`${rolloverDate}T00:00:00`);
-          d.setDate(d.getDate() + 1);
-          rolloverDate = d.toISOString().slice(0, 10);
-        }
-
-        if (entry.time) {
-          prevTime = entry.time;
-        }
-
-        return {
-          time: buildScheduleEntryTime(rolloverDate, entry.time, showTz),
-          label: entry.label,
-          corpsId: entry.corpsId,
-        };
-      });
+      const schedulePayload = buildSchedulePayload(showSchedule, showDate, showTz);
 
       await api.adminCreateShow(id, {
         name: showName,
@@ -350,6 +342,8 @@ export function SeasonDetail() {
       expandedShowIdRef.current = null;
       setEditShow(null);
       setNoScoreReasonInput('');
+      setEditPrefetchError(null);
+      setEditPrefetched(false);
       return;
     }
     const tz = show.timezone ?? 'ET';
@@ -368,9 +362,52 @@ export function SeasonDetail() {
       scoresTime: show.scoresAnnouncedTime ? toHHMM(show.scoresAnnouncedTime) : '',
       tz,
       corpsIds: new Set(show.corpsIds),
+      location: show.location ?? '',
+      latitude: show.latitude ?? null,
+      longitude: show.longitude ?? null,
+      schedule: show.schedule.map(e => ({
+        time: e.time ? toHHMM(e.time) : null,
+        label: e.label,
+        corpsId: e.corpsId,
+      })),
     });
     setNoScoreReasonInput(show.noScoreReason ?? '');
+    setEditPrefetchError(null);
+    setEditPrefetched(false);
   }
+
+  const editFetchFromDci = async () => {
+    if (!id || !editShow || editPrefetching || editPrefetched) return;
+    const targetShowId = expandedShowIdRef.current;
+    setEditPrefetching(true);
+    setEditPrefetchError(null);
+
+    try {
+      const data = await api.adminPrefillShow(id, editShow.name);
+
+      if (expandedShowIdRef.current === targetShowId) {
+        setEditShow(p => p && ({
+          ...p,
+          date: data.date ?? p.date,
+          startTime: data.startTime ?? p.startTime,
+          scoresTime: data.scoresAnnouncedTime ?? p.scoresTime,
+          tz: data.timezone ?? p.tz,
+          corpsIds: data.corpsIds.length > 0 ? new Set(data.corpsIds) : p.corpsIds,
+          location: data.location ?? '',
+          latitude: data.latitude ?? null,
+          longitude: data.longitude ?? null,
+          schedule: data.schedule,
+        }));
+        setEditPrefetched(true);
+      }
+    } catch {
+      if (expandedShowIdRef.current === targetShowId) {
+        setEditPrefetchError('Could not fetch from DCI — fill in manually.');
+      }
+    } finally {
+      setEditPrefetching(false);
+    }
+  };
 
   const saveShowEdit = async (showId: string) => {
     if (!editShow || savingShowEdit) return;
@@ -394,15 +431,11 @@ export function SeasonDetail() {
         scoresAnnouncedTime: scoresTimeIso,
         timezone: editShow.tz,
         isExhibition: show.isExhibition,
-        location: show.location ?? null,
-        latitude: show.latitude ?? null,
-        longitude: show.longitude ?? null,
+        location: editShow.location || null,
+        latitude: editShow.latitude,
+        longitude: editShow.longitude,
         corpsIds: Array.from(editShow.corpsIds),
-        schedule: show.schedule.map(e => ({
-          time: toNullableIso(e.time),
-          label: e.label,
-          corpsId: e.corpsId,
-        })),
+        schedule: buildSchedulePayload(editShow.schedule, editShow.date, editShow.tz),
       });
 
       const updated = await api.adminGetShows(id!);
@@ -466,6 +499,12 @@ export function SeasonDetail() {
   }
 
   const seasonCorps = allCorps.filter(c => season.corpsIds.includes(c.id));
+
+  const filteredShows = shows.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(showSearch.toLowerCase());
+    const matchesFilter = showFilter === 'all' || getShowFilterBucket(s) === showFilter;
+    return matchesSearch && matchesFilter;
+  });
 
   const sortedSeasonCorps = [...seasonCorps].sort((a, b) => {
     const aVal = parseInt(corpsSortInputs[a.id] ?? '');
@@ -859,14 +898,40 @@ export function SeasonDetail() {
             )}
           </div>
 
+          {shows.length > 0 && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={showSearch}
+                onChange={e => setShowSearch(e.target.value)}
+                placeholder="Search shows…"
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <select
+                value={showFilter}
+                onChange={e => setShowFilter(e.target.value as 'all' | ShowFilterBucket)}
+                style={{ ...inputStyle, width: 160 }}
+              >
+                <option value="all">All</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="needsAttention">Needs Attention</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+          )}
+
           {shows.length === 0 && (
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No shows yet.</div>
           )}
 
-          {shows.map(s => {
+          {shows.length > 0 && filteredShows.length === 0 && (
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No shows match your search/filter.</div>
+          )}
+
+          {filteredShows.map(s => {
             const expanded = expandedShowId === s.id;
             const started = hasStarted(s);
             const statusBadge = getShowStatusBadge(s);
+            const scrapeMessage = scrapeResult && scrapeResult.showId === s.id ? getScrapeResultMessage(scrapeResult.result) : null;
 
             return (
               <div key={s.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, overflow: 'hidden' }}>
@@ -904,16 +969,65 @@ export function SeasonDetail() {
                   <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {!started && !hasScoresAnnounced(s) ? (
                       <>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-                          <label style={labelStyle}>Name</label>
-                          <input value={editShow.name} onChange={e => setEditShow(p => p && ({ ...p, name: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 10 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <label style={labelStyle}>Name</label>
+                              <input value={editShow.name} onChange={e => setEditShow(p => p && ({ ...p, name: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={editFetchFromDci}
+                            disabled={editPrefetching || editPrefetched}
+                            style={{
+                              padding: '7px 12px', borderRadius: 5, fontSize: 10, fontWeight: 600,
+                              background: 'var(--accent)', border: 'none', color: 'var(--bg)',
+                              cursor: editPrefetching || editPrefetched ? 'not-allowed' : 'pointer',
+                              opacity: editPrefetching || editPrefetched ? 0.5 : 1, whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {editPrefetching ? 'Fetching…' : editPrefetched ? 'Fetched' : 'Fetch from DCI'}
+                          </button>
                         </div>
+
+                        {editPrefetchError && (
+                          <p style={{ fontSize: 10, color: 'var(--red)', margin: '2px 0 0' }}>{editPrefetchError}</p>
+                        )}
+
                         {!s.isExhibition && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <label style={labelStyle}>URL</label>
                             <input value={editShow.url} onChange={e => setEditShow(p => p && ({ ...p, url: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
                           </div>
                         )}
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <label style={labelStyle}>Location</label>
+                          <input
+                            style={{ ...inputStyle, flex: 2 }}
+                            value={editShow.location}
+                            onChange={e => setEditShow(p => p && ({ ...p, location: e.target.value }))}
+                            placeholder="City, ST"
+                          />
+                          <input
+                            type="number"
+                            step="any"
+                            placeholder="Lat"
+                            style={{ ...inputStyle, width: 90 }}
+                            value={editShow.latitude ?? ''}
+                            onChange={e => setEditShow(p => p && ({ ...p, latitude: e.target.value ? parseFloat(e.target.value) : null }))}
+                          />
+                          <input
+                            type="number"
+                            step="any"
+                            placeholder="Lng"
+                            style={{ ...inputStyle, width: 90 }}
+                            value={editShow.longitude ?? ''}
+                            onChange={e => setEditShow(p => p && ({ ...p, longitude: e.target.value ? parseFloat(e.target.value) : null }))}
+                          />
+                        </div>
+
                         {/* Date / TZ */}
                         <div className="admin-show-form-row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div className="admin-show-form-pair">
@@ -939,24 +1053,50 @@ export function SeasonDetail() {
                             <TimePicker value={editShow.scoresTime} onChange={v => setEditShow(p => p && ({ ...p, scoresTime: v }))} required style={{ flex: 1 }} />
                           </div>
                         </div>
-                        <div>
-                          <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                            {seasonCorps.map(c => (
-                              <Chip
-                                key={c.id}
-                                label={c.name}
-                                selected={editShow.corpsIds.has(c.id)}
-                                onClick={() => setEditShow(p => {
-                                  if (!p) return p;
-                                  const next = new Set(p.corpsIds);
-                                  if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
-                                  return { ...p, corpsIds: next };
-                                })}
-                              />
-                            ))}
+
+                        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Participating Corps</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {seasonCorps.map(c => (
+                                <Chip
+                                  key={c.id}
+                                  label={c.name}
+                                  selected={editShow.corpsIds.has(c.id)}
+                                  onClick={() => setEditShow(p => {
+                                    if (!p) return p;
+                                    const next = new Set(p.corpsIds);
+                                    if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                                    return { ...p, corpsIds: next };
+                                  })}
+                                />
+                              ))}
+                            </div>
                           </div>
+
+                          {editShow.schedule.length > 0 && (
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 8, color: 'var(--text-faint)', marginBottom: 6 }}>Schedule</div>
+                              <div style={{
+                                background: 'var(--bg)', border: '1px solid var(--border)',
+                                borderRadius: 5, padding: '4px 8px', fontSize: 10, color: 'var(--text-muted)',
+                              }}>
+                                {editShow.schedule.map((entry, i) => (
+                                  <div key={i} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
+                                    <span style={{
+                                      minWidth: 36, fontVariantNumeric: 'tabular-nums',
+                                      color: entry.time ? undefined : 'var(--text-faint)',
+                                    }}>
+                                      {entry.time ?? 'TBD'}
+                                    </span>
+                                    <span>{entry.label}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
+
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button
                             type="button"
@@ -1039,25 +1179,43 @@ export function SeasonDetail() {
                         <button
                           type="button"
                           onClick={() => {
+                            setTriggeringScrapeId(s.id);
+                            setScrapeResult(null);
+
                             api.adminTriggerScrape(s.id)
-                              .then(() => {
+                              .then(async result => {
                                 setError(null);
-                                setScrapeSuccessId(s.id);
-                                setTimeout(() => setScrapeSuccessId(null), 3000);
+                                setScrapeResult({ showId: s.id, result });
+
+                                try {
+                                  const updated = await api.adminGetShows(id!);
+                                  setShows(updated);
+                                } catch {
+                                  // trigger itself succeeded; don't let a refetch failure
+                                  // surface as a misleading "trigger failed" error below
+                                }
+
+                                if (!getScrapeResultMessage(result).sticky) {
+                                  setTimeout(() => setScrapeResult(null), 3000);
+                                }
                               })
-                              .catch(() => setError('Scrape trigger failed.'));
+                              .catch(() => setError('Scrape trigger failed.'))
+                              .finally(() => setTriggeringScrapeId(null));
                           }}
+                          disabled={triggeringScrapeId === s.id}
                           style={{
                             width: '100%', padding: '7px 0', borderRadius: 5, fontSize: 11, fontWeight: 800,
-                            background: 'var(--accent)', color: 'var(--bg)', border: 'none', cursor: 'pointer',
+                            background: triggeringScrapeId === s.id ? 'var(--border)' : 'var(--accent)',
+                            color: triggeringScrapeId === s.id ? 'var(--text-faint)' : 'var(--bg)',
+                            border: 'none', cursor: triggeringScrapeId === s.id ? 'not-allowed' : 'pointer',
                           }}
                         >
-                          Trigger Score Scrape
+                          {triggeringScrapeId === s.id ? 'Scraping…' : 'Trigger Score Scrape'}
                         </button>
 
-                        {scrapeSuccessId === s.id && (
-                          <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: 'var(--green)', textAlign: 'center' }}>
-                            ✓ Scrape triggered successfully
+                        {scrapeMessage && (
+                          <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: scrapeMessage.color, textAlign: 'center' }}>
+                            {scrapeMessage.text}
                           </div>
                         )}
                       </div>

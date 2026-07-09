@@ -1,4 +1,4 @@
-import type { Show } from '../types/api';
+import type { Show, TriggerScrapeResult } from '../types/api';
 
 export const TZ_HOURS: Record<string, number> = { PT: 7, MT: 6, CT: 5, ET: 4 };
 
@@ -10,10 +10,6 @@ export function buildDateTime(date: string, time: string, tz: string): string {
 
 export function buildScheduleEntryTime(date: string, time: string | null, tz: string): string | null {
   return time ? buildDateTime(date, time, tz) : null;
-}
-
-export function toNullableIso(time: string | null): string | null {
-  return time ? new Date(time).toISOString() : null;
 }
 
 export function hasStarted(show: Show): boolean {
@@ -47,4 +43,69 @@ export function getShowStatusBadge(show: Show): ShowStatusBadge | null {
   }
 
   return null;
+}
+
+export interface ScrapeResultMessage {
+  text: string;
+  color: string;
+  sticky: boolean;
+}
+
+export function getScrapeResultMessage(result: TriggerScrapeResult): ScrapeResultMessage {
+  if (result.outcome === 'Succeeded') {
+    return { text: '✓ Scrape succeeded', color: 'var(--green)', sticky: false };
+  }
+
+  if (result.outcome === 'Failed') {
+    return { text: `✗ Scrape failed: ${result.error ?? 'Unknown error'}`, color: 'var(--red)', sticky: true };
+  }
+
+  return { text: 'Scrape skipped', color: 'var(--accent)', sticky: false };
+}
+
+export interface SchedulePayloadEntry {
+  time: string | null;
+  label: string;
+  corpsId: string | null;
+}
+
+export function buildSchedulePayload(
+  entries: SchedulePayloadEntry[],
+  baseDate: string,
+  tz: string
+): SchedulePayloadEntry[] {
+  let rolloverDate = baseDate;
+  let prevTime = '';
+
+  return entries.map(entry => {
+    if (entry.time && prevTime && entry.time < prevTime && prevTime >= '12:00') {
+      const d = new Date(`${rolloverDate}T00:00:00`);
+      d.setDate(d.getDate() + 1);
+      rolloverDate = d.toISOString().slice(0, 10);
+    }
+
+    if (entry.time) {
+      prevTime = entry.time;
+    }
+
+    return {
+      time: buildScheduleEntryTime(rolloverDate, entry.time, tz),
+      label: entry.label,
+      corpsId: entry.corpsId,
+    };
+  });
+}
+
+export type ShowFilterBucket = 'upcoming' | 'needsAttention' | 'done';
+
+export function getShowFilterBucket(show: Show): ShowFilterBucket {
+  if (!show.isExhibition && show.scrapeStatus === 'Failed' && !show.noScoreReason) {
+    return 'needsAttention';
+  }
+
+  if (show.noScoreReason || show.scrapeStatus === 'Succeeded' || (show.isExhibition && hasScoresAnnounced(show))) {
+    return 'done';
+  }
+
+  return 'upcoming';
 }
