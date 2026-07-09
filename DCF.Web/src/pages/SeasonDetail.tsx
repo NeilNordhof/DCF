@@ -409,6 +409,7 @@ export function SeasonDetail() {
 
       setShows(updated);
       setExpandedShowId(null);
+      expandedShowIdRef.current = null;
       setEditShow(null);
     } catch {
       setError('Failed to save show.');
@@ -429,6 +430,7 @@ export function SeasonDetail() {
 
       setShows(updated);
       setExpandedShowId(null);
+      expandedShowIdRef.current = null;
       setEditShow(null);
     } catch {
       setError('Failed to delete show.');
