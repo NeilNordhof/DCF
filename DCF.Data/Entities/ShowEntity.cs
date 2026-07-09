@@ -18,6 +18,7 @@ public class ShowEntity
     public ScrapeStatus ScrapeStatus { get; set; } = ScrapeStatus.NotStarted;
     public DateTimeOffset? LastScrapeAttemptAt { get; set; }
     public string? ScrapeError { get; set; }
+    public string? NoScoreReason { get; set; }
     public Guid SeasonId { get; set; }
     public SeasonEntity Season { get; set; } = null!;
 

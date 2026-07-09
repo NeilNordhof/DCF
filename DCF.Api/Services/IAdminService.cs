@@ -31,4 +31,5 @@ public interface IAdminService
     Task<bool> UpdateSeasonDatesAsync(Guid id, DateOnly startDate, DateOnly endDate);
     Task<bool> DeleteShowAsync(Guid id);
     Task<ShowPrefillResponse?> PrefillShowAsync(string showName, Guid seasonId);
+    Task<bool> SetNoScoreReasonAsync(Guid id, string? reason);
 }

@@ -162,6 +162,8 @@ export const api = {
     request<void>(`/api/admin/shows/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   adminDeleteShow: (id: string) =>
     request<void>(`/api/admin/shows/${id}`, { method: 'DELETE' }),
+  adminSetNoScoreReason: (id: string, reason: string | null) =>
+    request<void>(`/api/admin/shows/${id}/no-score-reason`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
   adminPrefillShow: (seasonId: string, name: string) =>
     request<ShowPrefillResponse>(
       `/api/admin/seasons/${seasonId}/shows/prefill?name=${encodeURIComponent(name)}`

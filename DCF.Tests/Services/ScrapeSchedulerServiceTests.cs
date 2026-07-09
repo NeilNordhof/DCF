@@ -339,4 +339,44 @@ public class ScrapeSchedulerServiceTests
 
         Assert.Empty(emailService.SentToEmails);
     }
+
+    [Fact]
+    public async Task ScheduleScrape_ShowHasNoScoreReason_DoesNotExecuteScrape()
+    {
+        using var db = CreateDb("schedule_skips_no_score_reason");
+        var show = CreateShow();
+        show.NoScoreReason = "Storm forced standstill exhibition";
+        show.ScoresAnnouncedTime = DateTimeOffset.UtcNow.AddMilliseconds(50);
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scraperTask = new FakeRecapScraperTask();
+        var svc = CreateSvc(db, scraperTask, new Dictionary<string, string?> { ["Scraper:DelayMinutes"] = "0" });
+
+        svc.ScheduleScrape(show);
+
+        await Task.Delay(300);
+
+        Assert.Equal(0, scraperTask.CallCount);
+    }
+
+    [Fact]
+    public async Task CancelScheduledScrape_PendingScrape_PreventsExecution()
+    {
+        using var db = CreateDb("cancel_scheduled_scrape");
+        var show = CreateShow();
+        show.ScoresAnnouncedTime = DateTimeOffset.UtcNow.AddMilliseconds(100);
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+
+        var scraperTask = new FakeRecapScraperTask();
+        var svc = CreateSvc(db, scraperTask, new Dictionary<string, string?> { ["Scraper:DelayMinutes"] = "0" });
+
+        svc.ScheduleScrape(show);
+        svc.CancelScheduledScrape(show.Id);
+
+        await Task.Delay(400);
+
+        Assert.Equal(0, scraperTask.CallCount);
+    }
 }

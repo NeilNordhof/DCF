@@ -295,6 +295,17 @@ public class AdminController(IAdminService adminService, IWebHostEnvironment env
             req.CorpsIds, req.Schedule) ? NoContent() : NotFound();
     }
 
+    [HttpPatch("shows/{id}/no-score-reason")]
+    public async Task<IActionResult> SetNoScoreReason(Guid id, SetNoScoreReasonRequest req)
+    {
+        if (!await adminService.IsAdminAsync(GetSub()))
+        {
+            return Forbid();
+        }
+
+        return await adminService.SetNoScoreReasonAsync(id, req.Reason) ? NoContent() : NotFound();
+    }
+
     [HttpGet("seasons/{seasonId}/shows/prefill")]
     public async Task<IActionResult> PrefillShow(Guid seasonId, [FromQuery] string name)
     {

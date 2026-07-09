@@ -188,6 +188,7 @@ export interface Show {
   scrapeStatus: 'NotStarted' | 'Succeeded' | 'Failed';
   lastScrapeAttemptAt?: string;
   scrapeError?: string;
+  noScoreReason: string | null;
   schedule: ShowScheduleEntry[];
 }
 

@@ -16,6 +16,7 @@ public record ShowSummary(
     DateTimeOffset? ScoresAnnouncedTime, string? Timezone, bool IsExhibition,
     string? Location, double? Latitude, double? Longitude,
     ScrapeStatus ScrapeStatus, DateTimeOffset? LastScrapeAttemptAt, string? ScrapeError,
+    string? NoScoreReason,
     IEnumerable<Guid> CorpsIds, IEnumerable<ShowScheduleEntryResponse> Schedule);
 public record ShowBrief(Guid Id, string Name);
 
@@ -153,7 +154,7 @@ public class AdminService(
         return shows.Select(s => new ShowSummary(
             s.Id, s.Name, s.Url, s.Date, s.StartTime, s.ScoresAnnouncedTime, s.Timezone,
             s.IsExhibition, s.Location, s.Latitude, s.Longitude,
-            s.ScrapeStatus, s.LastScrapeAttemptAt, s.ScrapeError,
+            s.ScrapeStatus, s.LastScrapeAttemptAt, s.ScrapeError, s.NoScoreReason,
             s.ShowCorps.Select(sc => sc.CorpsId),
             s.Schedule.OrderBy(e => e.SortOrder)
                 .Select(e => new ShowScheduleEntryResponse(e.Time, e.Label, e.CorpsId))))
@@ -267,6 +268,31 @@ public class AdminService(
 
         var updatedShow = await db.Shows.Include(s => s.ShowCorps).FirstAsync(s => s.Id == id);
         scrapeScheduler?.ScheduleScrape(updatedShow);
+
+        return true;
+    }
+
+    public async Task<bool> SetNoScoreReasonAsync(Guid id, string? reason)
+    {
+        var show = await db.Shows.FindAsync(id);
+
+        if (show is null)
+        {
+            return false;
+        }
+
+        show.NoScoreReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+
+        await db.SaveChangesAsync();
+
+        if (show.NoScoreReason != null)
+        {
+            scrapeScheduler?.CancelScheduledScrape(show.Id);
+        }
+        else
+        {
+            scrapeScheduler?.ScheduleScrape(show);
+        }
 
         return true;
     }

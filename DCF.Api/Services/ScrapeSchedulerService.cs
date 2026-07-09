@@ -34,7 +34,8 @@ public class ScrapeSchedulerService(
             .Where(s => !s.IsExhibition
                      && s.Url != null
                      && s.ScoresAnnouncedTime.HasValue
-                     && s.ScoresAnnouncedTime.Value > DateTimeOffset.UtcNow)
+                     && s.ScoresAnnouncedTime.Value > DateTimeOffset.UtcNow
+                     && s.NoScoreReason == null)
             .ToListAsync(stoppingToken);
 
         foreach (var show in shows)
@@ -45,16 +46,12 @@ public class ScrapeSchedulerService(
 
     public void ScheduleScrape(ShowEntity show)
     {
-        if (show.IsExhibition || show.Url is null || show.ScoresAnnouncedTime is null)
+        if (show.IsExhibition || show.Url is null || show.ScoresAnnouncedTime is null || show.NoScoreReason != null)
         {
             return;
         }
 
-        if (_scheduled.TryRemove(show.Id, out var existing))
-        {
-            existing.Cancel();
-            existing.Dispose();
-        }
+        CancelScheduledScrape(show.Id);
 
         var cts = new CancellationTokenSource();
         _scheduled[show.Id] = cts;
@@ -81,11 +78,24 @@ public class ScrapeSchedulerService(
             {
                 // expected when rescheduled
             }
+            catch (ObjectDisposedException)
+            {
+                // expected when cancelled before the delay/token registration was reached
+            }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Scheduled scrape task failed for show {ShowId}", show.Id);
             }
         });
+    }
+
+    public void CancelScheduledScrape(Guid showId)
+    {
+        if (_scheduled.TryRemove(showId, out var existing))
+        {
+            existing.Cancel();
+            existing.Dispose();
+        }
     }
 
     public async Task<(ScrapeOutcome Outcome, string? Error)> ExecuteScrapeWithRetriesAsync(ShowEntity show, CancellationToken token)
