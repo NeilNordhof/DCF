@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildDateTime, buildScheduleEntryTime, toNullableIso, getShowStatusBadge } from './SeasonDetail.helpers';
+import { buildDateTime, buildScheduleEntryTime, toNullableIso, getShowStatusBadge, getScrapeResultMessage } from './SeasonDetail.helpers';
 import type { Show } from '../types/api';
 
 describe('buildDateTime', () => {
@@ -74,5 +74,31 @@ describe('getShowStatusBadge', () => {
   it('returns null for a show that has not started', () => {
     const show = makeShow({ startTime: future, scoresAnnouncedTime: future });
     expect(getShowStatusBadge(show)).toBeNull();
+  });
+});
+
+describe('getScrapeResultMessage', () => {
+  it('returns a non-sticky success message', () => {
+    expect(getScrapeResultMessage({ outcome: 'Succeeded', error: null })).toEqual({
+      text: '✓ Scrape succeeded', color: 'var(--green)', sticky: false,
+    });
+  });
+
+  it('returns a sticky failure message including the error text', () => {
+    expect(getScrapeResultMessage({ outcome: 'Failed', error: 'Connection timed out' })).toEqual({
+      text: '✗ Scrape failed: Connection timed out', color: 'var(--red)', sticky: true,
+    });
+  });
+
+  it('falls back to a generic message when a failure has no error text', () => {
+    expect(getScrapeResultMessage({ outcome: 'Failed', error: null })).toEqual({
+      text: '✗ Scrape failed: Unknown error', color: 'var(--red)', sticky: true,
+    });
+  });
+
+  it('returns a non-sticky skipped message', () => {
+    expect(getScrapeResultMessage({ outcome: 'Skipped', error: null })).toEqual({
+      text: 'Scrape skipped', color: 'var(--accent)', sticky: false,
+    });
   });
 });

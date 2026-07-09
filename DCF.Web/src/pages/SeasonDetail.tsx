@@ -7,8 +7,9 @@ import { CorpsIcon } from '../components/CorpsIcon';
 import { TimePicker } from '../components/TimePicker';
 import {
   TZ_HOURS, buildDateTime, buildScheduleEntryTime, toNullableIso,
-  hasStarted, hasScoresAnnounced, getShowStatusBadge,
+  hasStarted, hasScoresAnnounced, getShowStatusBadge, getScrapeResultMessage,
 } from './SeasonDetail.helpers';
+import type { TriggerScrapeResult } from '../types/api';
 
 const inputStyle: CSSProperties = {
   width: '100%', padding: '7px 10px', borderRadius: 5,
@@ -92,7 +93,8 @@ export function SeasonDetail() {
   const [savingNoScoreReason, setSavingNoScoreReason] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
-  const [scrapeSuccessId, setScrapeSuccessId] = useState<string | null>(null);
+  const [triggeringScrapeId, setTriggeringScrapeId] = useState<string | null>(null);
+  const [scrapeResult, setScrapeResult] = useState<{ showId: string; result: TriggerScrapeResult } | null>(null);
 
   const [editingDates, setEditingDates] = useState(false);
   const [editStartDate, setEditStartDate] = useState('');
@@ -867,6 +869,7 @@ export function SeasonDetail() {
             const expanded = expandedShowId === s.id;
             const started = hasStarted(s);
             const statusBadge = getShowStatusBadge(s);
+            const scrapeMessage = scrapeResult && scrapeResult.showId === s.id ? getScrapeResultMessage(scrapeResult.result) : null;
 
             return (
               <div key={s.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, overflow: 'hidden' }}>
@@ -1039,25 +1042,39 @@ export function SeasonDetail() {
                         <button
                           type="button"
                           onClick={() => {
+                            setTriggeringScrapeId(s.id);
+                            setScrapeResult(null);
+
                             api.adminTriggerScrape(s.id)
-                              .then(() => {
+                              .then(async result => {
                                 setError(null);
-                                setScrapeSuccessId(s.id);
-                                setTimeout(() => setScrapeSuccessId(null), 3000);
+                                setScrapeResult({ showId: s.id, result });
+
+                                const updated = await api.adminGetShows(id!);
+
+                                setShows(updated);
+
+                                if (!getScrapeResultMessage(result).sticky) {
+                                  setTimeout(() => setScrapeResult(null), 3000);
+                                }
                               })
-                              .catch(() => setError('Scrape trigger failed.'));
+                              .catch(() => setError('Scrape trigger failed.'))
+                              .finally(() => setTriggeringScrapeId(null));
                           }}
+                          disabled={triggeringScrapeId === s.id}
                           style={{
                             width: '100%', padding: '7px 0', borderRadius: 5, fontSize: 11, fontWeight: 800,
-                            background: 'var(--accent)', color: 'var(--bg)', border: 'none', cursor: 'pointer',
+                            background: triggeringScrapeId === s.id ? 'var(--border)' : 'var(--accent)',
+                            color: triggeringScrapeId === s.id ? 'var(--text-faint)' : 'var(--bg)',
+                            border: 'none', cursor: triggeringScrapeId === s.id ? 'not-allowed' : 'pointer',
                           }}
                         >
-                          Trigger Score Scrape
+                          {triggeringScrapeId === s.id ? 'Scraping…' : 'Trigger Score Scrape'}
                         </button>
 
-                        {scrapeSuccessId === s.id && (
-                          <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: 'var(--green)', textAlign: 'center' }}>
-                            ✓ Scrape triggered successfully
+                        {scrapeMessage && (
+                          <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: scrapeMessage.color, textAlign: 'center' }}>
+                            {scrapeMessage.text}
                           </div>
                         )}
                       </div>

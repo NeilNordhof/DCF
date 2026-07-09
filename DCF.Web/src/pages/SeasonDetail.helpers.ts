@@ -1,4 +1,4 @@
-import type { Show } from '../types/api';
+import type { Show, TriggerScrapeResult } from '../types/api';
 
 export const TZ_HOURS: Record<string, number> = { PT: 7, MT: 6, CT: 5, ET: 4 };
 
@@ -47,4 +47,22 @@ export function getShowStatusBadge(show: Show): ShowStatusBadge | null {
   }
 
   return null;
+}
+
+export interface ScrapeResultMessage {
+  text: string;
+  color: string;
+  sticky: boolean;
+}
+
+export function getScrapeResultMessage(result: TriggerScrapeResult): ScrapeResultMessage {
+  if (result.outcome === 'Succeeded') {
+    return { text: '✓ Scrape succeeded', color: 'var(--green)', sticky: false };
+  }
+
+  if (result.outcome === 'Failed') {
+    return { text: `✗ Scrape failed: ${result.error ?? 'Unknown error'}`, color: 'var(--red)', sticky: true };
+  }
+
+  return { text: 'Scrape skipped', color: 'var(--accent)', sticky: false };
 }

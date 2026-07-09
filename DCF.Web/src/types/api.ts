@@ -192,6 +192,11 @@ export interface Show {
   schedule: ShowScheduleEntry[];
 }
 
+export interface TriggerScrapeResult {
+  outcome: 'Succeeded' | 'Failed' | 'Skipped';
+  error: string | null;
+}
+
 export interface PickScore {
   corpsName: string;
   score: number | null;
