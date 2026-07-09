@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -80,6 +80,7 @@ export function SeasonDetail() {
   const [prefetched, setPrefetched] = useState(false);
 
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
+  const expandedShowIdRef = useRef<string | null>(null);
   const [editShow, setEditShow] = useState<{
     name: string; url: string; date: string;
     startTime: string; scoresTime: string; tz: string;
@@ -346,6 +347,7 @@ export function SeasonDetail() {
   function expandShow(show: Show) {
     if (expandedShowId === show.id) {
       setExpandedShowId(null);
+      expandedShowIdRef.current = null;
       setEditShow(null);
       setNoScoreReasonInput('');
       return;
@@ -357,6 +359,7 @@ export function SeasonDetail() {
       return d.toISOString().slice(11, 16);
     };
     setExpandedShowId(show.id);
+    expandedShowIdRef.current = show.id;
     setEditShow({
       name: show.name,
       url: show.url ?? '',
@@ -445,7 +448,10 @@ export function SeasonDetail() {
       const updated = await api.adminGetShows(id!);
 
       setShows(updated);
-      setNoScoreReasonInput(reason ?? '');
+
+      if (expandedShowIdRef.current === showId) {
+        setNoScoreReasonInput(reason ?? '');
+      }
     } catch {
       setError('Failed to update no-score reason.');
     } finally {
