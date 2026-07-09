@@ -8,7 +8,9 @@ import { TimePicker } from '../components/TimePicker';
 import {
   TZ_HOURS, buildDateTime,
   hasStarted, hasScoresAnnounced, getShowStatusBadge, getScrapeResultMessage, buildSchedulePayload,
+  getShowFilterBucket,
 } from './SeasonDetail.helpers';
+import type { ShowFilterBucket } from './SeasonDetail.helpers';
 import type { TriggerScrapeResult } from '../types/api';
 
 const inputStyle: CSSProperties = {
@@ -109,6 +111,8 @@ export function SeasonDetail() {
   const [corpsSortInputs, setCorpsSortInputs] = useState<Record<string, string>>({});
   const [savingOrder, setSavingOrder] = useState(false);
   const [corpsOpen, setCorpsOpen] = useState(false);
+  const [showSearch, setShowSearch] = useState('');
+  const [showFilter, setShowFilter] = useState<'all' | ShowFilterBucket>('all');
 
   useEffect(() => {
     if (!id) return;
@@ -495,6 +499,12 @@ export function SeasonDetail() {
   }
 
   const seasonCorps = allCorps.filter(c => season.corpsIds.includes(c.id));
+
+  const filteredShows = shows.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(showSearch.toLowerCase());
+    const matchesFilter = showFilter === 'all' || getShowFilterBucket(s) === showFilter;
+    return matchesSearch && matchesFilter;
+  });
 
   const sortedSeasonCorps = [...seasonCorps].sort((a, b) => {
     const aVal = parseInt(corpsSortInputs[a.id] ?? '');
@@ -888,11 +898,36 @@ export function SeasonDetail() {
             )}
           </div>
 
+          {shows.length > 0 && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={showSearch}
+                onChange={e => setShowSearch(e.target.value)}
+                placeholder="Search shows…"
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <select
+                value={showFilter}
+                onChange={e => setShowFilter(e.target.value as 'all' | ShowFilterBucket)}
+                style={{ ...inputStyle, width: 160 }}
+              >
+                <option value="all">All</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="needsAttention">Needs Attention</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+          )}
+
           {shows.length === 0 && (
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No shows yet.</div>
           )}
 
-          {shows.map(s => {
+          {shows.length > 0 && filteredShows.length === 0 && (
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No shows match your search/filter.</div>
+          )}
+
+          {filteredShows.map(s => {
             const expanded = expandedShowId === s.id;
             const started = hasStarted(s);
             const statusBadge = getShowStatusBadge(s);

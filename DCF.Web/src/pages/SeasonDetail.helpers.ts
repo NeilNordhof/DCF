@@ -95,3 +95,17 @@ export function buildSchedulePayload(
     };
   });
 }
+
+export type ShowFilterBucket = 'upcoming' | 'needsAttention' | 'done';
+
+export function getShowFilterBucket(show: Show): ShowFilterBucket {
+  if (!show.isExhibition && show.scrapeStatus === 'Failed' && !show.noScoreReason) {
+    return 'needsAttention';
+  }
+
+  if (show.noScoreReason || show.scrapeStatus === 'Succeeded' || (show.isExhibition && hasScoresAnnounced(show))) {
+    return 'done';
+  }
+
+  return 'upcoming';
+}

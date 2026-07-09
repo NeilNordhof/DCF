@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildDateTime, buildScheduleEntryTime, getShowStatusBadge, getScrapeResultMessage, buildSchedulePayload } from './SeasonDetail.helpers';
+import { buildDateTime, buildScheduleEntryTime, getShowStatusBadge, getScrapeResultMessage, buildSchedulePayload, getShowFilterBucket } from './SeasonDetail.helpers';
 import type { Show } from '../types/api';
 
 describe('buildDateTime', () => {
@@ -120,5 +120,38 @@ describe('buildSchedulePayload', () => {
     const result = buildSchedulePayload(entries, '2026-08-15', 'CT');
     expect(result[0].time).toBe('2026-08-16T04:30:00.000Z');
     expect(result[1].time).toBe('2026-08-16T05:15:00.000Z');
+  });
+});
+
+describe('getShowFilterBucket', () => {
+  it('returns needsAttention for a competitive show with a failed scrape and no reason', () => {
+    const show = makeShow({ scrapeStatus: 'Failed' });
+    expect(getShowFilterBucket(show)).toBe('needsAttention');
+  });
+
+  it('returns done, not needsAttention, once a no-score reason is set on a failed scrape', () => {
+    const show = makeShow({ scrapeStatus: 'Failed', noScoreReason: 'Rained out' });
+    expect(getShowFilterBucket(show)).toBe('done');
+  });
+
+  it('returns done for a successful scrape', () => {
+    const show = makeShow({ scrapeStatus: 'Succeeded' });
+    expect(getShowFilterBucket(show)).toBe('done');
+  });
+
+  it('returns done for a concluded exhibition show', () => {
+    const past = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const show = makeShow({ isExhibition: true, scoresAnnouncedTime: past });
+    expect(getShowFilterBucket(show)).toBe('done');
+  });
+
+  it('returns upcoming for a show that has not started', () => {
+    const show = makeShow();
+    expect(getShowFilterBucket(show)).toBe('upcoming');
+  });
+
+  it('returns upcoming for an unconcluded exhibition show even with a failed-looking scrapeStatus, since exhibitions are never scraped', () => {
+    const show = makeShow({ isExhibition: true, scrapeStatus: 'Failed' });
+    expect(getShowFilterBucket(show)).toBe('upcoming');
   });
 });
