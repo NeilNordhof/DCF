@@ -12,10 +12,6 @@ export function buildScheduleEntryTime(date: string, time: string | null, tz: st
   return time ? buildDateTime(date, time, tz) : null;
 }
 
-export function toNullableIso(time: string | null): string | null {
-  return time ? new Date(time).toISOString() : null;
-}
-
 export function hasStarted(show: Show): boolean {
   return !!show.startTime && new Date(show.startTime) <= new Date();
 }

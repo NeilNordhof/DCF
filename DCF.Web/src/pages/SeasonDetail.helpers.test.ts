@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildDateTime, buildScheduleEntryTime, toNullableIso, getShowStatusBadge, getScrapeResultMessage, buildSchedulePayload } from './SeasonDetail.helpers';
+import { buildDateTime, buildScheduleEntryTime, getShowStatusBadge, getScrapeResultMessage, buildSchedulePayload } from './SeasonDetail.helpers';
 import type { Show } from '../types/api';
 
 describe('buildDateTime', () => {
@@ -15,16 +15,6 @@ describe('buildScheduleEntryTime', () => {
 
   it('returns null for an unscheduled (TBD) entry instead of throwing', () => {
     expect(buildScheduleEntryTime('2026-08-15', null, 'ET')).toBeNull();
-  });
-});
-
-describe('toNullableIso', () => {
-  it('converts an existing ISO time string to ISO', () => {
-    expect(toNullableIso('2026-08-15T23:00:00.000Z')).toBe('2026-08-15T23:00:00.000Z');
-  });
-
-  it('returns null for an unscheduled (TBD) entry instead of the Unix epoch', () => {
-    expect(toNullableIso(null)).toBeNull();
   });
 });
 
