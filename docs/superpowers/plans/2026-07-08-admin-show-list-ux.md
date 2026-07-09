@@ -912,6 +912,8 @@ to:
 
 - [ ] **Step 6: Remove the now-dead `toNullableIso`**
 
+> **Update (post Task 2):** Task 2's implementer found that `buildScheduleEntryTime` also had to be dropped from `SeasonDetail.tsx`'s helpers import — it became fully unused there once `addShow` switched to calling `buildSchedulePayload`, and this repo's `tsconfig.app.json` has `noUnusedLocals: true`, so leaving it in would fail `npm run build`. Task 2's reviewer independently confirmed this was necessary, not scope creep. **The live import block in `SeasonDetail.tsx` no longer contains `buildScheduleEntryTime`** — the "before" snippet below is corrected to match; do not expect to find `buildScheduleEntryTime` there.
+
 Confirm via `grep -rn "toNullableIso" DCF.Web/src` that the only remaining references are its own definition and its own tests (Step 4 above removed the one production call site). Then:
 
 In `DCF.Web/src/pages/SeasonDetail.helpers.ts`, remove:
@@ -954,7 +956,7 @@ Finally, in `DCF.Web/src/pages/SeasonDetail.tsx`, change its helpers import bloc
 
 ```typescript
 import {
-  TZ_HOURS, buildDateTime, buildScheduleEntryTime, toNullableIso,
+  TZ_HOURS, buildDateTime, toNullableIso,
   hasStarted, hasScoresAnnounced, getShowStatusBadge, getScrapeResultMessage, buildSchedulePayload,
 } from './SeasonDetail.helpers';
 ```
@@ -963,7 +965,7 @@ to:
 
 ```typescript
 import {
-  TZ_HOURS, buildDateTime, buildScheduleEntryTime,
+  TZ_HOURS, buildDateTime,
   hasStarted, hasScoresAnnounced, getShowStatusBadge, getScrapeResultMessage, buildSchedulePayload,
 } from './SeasonDetail.helpers';
 ```
@@ -1088,7 +1090,7 @@ Add `getShowFilterBucket` and the `ShowFilterBucket` type to the helpers import:
 
 ```typescript
 import {
-  TZ_HOURS, buildDateTime, buildScheduleEntryTime,
+  TZ_HOURS, buildDateTime,
   hasStarted, hasScoresAnnounced, getShowStatusBadge, getScrapeResultMessage, buildSchedulePayload,
 } from './SeasonDetail.helpers';
 ```
@@ -1097,7 +1099,7 @@ to:
 
 ```typescript
 import {
-  TZ_HOURS, buildDateTime, buildScheduleEntryTime,
+  TZ_HOURS, buildDateTime,
   hasStarted, hasScoresAnnounced, getShowStatusBadge, getScrapeResultMessage, buildSchedulePayload,
   getShowFilterBucket,
 } from './SeasonDetail.helpers';
