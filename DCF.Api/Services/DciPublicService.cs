@@ -6,6 +6,8 @@ using Microsoft.EntityFrameworkCore;
 namespace DCF.Api.Services;
 
 public record DciSeasonDto(Guid Id, int Year);
+public record DciStandingsShowRef(string ShowName, DateOnly Date, double Score);
+public record DciStandingsEntry(Guid CorpsId, string CorpsName, string? CorpsIconUrl, DciStandingsShowRef Latest, IReadOnlyList<DciStandingsShowRef> Last3, double Last3Avg);
 
 public class DciPublicService(DcfDbContext db) : IDciPublicService
 {
@@ -38,5 +40,41 @@ public class DciPublicService(DcfDbContext db) : IDciPublicService
             .FirstOrDefaultAsync();
 
         return upcoming is null ? null : new DciSeasonDto(upcoming.Id, upcoming.Year);
+    }
+
+    public async Task<IReadOnlyList<DciStandingsEntry>> GetStandingsAsync(Guid seasonId)
+    {
+        var rows = await db.Scores
+            .Where(s => s.Caption == Caption.Total && s.Show.SeasonId == seasonId)
+            .Select(s => new
+            {
+                s.CorpsId,
+                CorpsName = s.Corps.Name,
+                CorpsIconPath = s.Corps.IconPath,
+                ShowName = s.Show.Name,
+                s.Show.Date,
+                s.TotalScore
+            })
+            .ToListAsync();
+
+        var entries = rows
+            .GroupBy(r => r.CorpsId)
+            .Select(group =>
+            {
+                var ordered = group.OrderByDescending(r => r.Date).ToList();
+                var last3 = ordered.Take(3)
+                    .Select(r => new DciStandingsShowRef(r.ShowName, r.Date, r.TotalScore))
+                    .ToList();
+                var first = group.First();
+                var iconUrl = first.CorpsIconPath is null ? null : "/uploads/" + first.CorpsIconPath;
+
+                return new DciStandingsEntry(
+                    group.Key, first.CorpsName, iconUrl,
+                    last3[0], last3, Math.Round(last3.Average(l => l.Score), 3));
+            })
+            .OrderByDescending(e => e.Latest.Score)
+            .ToList();
+
+        return entries;
     }
 }

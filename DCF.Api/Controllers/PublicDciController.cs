@@ -14,4 +14,10 @@ public class PublicDciController(IDciPublicService dciPublicService) : Controlle
 
         return season is null ? NotFound() : Ok(season);
     }
+
+    [HttpGet("seasons/{seasonId}/standings")]
+    public async Task<IActionResult> GetStandings(Guid seasonId)
+    {
+        return Ok(await dciPublicService.GetStandingsAsync(seasonId));
+    }
 }

@@ -129,4 +129,122 @@ public class DciPublicServiceTests
         Assert.Equal(active.Id, dto.Id);
         Assert.Equal(2026, dto.Year);
     }
+
+    private static (SeasonEntity Season, CorpsEntity Corps) SeedSeasonAndCorps(DcfDbContext db, string corpsName = "Blue Devils")
+    {
+        var season = Season(2026, SeasonStatus.Active);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = corpsName };
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        return (season, corps);
+    }
+
+    private static ShowEntity Show(SeasonEntity season, string name, DateOnly date) => new()
+    {
+        Id = Guid.NewGuid(), Name = name, Date = date, SeasonId = season.Id, Season = season
+    };
+
+    private static ScoreEntity TotalScore(CorpsEntity corps, ShowEntity show, double total, string? judge = null) => new()
+    {
+        Id = Guid.NewGuid(), CorpsId = corps.Id, ShowId = show.Id, Caption = Caption.Total, Judge = judge, TotalScore = total
+    };
+
+    [Fact]
+    public async Task GetStandingsAsync_ComputesLatestAndLast3Avg()
+    {
+        using var db = CreateDb("standings_latest_last3");
+        var (season, corps) = SeedSeasonAndCorps(db);
+        var show1 = Show(season, "Show 1", new DateOnly(2026, 7, 1));
+        var show2 = Show(season, "Show 2", new DateOnly(2026, 7, 8));
+        var show3 = Show(season, "Show 3", new DateOnly(2026, 7, 15));
+        db.Shows.AddRange(show1, show2, show3);
+        db.Scores.AddRange(TotalScore(corps, show1, 90.0), TotalScore(corps, show2, 92.0), TotalScore(corps, show3, 95.0));
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetStandingsAsync(season.Id);
+
+        var entry = Assert.Single(result);
+        Assert.Equal(95.0, entry.Latest.Score);
+        Assert.Equal("Show 3", entry.Latest.ShowName);
+        Assert.Equal(3, entry.Last3.Count);
+        Assert.Equal(92.333, Math.Round(entry.Last3Avg, 3));
+    }
+
+    [Fact]
+    public async Task GetStandingsAsync_MoreThan3Shows_OnlyAveragesMostRecent3()
+    {
+        using var db = CreateDb("standings_more_than_3");
+        var (season, corps) = SeedSeasonAndCorps(db);
+        var shows = Enumerable.Range(1, 4)
+            .Select(i => Show(season, $"Show {i}", new DateOnly(2026, 7, i * 7)))
+            .ToList();
+        db.Shows.AddRange(shows);
+        db.Scores.AddRange(
+            TotalScore(corps, shows[0], 80.0), TotalScore(corps, shows[1], 90.0),
+            TotalScore(corps, shows[2], 91.0), TotalScore(corps, shows[3], 92.0));
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetStandingsAsync(season.Id);
+
+        var entry = Assert.Single(result);
+        Assert.Equal(91.0, Math.Round(entry.Last3Avg, 3));
+    }
+
+    [Fact]
+    public async Task GetStandingsAsync_CorpsWithNoScoresYet_ExcludedFromResults()
+    {
+        using var db = CreateDb("standings_no_scores");
+        var (season, scoredCorps) = SeedSeasonAndCorps(db, "Scored Corps");
+        var unscoredCorps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Unscored Corps" };
+        db.Corps.Add(unscoredCorps);
+        var show = Show(season, "Show 1", new DateOnly(2026, 7, 1));
+        db.Shows.Add(show);
+        db.Scores.Add(TotalScore(scoredCorps, show, 90.0));
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetStandingsAsync(season.Id);
+
+        var entry = Assert.Single(result);
+        Assert.Equal("Scored Corps", entry.CorpsName);
+    }
+
+    [Fact]
+    public async Task GetStandingsAsync_OnlyNonTotalCaptionScores_CorpsExcluded()
+    {
+        using var db = CreateDb("standings_only_subcaptions");
+        var (season, corps) = SeedSeasonAndCorps(db);
+        var show = Show(season, "Show 1", new DateOnly(2026, 7, 1));
+        db.Shows.Add(show);
+        db.Scores.Add(new ScoreEntity { Id = Guid.NewGuid(), CorpsId = corps.Id, ShowId = show.Id, Caption = Caption.Brass, TotalScore = 18.0 });
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetStandingsAsync(season.Id);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetStandingsAsync_ResultsSortedByLatestScoreDescending()
+    {
+        using var db = CreateDb("standings_default_sort");
+        var season = Season(2026, SeasonStatus.Active);
+        var corpsA = new CorpsEntity { Id = Guid.NewGuid(), Name = "Lower Score" };
+        var corpsB = new CorpsEntity { Id = Guid.NewGuid(), Name = "Higher Score" };
+        db.Seasons.Add(season);
+        db.Corps.AddRange(corpsA, corpsB);
+        var show = Show(season, "Show 1", new DateOnly(2026, 7, 1));
+        db.Shows.Add(show);
+        db.Scores.AddRange(TotalScore(corpsA, show, 85.0), TotalScore(corpsB, show, 95.0));
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetStandingsAsync(season.Id);
+
+        Assert.Equal("Higher Score", result[0].CorpsName);
+        Assert.Equal("Lower Score", result[1].CorpsName);
+    }
 }
