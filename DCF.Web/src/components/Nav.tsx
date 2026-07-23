@@ -6,11 +6,19 @@ import { useUser } from '../context/UserContext';
 
 export function Nav() {
   const { user } = useUser();
-  const { logout, loginWithRedirect } = useAuth();
+  const { logout, loginWithRedirect, devLogin } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const isAdmin = location.pathname.startsWith('/admin');
   const [menuOpen, setMenuOpen] = useState(false);
+
+  function handleLogInClick() {
+    if (devLogin) {
+      navigate('/');
+    } else {
+      loginWithRedirect();
+    }
+  }
 
   const initials = user?.displayName
     ? user.displayName.split(' ').filter(Boolean).map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
@@ -110,7 +118,7 @@ export function Nav() {
           </>
         ) : (
           <button
-            onClick={() => loginWithRedirect()}
+            onClick={handleLogInClick}
             style={{
               background: 'var(--accent)',
               color: 'var(--bg)',
@@ -162,7 +170,7 @@ export function Nav() {
             <button onClick={() => { logout(); navigate('/'); closeMenu(); }}>Logout</button>
           </>
         ) : (
-          <button onClick={() => { loginWithRedirect(); closeMenu(); }}>Log In</button>
+          <button onClick={() => { handleLogInClick(); closeMenu(); }}>Log In</button>
         )}
       </div>
     </nav>
