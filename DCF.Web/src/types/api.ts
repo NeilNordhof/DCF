@@ -214,3 +214,102 @@ export interface MemberScoreBreakdown {
   totalScore: number;
   captions: Partial<Record<ComputedCaption, CaptionBreakdown>>;
 }
+
+export type Caption =
+  | 'GeneralEffect'
+  | 'GeneralEffectMusic'
+  | 'GeneralEffectVisual'
+  | 'Visual'
+  | 'VisualAnalysis'
+  | 'VisualProficiency'
+  | 'ColorGuard'
+  | 'Music'
+  | 'Brass'
+  | 'MusicAnalysis'
+  | 'Percussion'
+  | 'SubTotal'
+  | 'Penalty'
+  | 'Total'
+  | 'VisualPerformance';
+
+export interface DciSeason {
+  id: string;
+  year: number;
+}
+
+export interface DciStandingsShowRef {
+  showName: string;
+  date: string;
+  score: number;
+}
+
+export interface DciStandingsEntry {
+  corpsId: string;
+  corpsName: string;
+  corpsIconUrl?: string;
+  latest: DciStandingsShowRef;
+  last3: DciStandingsShowRef[];
+  last3Avg: number;
+}
+
+export interface DciScheduleEntry {
+  time: string | null;
+  label: string;
+  corpsId: string | null;
+  corpsName: string | null;
+}
+
+export interface DciScheduleShow {
+  id: string;
+  name: string;
+  date: string;
+  startTime?: string;
+  timezone?: string;
+  location?: string;
+  isExhibition: boolean;
+  schedule: DciScheduleEntry[];
+}
+
+export interface DciScoreResult {
+  rank: number;
+  corpsId: string;
+  corpsName: string;
+  totalScore: number;
+}
+
+export interface DciScoresShow {
+  id: string;
+  name: string;
+  date: string;
+  isExhibition: boolean;
+  noScoreReason: string | null;
+  scoresPending: boolean;
+  results: DciScoreResult[];
+}
+
+export interface DciRecapScoreRow {
+  caption: Caption;
+  judge: string | null;
+  repertoireScore: number;
+  performanceScore: number;
+  totalScore: number;
+}
+
+export interface DciRecapCorpsEntry {
+  corpsId: string;
+  corpsName: string;
+  corpsIconUrl?: string;
+  scores: DciRecapScoreRow[];
+}
+
+export interface DciRecapShow {
+  id: string;
+  name: string;
+  date: string;
+  location?: string;
+}
+
+export interface DciRecapResponse {
+  show: DciRecapShow;
+  corps: DciRecapCorpsEntry[];
+}
