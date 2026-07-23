@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { DciStandingsEntry } from '../types/api';
 import { DciScheduleTab } from './DciScheduleTab';
+import { DciScoresTab } from './DciScoresTab';
 
 type SortColumn = 'latest' | 'last3Avg';
 
@@ -132,7 +133,7 @@ export function Dci() {
       </div>
       {tab === 'standings' && <StandingsTab seasonId={seasonId} />}
       {tab === 'schedule' && <DciScheduleTab seasonId={seasonId} />}
-      {tab === 'scores' && <p style={{ color: 'var(--text-muted)', fontSize: 11 }}>Scores tab coming in Task 10.</p>}
+      {tab === 'scores' && <DciScoresTab seasonId={seasonId} />}
       <p style={{ marginTop: 20 }}><Link to="/leagues" style={{ color: 'var(--text-faint)', fontSize: 10 }}>← Back to Leagues</Link></p>
     </div>
   );
