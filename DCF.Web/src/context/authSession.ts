@@ -26,3 +26,7 @@ export function resolveSession(state: StoredAuthState, now: number): ResolvedSes
 
   return { isAuthenticated: false, user: null, bearerToken: null };
 }
+
+export function resolveAccessToken(session: ResolvedSession): string {
+  return session.bearerToken ?? '';
+}
