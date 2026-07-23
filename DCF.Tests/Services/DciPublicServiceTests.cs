@@ -249,6 +249,25 @@ public class DciPublicServiceTests
     }
 
     [Fact]
+    public async Task GetStandingsAsync_UnpublishedSeason_ReturnsEmpty()
+    {
+        using var db = CreateDb("standings_unpublished_season");
+        var season = Season(2026, SeasonStatus.Active, published: false);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        var show = Show(season, "Show 1", new DateOnly(2026, 7, 1));
+        db.Shows.Add(show);
+        db.Scores.Add(TotalScore(corps, show, 90.0));
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetStandingsAsync(season.Id);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
     public async Task GetScheduleAsync_OnlyFutureShows_OrderedAscending()
     {
         using var db = CreateDb("schedule_future_only");
@@ -293,6 +312,23 @@ public class DciPublicServiceTests
         Assert.Equal("Blue Devils", entries[1].Label);
         Assert.Null(entries[1].Time);
         Assert.Equal("Blue Devils", entries[1].CorpsName);
+    }
+
+    [Fact]
+    public async Task GetScheduleAsync_UnpublishedSeason_ReturnsEmpty()
+    {
+        using var db = CreateDb("schedule_unpublished_season");
+        var season = Season(2026, SeasonStatus.Active, published: false);
+        db.Seasons.Add(season);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var show = Show(season, "Upcoming Show", today.AddDays(5));
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetScheduleAsync(season.Id);
+
+        Assert.Empty(result);
     }
 
     [Fact]
@@ -382,6 +418,25 @@ public class DciPublicServiceTests
     }
 
     [Fact]
+    public async Task GetScoresAsync_UnpublishedSeason_ReturnsEmpty()
+    {
+        using var db = CreateDb("scores_unpublished_season");
+        var season = Season(2026, SeasonStatus.Active, published: false);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        var show = Show(season, "Past Show", DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1));
+        db.Shows.Add(show);
+        db.Scores.Add(TotalScore(corps, show, 90.0));
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetScoresAsync(season.Id);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
     public async Task GetRecapAsync_UnknownShow_ReturnsNull()
     {
         using var db = CreateDb("recap_unknown_show");
@@ -445,5 +500,24 @@ public class DciPublicServiceTests
         Assert.Equal(2, geVisualRows.Count);
         Assert.Contains(geVisualRows, r => r.Judge == "Judge A" && r.TotalScore == 19.4);
         Assert.Contains(geVisualRows, r => r.Judge == "Judge B" && r.TotalScore == 19.2);
+    }
+
+    [Fact]
+    public async Task GetRecapAsync_UnpublishedSeason_ReturnsNull()
+    {
+        using var db = CreateDb("recap_unpublished_season");
+        var season = Season(2026, SeasonStatus.Active, published: false);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        var show = Show(season, "DCI Southwestern", new DateOnly(2026, 7, 20));
+        db.Shows.Add(show);
+        db.Scores.Add(TotalScore(corps, show, 90.0));
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetRecapAsync(show.Id);
+
+        Assert.Null(result);
     }
 }

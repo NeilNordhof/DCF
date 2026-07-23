@@ -53,7 +53,7 @@ public class DciPublicService(DcfDbContext db) : IDciPublicService
     public async Task<IReadOnlyList<DciStandingsEntry>> GetStandingsAsync(Guid seasonId)
     {
         var rows = await db.Scores
-            .Where(s => s.Caption == Caption.Total && s.Show.SeasonId == seasonId)
+            .Where(s => s.Caption == Caption.Total && s.Show.SeasonId == seasonId && s.Show.Season.IsPublished)
             .Select(s => new
             {
                 s.CorpsId,
@@ -91,7 +91,7 @@ public class DciPublicService(DcfDbContext db) : IDciPublicService
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         var shows = await db.Shows
-            .Where(s => s.SeasonId == seasonId && s.Date >= today)
+            .Where(s => s.SeasonId == seasonId && s.Date >= today && s.Season.IsPublished)
             .OrderBy(s => s.Date)
             .Include(s => s.Schedule).ThenInclude(e => e.Corps)
             .ToListAsync();
@@ -111,7 +111,7 @@ public class DciPublicService(DcfDbContext db) : IDciPublicService
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         var shows = await db.Shows
-            .Where(s => s.SeasonId == seasonId && s.Date < today)
+            .Where(s => s.SeasonId == seasonId && s.Date < today && s.Season.IsPublished)
             .OrderByDescending(s => s.Date)
             .ToListAsync();
 
@@ -141,7 +141,7 @@ public class DciPublicService(DcfDbContext db) : IDciPublicService
 
     public async Task<DciRecapResponse?> GetRecapAsync(Guid showId)
     {
-        var show = await db.Shows.FirstOrDefaultAsync(s => s.Id == showId);
+        var show = await db.Shows.FirstOrDefaultAsync(s => s.Id == showId && s.Season.IsPublished);
 
         if (show is null)
         {
@@ -150,6 +150,7 @@ public class DciPublicService(DcfDbContext db) : IDciPublicService
 
         var rows = await db.Scores
             .Where(s => s.ShowId == showId)
+            .OrderBy(s => s.Caption).ThenBy(s => s.Judge)
             .Select(s => new
             {
                 s.CorpsId,
