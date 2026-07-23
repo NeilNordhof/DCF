@@ -32,4 +32,12 @@ public class PublicDciController(IDciPublicService dciPublicService) : Controlle
     {
         return Ok(await dciPublicService.GetScoresAsync(seasonId));
     }
+
+    [HttpGet("shows/{showId}/recap")]
+    public async Task<IActionResult> GetRecap(Guid showId)
+    {
+        var recap = await dciPublicService.GetRecapAsync(showId);
+
+        return recap is null ? NotFound() : Ok(recap);
+    }
 }

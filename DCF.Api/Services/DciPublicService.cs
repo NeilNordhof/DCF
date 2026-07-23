@@ -12,6 +12,10 @@ public record DciScheduleEntry(DateTimeOffset? Time, string Label, Guid? CorpsId
 public record DciScheduleShow(Guid Id, string Name, DateOnly Date, DateTimeOffset? StartTime, string? Timezone, string? Location, bool IsExhibition, IReadOnlyList<DciScheduleEntry> Schedule);
 public record DciScoreResult(int Rank, Guid CorpsId, string CorpsName, double TotalScore);
 public record DciScoresShow(Guid Id, string Name, DateOnly Date, bool IsExhibition, string? NoScoreReason, bool ScoresPending, IReadOnlyList<DciScoreResult> Results);
+public record DciRecapScoreRow(Caption Caption, string? Judge, double RepertoireScore, double PerformanceScore, double TotalScore);
+public record DciRecapCorpsEntry(Guid CorpsId, string CorpsName, string? CorpsIconUrl, IReadOnlyList<DciRecapScoreRow> Scores);
+public record DciRecapShow(Guid Id, string Name, DateOnly Date, string? Location);
+public record DciRecapResponse(DciRecapShow Show, IReadOnlyList<DciRecapCorpsEntry> Corps);
 
 public class DciPublicService(DcfDbContext db) : IDciPublicService
 {
@@ -133,5 +137,45 @@ public class DciPublicService(DcfDbContext db) : IDciPublicService
                         : []);
             })
             .ToList();
+    }
+
+    public async Task<DciRecapResponse?> GetRecapAsync(Guid showId)
+    {
+        var show = await db.Shows.FirstOrDefaultAsync(s => s.Id == showId);
+
+        if (show is null)
+        {
+            return null;
+        }
+
+        var rows = await db.Scores
+            .Where(s => s.ShowId == showId)
+            .Select(s => new
+            {
+                s.CorpsId,
+                CorpsName = s.Corps.Name,
+                CorpsIconPath = s.Corps.IconPath,
+                s.Caption,
+                s.Judge,
+                s.RepertoireScore,
+                s.PerformanceScore,
+                s.TotalScore
+            })
+            .ToListAsync();
+
+        var corps = rows
+            .GroupBy(r => r.CorpsId)
+            .Select(group =>
+            {
+                var first = group.First();
+                var iconUrl = first.CorpsIconPath is null ? null : "/uploads/" + first.CorpsIconPath;
+
+                return new DciRecapCorpsEntry(
+                    group.Key, first.CorpsName, iconUrl,
+                    group.Select(r => new DciRecapScoreRow(r.Caption, r.Judge, r.RepertoireScore, r.PerformanceScore, r.TotalScore)).ToList());
+            })
+            .ToList();
+
+        return new DciRecapResponse(new DciRecapShow(show.Id, show.Name, show.Date, show.Location), corps);
     }
 }

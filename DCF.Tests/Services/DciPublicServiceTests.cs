@@ -380,4 +380,70 @@ public class DciPublicServiceTests
         Assert.Null(scoresShow.NoScoreReason);
         Assert.Empty(scoresShow.Results);
     }
+
+    [Fact]
+    public async Task GetRecapAsync_UnknownShow_ReturnsNull()
+    {
+        using var db = CreateDb("recap_unknown_show");
+        var service = new DciPublicService(db);
+
+        var result = await service.GetRecapAsync(Guid.NewGuid());
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetRecapAsync_ReturnsShowMetadataAndAllScoreRowsGroupedByCorps()
+    {
+        using var db = CreateDb("recap_basic");
+        var season = Season(2026, SeasonStatus.Active);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        var show = Show(season, "DCI Southwestern", new DateOnly(2026, 7, 20));
+        show.Location = "Denver, CO";
+        db.Shows.Add(show);
+        db.Scores.AddRange(
+            new ScoreEntity { Id = Guid.NewGuid(), CorpsId = corps.Id, ShowId = show.Id, Caption = Caption.Brass, Judge = "P. McGarr", RepertoireScore = 9.5, PerformanceScore = 9.6, TotalScore = 19.1 },
+            new ScoreEntity { Id = Guid.NewGuid(), CorpsId = corps.Id, ShowId = show.Id, Caption = Caption.Total, TotalScore = 96.85 });
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetRecapAsync(show.Id);
+
+        Assert.NotNull(result);
+        Assert.Equal("DCI Southwestern", result.Show.Name);
+        Assert.Equal("Denver, CO", result.Show.Location);
+        var corpsEntry = Assert.Single(result.Corps);
+        Assert.Equal("Blue Devils", corpsEntry.CorpsName);
+        Assert.Equal(2, corpsEntry.Scores.Count);
+        var brassRow = corpsEntry.Scores.Single(s => s.Caption == Caption.Brass);
+        Assert.Equal("P. McGarr", brassRow.Judge);
+        Assert.Equal(9.5, brassRow.RepertoireScore);
+    }
+
+    [Fact]
+    public async Task GetRecapAsync_FullPanelCaptionWithTwoJudges_BothRowsReturnedUncollapsed()
+    {
+        using var db = CreateDb("recap_two_judges");
+        var season = Season(2026, SeasonStatus.Active);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        var show = Show(season, "DCI World Championships", new DateOnly(2026, 8, 15));
+        db.Shows.Add(show);
+        db.Scores.AddRange(
+            new ScoreEntity { Id = Guid.NewGuid(), CorpsId = corps.Id, ShowId = show.Id, Caption = Caption.GeneralEffectVisual, Judge = "Judge A", TotalScore = 19.4 },
+            new ScoreEntity { Id = Guid.NewGuid(), CorpsId = corps.Id, ShowId = show.Id, Caption = Caption.GeneralEffectVisual, Judge = "Judge B", TotalScore = 19.2 });
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetRecapAsync(show.Id);
+
+        var corpsEntry = Assert.Single(result!.Corps);
+        var geVisualRows = corpsEntry.Scores.Where(s => s.Caption == Caption.GeneralEffectVisual).ToList();
+        Assert.Equal(2, geVisualRows.Count);
+        Assert.Contains(geVisualRows, r => r.Judge == "Judge A" && r.TotalScore == 19.4);
+        Assert.Contains(geVisualRows, r => r.Judge == "Judge B" && r.TotalScore == 19.2);
+    }
 }
