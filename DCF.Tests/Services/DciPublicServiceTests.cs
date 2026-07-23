@@ -294,4 +294,90 @@ public class DciPublicServiceTests
         Assert.Null(entries[1].Time);
         Assert.Equal("Blue Devils", entries[1].CorpsName);
     }
+
+    [Fact]
+    public async Task GetScoresAsync_OnlyPastShows_OrderedDescending()
+    {
+        using var db = CreateDb("scores_past_only");
+        var season = Season(2026, SeasonStatus.Active);
+        db.Seasons.Add(season);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var future = Show(season, "Future Show", today.AddDays(1));
+        var older = Show(season, "Older Show", today.AddDays(-10));
+        var recent = Show(season, "Recent Show", today.AddDays(-1));
+        db.Shows.AddRange(future, older, recent);
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetScoresAsync(season.Id);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal("Recent Show", result[0].Name);
+        Assert.Equal("Older Show", result[1].Name);
+    }
+
+    [Fact]
+    public async Task GetScoresAsync_HasTotalScores_RanksDescendingByTotal()
+    {
+        using var db = CreateDb("scores_ranked_results");
+        var season = Season(2026, SeasonStatus.Active);
+        var corpsA = new CorpsEntity { Id = Guid.NewGuid(), Name = "Second Place" };
+        var corpsB = new CorpsEntity { Id = Guid.NewGuid(), Name = "First Place" };
+        db.Seasons.Add(season);
+        db.Corps.AddRange(corpsA, corpsB);
+        var show = Show(season, "Show 1", DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1));
+        db.Shows.Add(show);
+        db.Scores.AddRange(TotalScore(corpsA, show, 90.0), TotalScore(corpsB, show, 95.0));
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetScoresAsync(season.Id);
+
+        var scoresShow = Assert.Single(result);
+        Assert.False(scoresShow.ScoresPending);
+        Assert.Null(scoresShow.NoScoreReason);
+        Assert.Equal(1, scoresShow.Results[0].Rank);
+        Assert.Equal("First Place", scoresShow.Results[0].CorpsName);
+        Assert.Equal(2, scoresShow.Results[1].Rank);
+        Assert.Equal("Second Place", scoresShow.Results[1].CorpsName);
+    }
+
+    [Fact]
+    public async Task GetScoresAsync_NoScoreReasonSet_ReturnsReasonNotResults()
+    {
+        using var db = CreateDb("scores_no_score_reason");
+        var season = Season(2026, SeasonStatus.Active);
+        db.Seasons.Add(season);
+        var show = Show(season, "Rained Out Show", DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1));
+        show.NoScoreReason = "Rained out";
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetScoresAsync(season.Id);
+
+        var scoresShow = Assert.Single(result);
+        Assert.Equal("Rained out", scoresShow.NoScoreReason);
+        Assert.False(scoresShow.ScoresPending);
+        Assert.Empty(scoresShow.Results);
+    }
+
+    [Fact]
+    public async Task GetScoresAsync_PastShowNoTotalsNoReason_MarkedScoresPending()
+    {
+        using var db = CreateDb("scores_pending");
+        var season = Season(2026, SeasonStatus.Active);
+        db.Seasons.Add(season);
+        var show = Show(season, "Just Happened Show", DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1));
+        db.Shows.Add(show);
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetScoresAsync(season.Id);
+
+        var scoresShow = Assert.Single(result);
+        Assert.True(scoresShow.ScoresPending);
+        Assert.Null(scoresShow.NoScoreReason);
+        Assert.Empty(scoresShow.Results);
+    }
 }

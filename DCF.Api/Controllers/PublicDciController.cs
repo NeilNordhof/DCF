@@ -26,4 +26,10 @@ public class PublicDciController(IDciPublicService dciPublicService) : Controlle
     {
         return Ok(await dciPublicService.GetScheduleAsync(seasonId));
     }
+
+    [HttpGet("seasons/{seasonId}/scores")]
+    public async Task<IActionResult> GetScores(Guid seasonId)
+    {
+        return Ok(await dciPublicService.GetScoresAsync(seasonId));
+    }
 }

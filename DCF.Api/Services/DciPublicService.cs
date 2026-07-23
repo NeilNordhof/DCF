@@ -10,6 +10,8 @@ public record DciStandingsShowRef(string ShowName, DateOnly Date, double Score);
 public record DciStandingsEntry(Guid CorpsId, string CorpsName, string? CorpsIconUrl, DciStandingsShowRef Latest, IReadOnlyList<DciStandingsShowRef> Last3, double Last3Avg);
 public record DciScheduleEntry(DateTimeOffset? Time, string Label, Guid? CorpsId, string? CorpsName);
 public record DciScheduleShow(Guid Id, string Name, DateOnly Date, DateTimeOffset? StartTime, string? Timezone, string? Location, bool IsExhibition, IReadOnlyList<DciScheduleEntry> Schedule);
+public record DciScoreResult(int Rank, Guid CorpsId, string CorpsName, double TotalScore);
+public record DciScoresShow(Guid Id, string Name, DateOnly Date, bool IsExhibition, string? NoScoreReason, bool ScoresPending, IReadOnlyList<DciScoreResult> Results);
 
 public class DciPublicService(DcfDbContext db) : IDciPublicService
 {
@@ -97,6 +99,39 @@ public class DciPublicService(DcfDbContext db) : IDciPublicService
                     .OrderBy(e => e.SortOrder)
                     .Select(e => new DciScheduleEntry(e.Time, e.Label, e.CorpsId, e.Corps?.Name))
                     .ToList()))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<DciScoresShow>> GetScoresAsync(Guid seasonId)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var shows = await db.Shows
+            .Where(s => s.SeasonId == seasonId && s.Date < today)
+            .OrderByDescending(s => s.Date)
+            .ToListAsync();
+
+        var showIds = shows.Select(s => s.Id).ToList();
+
+        var totalsByShow = (await db.Scores
+                .Where(s => showIds.Contains(s.ShowId) && s.Caption == Caption.Total)
+                .Select(s => new { s.ShowId, s.CorpsId, CorpsName = s.Corps.Name, s.TotalScore })
+                .ToListAsync())
+            .GroupBy(s => s.ShowId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.TotalScore).ToList());
+
+        return shows
+            .Select(s =>
+            {
+                var hasResults = totalsByShow.TryGetValue(s.Id, out var results) && results.Count > 0;
+
+                return new DciScoresShow(
+                    s.Id, s.Name, s.Date, s.IsExhibition, s.NoScoreReason,
+                    ScoresPending: !hasResults && s.NoScoreReason is null,
+                    Results: hasResults
+                        ? results!.Select((r, i) => new DciScoreResult(i + 1, r.CorpsId, r.CorpsName, r.TotalScore)).ToList()
+                        : []);
+            })
             .ToList();
     }
 }
