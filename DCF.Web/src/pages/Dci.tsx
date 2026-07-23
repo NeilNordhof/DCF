@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { DciStandingsEntry } from '../types/api';
+import { DciScheduleTab } from './DciScheduleTab';
 
 type SortColumn = 'latest' | 'last3Avg';
 
@@ -130,7 +131,7 @@ export function Dci() {
         <button style={tabStyle(tab === 'scores')} onClick={() => setTab('scores')}>Scores</button>
       </div>
       {tab === 'standings' && <StandingsTab seasonId={seasonId} />}
-      {tab === 'schedule' && <p style={{ color: 'var(--text-muted)', fontSize: 11 }}>Schedule tab coming in Task 9.</p>}
+      {tab === 'schedule' && <DciScheduleTab seasonId={seasonId} />}
       {tab === 'scores' && <p style={{ color: 'var(--text-muted)', fontSize: 11 }}>Scores tab coming in Task 10.</p>}
       <p style={{ marginTop: 20 }}><Link to="/leagues" style={{ color: 'var(--text-faint)', fontSize: 10 }}>← Back to Leagues</Link></p>
     </div>
