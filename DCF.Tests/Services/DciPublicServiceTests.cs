@@ -1,4 +1,3 @@
-// DCF.Tests/Services/DciPublicServiceTests.cs
 using DCF.Api.Controllers;
 using DCF.Api.Services;
 using DCF.Data;
