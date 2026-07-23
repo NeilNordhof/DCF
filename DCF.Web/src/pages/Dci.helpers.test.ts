@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupByWeek } from './Dci.helpers';
+import { formatShowDate, groupByWeek } from './Dci.helpers';
 
 interface Item {
   date: string;
@@ -30,5 +30,11 @@ describe('groupByWeek', () => {
 
   it('returns an empty array for no items', () => {
     expect(groupByWeek<Item>([], i => i.date)).toEqual([]);
+  });
+});
+
+describe('formatShowDate', () => {
+  it('formats an ISO date string as "<Weekday>, <Month> <Day>" in UTC', () => {
+    expect(formatShowDate('2026-07-15')).toBe('Wed, Jul 15');
   });
 });

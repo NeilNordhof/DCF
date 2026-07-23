@@ -3,6 +3,10 @@ export interface WeekGroup<T> {
   items: T[];
 }
 
+export function formatShowDate(dateStr: string): string {
+  return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
 export function groupByWeek<T>(items: T[], getDate: (item: T) => string): WeekGroup<T>[] {
   const groups = new Map<string, T[]>();
 

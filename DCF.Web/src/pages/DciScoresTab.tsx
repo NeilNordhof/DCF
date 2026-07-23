@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { DciScoresShow } from '../types/api';
-import { groupByWeek } from './Dci.helpers';
+import { formatShowDate, groupByWeek } from './Dci.helpers';
 import { WeekRow } from './DciWeekRow';
 
 function ScoreCard({ show }: { show: DciScoresShow }) {
-  const dateLabel = new Date(`${show.date}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const dateLabel = formatShowDate(show.date);
 
   return (
     <div style={{ flex: '0 0 230px', width: 230, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, padding: 12 }}>
@@ -51,10 +51,15 @@ function ScoreCard({ show }: { show: DciScoresShow }) {
 
 export function DciScoresTab({ seasonId }: { seasonId: string }) {
   const [shows, setShows] = useState<DciScoresShow[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    api.getDciScores(seasonId).then(setShows);
+    api.getDciScores(seasonId).then(setShows).catch(() => setLoadFailed(true));
   }, [seasonId]);
+
+  if (loadFailed) {
+    return <p style={{ color: 'var(--text-muted)', fontSize: 11 }}>Failed to load scores.</p>;
+  }
 
   if (shows === null) {
     return <p style={{ color: 'var(--text-muted)', fontSize: 11 }}>Loading scores...</p>;

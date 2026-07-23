@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { DciStandingsEntry } from '../types/api';
+import { formatShowDate } from './Dci.helpers';
 import { DciScheduleTab } from './DciScheduleTab';
 import { DciScoresTab } from './DciScoresTab';
 
@@ -11,10 +12,15 @@ function StandingsTab({ seasonId }: { seasonId: string }) {
   const [entries, setEntries] = useState<DciStandingsEntry[] | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn>('latest');
   const [sortDesc, setSortDesc] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    api.getDciStandings(seasonId).then(setEntries);
+    api.getDciStandings(seasonId).then(setEntries).catch(() => setLoadFailed(true));
   }, [seasonId]);
+
+  if (loadFailed) {
+    return <p style={{ color: 'var(--text-muted)', fontSize: 11 }}>Failed to load standings.</p>;
+  }
 
   if (entries === null) {
     return <p style={{ color: 'var(--text-muted)', fontSize: 11 }}>Loading standings...</p>;
@@ -68,13 +74,13 @@ function StandingsTab({ seasonId }: { seasonId: string }) {
               <td style={{ padding: '9px 10px', color: 'var(--text-heading)', fontWeight: 700, borderBottom: '1px solid var(--border)' }}>{entry.latest.score.toFixed(3)}</td>
               <td style={{ padding: '9px 10px', borderBottom: '1px solid var(--border)' }}>
                 <span
-                  title={entry.last3.map(s => `${s.score.toFixed(3)} – ${s.showName} – ${s.date}`).join('\n')}
+                  title={entry.last3.map(s => `${s.score.toFixed(3)} – ${s.showName} – ${formatShowDate(s.date)}`).join('\n')}
                   style={{ color: 'var(--text-heading)', fontWeight: 700, borderBottom: '1px dotted var(--text-faint)', cursor: 'help' }}
                 >
                   {entry.last3Avg.toFixed(3)}
                 </span>
               </td>
-              <td style={{ padding: '9px 10px', color: 'var(--text-faint)', borderBottom: '1px solid var(--border)' }}>{entry.latest.showName} · {entry.latest.date}</td>
+              <td style={{ padding: '9px 10px', color: 'var(--text-faint)', borderBottom: '1px solid var(--border)' }}>{entry.latest.showName} · {formatShowDate(entry.latest.date)}</td>
             </tr>
           ))}
         </tbody>

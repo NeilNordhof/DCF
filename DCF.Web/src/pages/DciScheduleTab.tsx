@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { DciScheduleShow } from '../types/api';
-import { groupByWeek } from './Dci.helpers';
+import { formatShowDate, groupByWeek } from './Dci.helpers';
 import { WeekRow } from './DciWeekRow';
 
 function ShowCard({ show }: { show: DciScheduleShow }) {
-  const dateLabel = new Date(`${show.date}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const dateLabel = formatShowDate(show.date);
   const timeLabel = show.startTime
     ? new Date(show.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
     : null;
@@ -40,10 +40,15 @@ function ShowCard({ show }: { show: DciScheduleShow }) {
 
 export function DciScheduleTab({ seasonId }: { seasonId: string }) {
   const [shows, setShows] = useState<DciScheduleShow[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    api.getDciSchedule(seasonId).then(setShows);
+    api.getDciSchedule(seasonId).then(setShows).catch(() => setLoadFailed(true));
   }, [seasonId]);
+
+  if (loadFailed) {
+    return <p style={{ color: 'var(--text-muted)', fontSize: 11 }}>Failed to load schedule.</p>;
+  }
 
   if (shows === null) {
     return <p style={{ color: 'var(--text-muted)', fontSize: 11 }}>Loading schedule...</p>;
