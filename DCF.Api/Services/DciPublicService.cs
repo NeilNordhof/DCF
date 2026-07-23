@@ -8,6 +8,8 @@ namespace DCF.Api.Services;
 public record DciSeasonDto(Guid Id, int Year);
 public record DciStandingsShowRef(string ShowName, DateOnly Date, double Score);
 public record DciStandingsEntry(Guid CorpsId, string CorpsName, string? CorpsIconUrl, DciStandingsShowRef Latest, IReadOnlyList<DciStandingsShowRef> Last3, double Last3Avg);
+public record DciScheduleEntry(DateTimeOffset? Time, string Label, Guid? CorpsId, string? CorpsName);
+public record DciScheduleShow(Guid Id, string Name, DateOnly Date, DateTimeOffset? StartTime, string? Timezone, string? Location, bool IsExhibition, IReadOnlyList<DciScheduleEntry> Schedule);
 
 public class DciPublicService(DcfDbContext db) : IDciPublicService
 {
@@ -76,5 +78,25 @@ public class DciPublicService(DcfDbContext db) : IDciPublicService
             .ToList();
 
         return entries;
+    }
+
+    public async Task<IReadOnlyList<DciScheduleShow>> GetScheduleAsync(Guid seasonId)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var shows = await db.Shows
+            .Where(s => s.SeasonId == seasonId && s.Date >= today)
+            .OrderBy(s => s.Date)
+            .Include(s => s.Schedule).ThenInclude(e => e.Corps)
+            .ToListAsync();
+
+        return shows
+            .Select(s => new DciScheduleShow(
+                s.Id, s.Name, s.Date, s.StartTime, s.Timezone, s.Location, s.IsExhibition,
+                s.Schedule
+                    .OrderBy(e => e.SortOrder)
+                    .Select(e => new DciScheduleEntry(e.Time, e.Label, e.CorpsId, e.Corps?.Name))
+                    .ToList()))
+            .ToList();
     }
 }

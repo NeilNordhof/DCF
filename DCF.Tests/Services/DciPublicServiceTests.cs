@@ -247,4 +247,51 @@ public class DciPublicServiceTests
         Assert.Equal("Higher Score", result[0].CorpsName);
         Assert.Equal("Lower Score", result[1].CorpsName);
     }
+
+    [Fact]
+    public async Task GetScheduleAsync_OnlyFutureShows_OrderedAscending()
+    {
+        using var db = CreateDb("schedule_future_only");
+        var season = Season(2026, SeasonStatus.Active);
+        db.Seasons.Add(season);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var past = Show(season, "Past Show", today.AddDays(-1));
+        var soon = Show(season, "Soon Show", today.AddDays(5));
+        var later = Show(season, "Later Show", today.AddDays(10));
+        db.Shows.AddRange(past, later, soon);
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetScheduleAsync(season.Id);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal("Soon Show", result[0].Name);
+        Assert.Equal("Later Show", result[1].Name);
+    }
+
+    [Fact]
+    public async Task GetScheduleAsync_IncludesScheduleEntriesOrderedBySortOrder_TbdTimeAllowed()
+    {
+        using var db = CreateDb("schedule_entries");
+        var season = Season(2026, SeasonStatus.Active);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Seasons.Add(season);
+        db.Corps.Add(corps);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var show = Show(season, "Upcoming Show", today.AddDays(3));
+        db.Shows.Add(show);
+        db.ShowScheduleEntries.AddRange(
+            new ShowScheduleEntryEntity { Id = Guid.NewGuid(), ShowId = show.Id, SortOrder = 1, Label = "Blue Devils", CorpsId = corps.Id, Time = null },
+            new ShowScheduleEntryEntity { Id = Guid.NewGuid(), ShowId = show.Id, SortOrder = 0, Label = "Gates Open", CorpsId = null, Time = new DateTimeOffset(2026, 7, 25, 18, 0, 0, TimeSpan.Zero) });
+        await db.SaveChangesAsync();
+        var service = new DciPublicService(db);
+
+        var result = await service.GetScheduleAsync(season.Id);
+
+        var entries = Assert.Single(result).Schedule;
+        Assert.Equal("Gates Open", entries[0].Label);
+        Assert.Equal("Blue Devils", entries[1].Label);
+        Assert.Null(entries[1].Time);
+        Assert.Equal("Blue Devils", entries[1].CorpsName);
+    }
 }
