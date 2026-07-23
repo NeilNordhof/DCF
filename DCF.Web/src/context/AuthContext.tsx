@@ -135,11 +135,7 @@ function ProductionLockProvider({ children }: { children: React.ReactNode }) {
   const getAccessTokenSilently = useCallback((): Promise<string> => {
     const session = readStoredSession();
 
-    if (session.bearerToken) {
-      return Promise.resolve(session.bearerToken);
-    }
-
-    return Promise.reject(new Error('Session expired — please sign in again'));
+    return Promise.resolve(session.bearerToken ?? '');
   }, []);
 
   const value: AuthValue = {
