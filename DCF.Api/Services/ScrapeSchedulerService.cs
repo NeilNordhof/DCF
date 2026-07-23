@@ -200,12 +200,12 @@ public class ScrapeSchedulerService(
 
         var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
-        await SendScoresUpdatedNotificationsAsync(db, emailService, freshShow.SeasonId, freshShow.Name);
+        await SendScoresUpdatedNotificationsAsync(db, emailService, freshShow.SeasonId, freshShow.Id, freshShow.Name);
 
         return (ScrapeOutcome.Succeeded, null);
     }
 
-    private async Task SendScoresUpdatedNotificationsAsync(DcfDbContext db, IEmailService emailService, Guid seasonId, string showName)
+    private async Task SendScoresUpdatedNotificationsAsync(DcfDbContext db, IEmailService emailService, Guid seasonId, Guid showId, string showName)
     {
         try
         {
@@ -226,10 +226,20 @@ public class ScrapeSchedulerService(
                 .Distinct()
                 .ToListAsync();
 
+            var totals = await db.Scores
+                .Where(s => s.ShowId == showId && s.Caption == Caption.Total)
+                .OrderByDescending(s => s.TotalScore)
+                .Select(s => new { s.Corps.Name, s.TotalScore })
+                .ToListAsync();
+
+            var scoreRows = totals
+                .Select((r, i) => new EmailScoreRow(i + 1, r.Name, r.TotalScore))
+                .ToList();
+
             foreach (var user in users)
             {
                 var token = emailTokenService.GenerateToken(user.Id);
-                var (subject, html) = EmailTemplate.ScoresAvailable(showName, emailOptions.Value.FrontendUrl, token);
+                var (subject, html) = EmailTemplate.ScoresAvailable(showName, showId, scoreRows, emailOptions.Value.FrontendUrl, token);
 
                 await emailService.SendAsync(user.Email, user.DisplayName, subject, html);
             }

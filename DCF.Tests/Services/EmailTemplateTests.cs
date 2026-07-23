@@ -84,16 +84,58 @@ public class EmailTemplateTests
         Assert.Contains("View League", html);
     }
 
+    private static readonly Guid TestShowId = Guid.Parse("00000000-0000-0000-0000-000000000003");
+
     [Fact]
-    public void ScoresAvailable_SubjectAndHtmlContainShowName()
+    public void ScoresAvailable_SubjectAndHtmlContainShowNameAndRecapLink()
     {
         var (subject, html) = EmailTemplate.ScoresAvailable(
-            "Drum Corps West", FrontendUrl, Token);
+            "Drum Corps West", TestShowId, [], FrontendUrl, Token);
 
         Assert.Equal("New show scores available — Drum Corps West", subject);
         Assert.Contains("Drum Corps West", html);
-        Assert.Contains("/leagues", html);
-        Assert.Contains("View Standings", html);
+        Assert.Contains($"/dci/recap/{TestShowId}", html);
+        Assert.Contains("View Recap", html);
+    }
+
+    [Fact]
+    public void ScoresAvailable_IncludesRankedScoresTable()
+    {
+        var results = new List<EmailScoreRow>
+        {
+            new(1, "Blue Devils", 96.85),
+            new(2, "Bluecoats", 95.025),
+        };
+
+        var (_, html) = EmailTemplate.ScoresAvailable(
+            "Drum Corps West", TestShowId, results, FrontendUrl, Token);
+
+        Assert.Contains("Blue Devils", html);
+        Assert.Contains("96.850", html);
+        Assert.Contains("Bluecoats", html);
+        Assert.Contains("95.025", html);
+    }
+
+    [Fact]
+    public void ScoresAvailable_HtmlEncodesCorpsNameInScoresTable()
+    {
+        var results = new List<EmailScoreRow> { new(1, "<script>alert(1)</script>", 90.0) };
+
+        var (_, html) = EmailTemplate.ScoresAvailable(
+            "Drum Corps West", TestShowId, results, FrontendUrl, Token);
+
+        Assert.DoesNotContain("<script>alert(1)</script>", html);
+        Assert.Contains("&lt;script&gt;", html);
+    }
+
+    [Fact]
+    public void ScoresAvailable_NoResults_StillProducesValidEmail()
+    {
+        var (subject, html) = EmailTemplate.ScoresAvailable(
+            "Drum Corps West", TestShowId, [], FrontendUrl, Token);
+
+        Assert.Equal("New show scores available — Drum Corps West", subject);
+        Assert.Contains("View Recap", html);
     }
 
     [Fact]
