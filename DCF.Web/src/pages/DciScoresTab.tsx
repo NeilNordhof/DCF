@@ -18,19 +18,15 @@ function ScoreCard({ show }: { show: DciScoresShow }) {
       )}
       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 5 }}>{dateLabel}</div>
 
-      {show.noScoreReason && (
+      {show.noScoreReason ? (
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text-faint)', fontStyle: 'italic' }}>
           No score: {show.noScoreReason}
         </div>
-      )}
-
-      {show.scoresPending && (
+      ) : show.scoresPending ? (
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text-faint)', fontStyle: 'italic' }}>
           Scores pending
         </div>
-      )}
-
-      {show.results.length > 0 && (
+      ) : show.results.length > 0 ? (
         <>
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
             {show.results.map(result => (
@@ -48,7 +44,7 @@ function ScoreCard({ show }: { show: DciScoresShow }) {
             View Recap →
           </Link>
         </>
-      )}
+      ) : null}
     </div>
   );
 }
