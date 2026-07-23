@@ -174,6 +174,7 @@ public class DciPublicService(DcfDbContext db) : IDciPublicService
                     group.Key, first.CorpsName, iconUrl,
                     group.Select(r => new DciRecapScoreRow(r.Caption, r.Judge, r.RepertoireScore, r.PerformanceScore, r.TotalScore)).ToList());
             })
+            .OrderByDescending(entry => rows.FirstOrDefault(r => r.CorpsId == entry.CorpsId && r.Caption == Caption.Total)?.TotalScore ?? 0)
             .ToList();
 
         return new DciRecapResponse(new DciRecapShow(show.Id, show.Name, show.Date, show.Location), corps);
