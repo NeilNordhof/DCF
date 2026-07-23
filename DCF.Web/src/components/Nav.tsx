@@ -6,7 +6,7 @@ import { useUser } from '../context/UserContext';
 
 export function Nav() {
   const { user } = useUser();
-  const { logout } = useAuth();
+  const { logout, loginWithRedirect } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const isAdmin = location.pathname.startsWith('/admin');
@@ -77,33 +77,55 @@ export function Nav() {
           )}
         </div>
         <Link to="/leagues" className="nav-links" style={linkStyle('/leagues')}>LEAGUES</Link>
+        <Link to="/dci" className="nav-links" style={linkStyle('/dci')}>DCI</Link>
       </div>
       <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-        {user?.isAdmin && (
-          <Link to="/admin" style={linkStyle('/admin')}>ADMIN</Link>
+        {user ? (
+          <>
+            {user.isAdmin && (
+              <Link to="/admin" style={linkStyle('/admin')}>ADMIN</Link>
+            )}
+            <Link to="/profile" style={linkStyle('/profile')}>PROFILE</Link>
+            <button
+              onClick={() => { logout(); navigate('/'); }}
+              title="Switch user"
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                background: 'var(--accent)',
+                color: 'var(--bg)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 11,
+                fontWeight: 700,
+                flexShrink: 0,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {initials}
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => loginWithRedirect()}
+            style={{
+              background: 'var(--accent)',
+              color: 'var(--bg)',
+              border: 'none',
+              borderRadius: 4,
+              padding: '6px 14px',
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.5px',
+              cursor: 'pointer',
+            }}
+          >
+            LOG IN
+          </button>
         )}
-        <Link to="/profile" style={linkStyle('/profile')}>PROFILE</Link>
-        <button
-          onClick={() => { logout(); navigate('/'); }}
-          title="Switch user"
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: '50%',
-            background: 'var(--accent)',
-            color: 'var(--bg)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 11,
-            fontWeight: 700,
-            flexShrink: 0,
-            border: 'none',
-            cursor: 'pointer',
-          }}
-        >
-          {initials}
-        </button>
       </div>
       <button
         className="nav-hamburger"
@@ -130,11 +152,18 @@ export function Nav() {
         onClick={e => e.stopPropagation()}
       >
         <Link to="/leagues" onClick={closeMenu}>LEAGUES</Link>
-        {user?.isAdmin && (
-          <Link to="/admin" onClick={closeMenu}>ADMIN</Link>
+        <Link to="/dci" onClick={closeMenu}>DCI</Link>
+        {user ? (
+          <>
+            {user.isAdmin && (
+              <Link to="/admin" onClick={closeMenu}>ADMIN</Link>
+            )}
+            <Link to="/profile" onClick={closeMenu}>PROFILE</Link>
+            <button onClick={() => { logout(); navigate('/'); closeMenu(); }}>Logout</button>
+          </>
+        ) : (
+          <button onClick={() => { loginWithRedirect(); closeMenu(); }}>Log In</button>
         )}
-        <Link to="/profile" onClick={closeMenu}>PROFILE</Link>
-        <button onClick={() => { logout(); navigate('/'); closeMenu(); }}>Logout</button>
       </div>
     </nav>
   );
