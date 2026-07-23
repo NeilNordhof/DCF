@@ -9,6 +9,7 @@ import { AuthProvider } from './context/AuthContext';
 import { UserProvider } from './context/UserContext';
 import { Admin } from './pages/Admin';
 import { Dci } from './pages/Dci';
+import { DciRecap } from './pages/DciRecap';
 import { DraftRoom } from './pages/DraftRoom';
 import { Home } from './pages/Home';
 import { LeagueCreate } from './pages/LeagueCreate';
@@ -31,6 +32,7 @@ const router = createBrowserRouter([
       { path: '/leagues/:id', element: <ProtectedRoute><AuthenticatedLayout><LeagueDetail /></AuthenticatedLayout></ProtectedRoute> },
       { path: '/leagues/:id/draft', element: <ProtectedRoute><DraftRoom /></ProtectedRoute> },
       { path: '/dci', element: <AuthenticatedLayout><Dci /></AuthenticatedLayout> },
+      { path: '/dci/recap/:showId', element: <AuthenticatedLayout><DciRecap /></AuthenticatedLayout> },
       { path: '/admin', element: <AdminRoute><AuthenticatedLayout><Admin /></AuthenticatedLayout></AdminRoute> },
       { path: '/admin/seasons/:id', element: <AdminRoute><AuthenticatedLayout><SeasonDetail /></AuthenticatedLayout></AdminRoute> },
       { path: '/profile', element: <ProtectedRoute><AuthenticatedLayout><Profile /></AuthenticatedLayout></ProtectedRoute> },
