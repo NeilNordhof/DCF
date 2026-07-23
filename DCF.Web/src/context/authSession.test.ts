@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveSession } from './authSession';
+import { resolveSession, resolveAccessToken } from './authSession';
 
 const user = { name: 'Alice', email: 'alice@example.com' };
 const now = 1_000_000;
@@ -57,5 +57,19 @@ describe('resolveSession', () => {
     );
 
     expect(result).toEqual({ isAuthenticated: true, user, bearerToken: 'remember-1' });
+  });
+});
+
+describe('resolveAccessToken', () => {
+  it('returns the bearer token when the session has one', () => {
+    const result = resolveAccessToken({ isAuthenticated: true, user, bearerToken: 'token-1' });
+
+    expect(result).toBe('token-1');
+  });
+
+  it('returns an empty string when the session has no bearer token', () => {
+    const result = resolveAccessToken({ isAuthenticated: false, user: null, bearerToken: null });
+
+    expect(result).toBe('');
   });
 });

@@ -1,7 +1,7 @@
 import { Auth0LockPasswordless } from 'auth0-lock';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
-import { REMEMBER_TOKEN_STORAGE_KEY, resolveSession } from './authSession';
+import { REMEMBER_TOKEN_STORAGE_KEY, resolveAccessToken, resolveSession } from './authSession';
 import { DevAuthProvider, useDevAuth } from './DevAuthContext';
 
 export interface AuthValue {
@@ -133,13 +133,7 @@ function ProductionLockProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const getAccessTokenSilently = useCallback((): Promise<string> => {
-    const session = readStoredSession();
-
-    if (session.bearerToken) {
-      return Promise.resolve(session.bearerToken);
-    }
-
-    return Promise.reject(new Error('Session expired — please sign in again'));
+    return Promise.resolve(resolveAccessToken(readStoredSession()));
   }, []);
 
   const value: AuthValue = {

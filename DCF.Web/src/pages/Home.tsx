@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { DEV_USERS } from '../context/DevAuthContext';
@@ -112,7 +112,25 @@ export function Home() {
               The fantasy league built for Drum Corps International fans. Join a league with your friends and drafft captions from your favourite corps. Track real DCI scores and compete all season long to see who has the best fantasy corps.
             </p>
           </div>
-          
+
+          <Link
+            to="/dci"
+            style={{
+              display: 'inline-block',
+              alignSelf: 'flex-start',
+              padding: '8px 16px',
+              borderRadius: 4,
+              border: '1px solid var(--border)',
+              background: 'var(--surface-2)',
+              color: 'var(--accent)',
+              fontSize: 11,
+              fontWeight: 700,
+              textDecoration: 'none',
+              letterSpacing: '0.5px',
+            }}
+          >
+            View DCI Scores →
+          </Link>
         </div>
 
         {/* Right — dynamic panel */}

@@ -83,6 +83,7 @@ builder.Services.AddScoped<ILeagueService, LeagueService>();
 builder.Services.AddScoped<IStandingsService, StandingsService>();
 builder.Services.AddScoped<IDraftService, DraftService>();
 builder.Services.AddScoped<IRememberMeTokenService, RememberMeTokenService>();
+builder.Services.AddScoped<IDciPublicService, DciPublicService>();
 
 builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
 {

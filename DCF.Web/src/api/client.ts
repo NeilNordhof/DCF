@@ -1,4 +1,4 @@
-import type { ActiveSeason, Corps, CreateLeagueRequest, League, MemberScoreBreakdown, PublicLeague, Season, SeasonCorps, SeasonDetail, Show, ShowPrefillResponse, ShowScheduleEntry, Standing, TriggerScrapeResult, UpdateLeagueRequest, UserProfile } from '../types/api';
+import type { ActiveSeason, Corps, CreateLeagueRequest, DciRecapResponse, DciScheduleShow, DciScoresShow, DciSeason, DciStandingsEntry, League, MemberScoreBreakdown, PublicLeague, Season, SeasonCorps, SeasonDetail, Show, ShowPrefillResponse, ShowScheduleEntry, Standing, TriggerScrapeResult, UpdateLeagueRequest, UserProfile } from '../types/api';
 import { REMEMBER_TOKEN_STORAGE_KEY } from '../context/authSession';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
@@ -168,4 +168,9 @@ export const api = {
     request<ShowPrefillResponse>(
       `/api/admin/seasons/${seasonId}/shows/prefill?name=${encodeURIComponent(name)}`
     ),
+  getDciCurrentSeason: () => request<DciSeason>('/api/dci/seasons/current'),
+  getDciStandings: (seasonId: string) => request<DciStandingsEntry[]>(`/api/dci/seasons/${seasonId}/standings`),
+  getDciSchedule: (seasonId: string) => request<DciScheduleShow[]>(`/api/dci/seasons/${seasonId}/schedule`),
+  getDciScores: (seasonId: string) => request<DciScoresShow[]>(`/api/dci/seasons/${seasonId}/scores`),
+  getDciRecap: (showId: string) => request<DciRecapResponse>(`/api/dci/shows/${showId}/recap`),
 };

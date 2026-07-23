@@ -1,6 +1,9 @@
+using System.Linq;
 using System.Net;
 
 namespace DCF.Api.Services;
+
+public record EmailScoreRow(int Rank, string CorpsName, double TotalScore);
 
 public static class EmailTemplate
 {
@@ -125,6 +128,8 @@ public static class EmailTemplate
 
     public static (string subject, string html) ScoresAvailable(
         string showName,
+        Guid showId,
+        IReadOnlyList<EmailScoreRow> results,
         string frontendUrl,
         string unsubscribeToken)
     {
@@ -134,10 +139,11 @@ public static class EmailTemplate
             $"New show scores available — {showName}",
             Layout(
                 heading: "New scores available",
-                body: $"Scores from <strong style=\"color: #f3f4f6;\">{safe}</strong> are now available. Check your standings!",
-                ctaText: "View Standings",
-                ctaUrl: $"{frontendUrl}/leagues",
-                unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
+                body: $"Scores from <strong style=\"color: #f3f4f6;\">{safe}</strong> are now available.",
+                ctaText: "View Recap",
+                ctaUrl: $"{frontendUrl}/dci/recap/{showId}",
+                unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}",
+                extraContent: ScoresTable(results)));
     }
 
     public static (string subject, string html) ScrapeFailed(
@@ -160,12 +166,40 @@ public static class EmailTemplate
                 unsubscribeUrl: $"{frontendUrl}/unsubscribe?token={unsubscribeToken}"));
     }
 
+    private static string ScoresTable(IReadOnlyList<EmailScoreRow> results)
+    {
+        if (results.Count == 0)
+        {
+            return "";
+        }
+
+        var rows = string.Join("", results.Select(r => $"""
+
+            <tr>
+              <td style="padding: 6px 0; font-size: 13px; color: #6b7280; width: 28px;">{r.Rank}</td>
+              <td style="padding: 6px 0; font-size: 13px; color: #f3f4f6;">{WebUtility.HtmlEncode(r.CorpsName)}</td>
+              <td style="padding: 6px 0; font-size: 13px; color: #f3f4f6; font-weight: bold; text-align: right;">{r.TotalScore:F3}</td>
+            </tr>
+            """));
+
+        return $"""
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 0 28px; border-top: 1px solid #2a2d3a; border-bottom: 1px solid #2a2d3a;">
+              <tr>
+                <td style="padding: 6px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;" colspan="2">Corps</td>
+                <td style="padding: 6px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; text-align: right;">Score</td>
+              </tr>
+              {rows}
+            </table>
+            """;
+    }
+
     private static string Layout(
         string heading,
         string body,
         string ctaText,
         string ctaUrl,
-        string unsubscribeUrl)
+        string unsubscribeUrl,
+        string extraContent = "")
     {
         return $"""
             <!DOCTYPE html>
@@ -195,6 +229,7 @@ public static class EmailTemplate
                           <p style="margin: 0 0 28px; font-size: 14px; line-height: 1.6; color: #9ca3af;">
                             {body}
                           </p>
+                          {extraContent}
                           <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                             <tr>
                               <td align="center">
