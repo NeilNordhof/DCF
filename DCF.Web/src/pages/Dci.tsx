@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { DciStandingsEntry } from '../types/api';
-import { formatShowDate } from './Dci.helpers';
+import { formatShowDate, tabStyle } from './Dci.helpers';
 import { DciScheduleTab } from './DciScheduleTab';
 import { DciScoresTab } from './DciScoresTab';
 
@@ -106,21 +106,6 @@ export function Dci() {
       setSearchParams({ tab: t });
     }
   }
-
-  const tabStyle = (active: boolean): React.CSSProperties => ({
-    padding: '8px 16px',
-    fontSize: 11,
-    fontWeight: active ? 700 : 600,
-    color: active ? 'var(--accent)' : 'var(--text-muted)',
-    borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-    letterSpacing: '0.5px',
-    textTransform: 'uppercase',
-    background: 'none',
-    border: 'none',
-    borderBottomWidth: 2,
-    borderBottomStyle: 'solid',
-    cursor: 'pointer',
-  });
 
   if (seasonLoadFailed) {
     return <p style={{ color: 'var(--text-muted)', fontSize: 11 }}>No current season data available.</p>;

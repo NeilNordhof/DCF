@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 export interface WeekGroup<T> {
   weekLabel: string;
   items: T[];
@@ -5,6 +7,21 @@ export interface WeekGroup<T> {
 
 export function formatShowDate(dateStr: string): string {
   return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+export function tabStyle(active: boolean): CSSProperties {
+  return {
+    padding: '8px 16px',
+    fontSize: 11,
+    fontWeight: active ? 700 : 600,
+    color: active ? 'var(--accent)' : 'var(--text-muted)',
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
+    background: 'none',
+    border: 'none',
+    borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+    cursor: 'pointer',
+  };
 }
 
 export function groupByWeek<T>(items: T[], getDate: (item: T) => string): WeekGroup<T>[] {
