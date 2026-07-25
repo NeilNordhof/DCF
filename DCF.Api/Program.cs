@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
+using System.Diagnostics;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,10 +16,11 @@ builder.Services.AddDbContext<DcfDbContext>(opt =>
 
 builder.WebHost.UseSentry(o =>
 {
-    o.Dsn = "https://8dfe572a3fc3b524cc9b149e02fea937@o4511798022045696.ingest.us.sentry.io/4511798029189120";
-    o.Debug = true; //Once we're working, set based on environment
-    o.TracesSampleRate = 1; //May need to adjust for prod
+    o.Dsn = builder.Configuration["Sentry:Dsn"];
+    o.Debug = builder.Environment.IsDevelopment();
+    o.TracesSampleRate = builder.Environment.IsDevelopment() ? 1.0 : 0.1;
     o.EnableLogs = true;
+    o.SendDefaultPii = true;
 });
 
 if (builder.Environment.IsDevelopment())
@@ -105,6 +107,15 @@ builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
          .AllowAnyHeader();
     }
 }));
+
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = ctx =>
+    {
+        ctx.ProblemDetails.Extensions["traceId"] = Activity.Current?.Id ?? ctx.HttpContext.TraceIdentifier;
+    };
+});
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 
 builder.Services.AddHttpClient();
 
