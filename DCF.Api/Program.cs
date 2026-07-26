@@ -23,6 +23,9 @@ builder.WebHost.UseSentry(o =>
     o.SendDefaultPii = true;
 });
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<ISentryUserFactory, Auth0SentryUserFactory>();
+
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
