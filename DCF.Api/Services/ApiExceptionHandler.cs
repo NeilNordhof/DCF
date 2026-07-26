@@ -1,28 +1,27 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
 
-namespace DCF.Api.Services
+namespace DCF.Api.Services;
+
+public class ApiExceptionHandler(
+    ILogger<ApiExceptionHandler> logger,
+    IProblemDetailsService problemDetailsService) 
+    : IExceptionHandler
 {
-    public class ApiExceptionHandler(
-        ILogger<ApiExceptionHandler> logger,
-        IProblemDetailsService problemDetailsService) 
-        : IExceptionHandler
+    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
-        public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
+        logger.LogError(exception, "Unhandled exception on {Method} {Path}",
+            httpContext.Request.Method, httpContext.Request.Path);
+
+        httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+        return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
-            logger.LogError(exception, "Unhandled exception on {Method} {Path}",
-                httpContext.Request.Method, httpContext.Request.Path);
-
-            httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
-
-            return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+            HttpContext = httpContext,
+            ProblemDetails =
             {
-                HttpContext = httpContext,
-                ProblemDetails =
-                {
-                    Status = StatusCodes.Status500InternalServerError,
-                    Title = "An unexpected error occured."
-                }
-            });
-        }
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "An unexpected error occurred."
+            }
+        });
     }
 }

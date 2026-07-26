@@ -132,6 +132,7 @@ var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(Path.Combine(uploadsPath, "corps-icons"));
 
 app.UseCors();
+app.UseExceptionHandler();
 
 app.UseStaticFiles(new StaticFileOptions
 {
