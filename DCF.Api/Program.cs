@@ -56,7 +56,7 @@ else
 }
 
 builder.Services.AddAuthorization();
-builder.Services.AddControllers()
+builder.Services.AddControllers(options => options.Filters.Add<SentryLeagueTaggingFilter>())
     .AddJsonOptions(opt =>
         opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
