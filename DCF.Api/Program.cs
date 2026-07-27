@@ -4,15 +4,47 @@ using DCF.Api.Services;
 using DCF.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
+using System.Diagnostics;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<DcfDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+
+builder.WebHost.UseSentry(o =>
+{
+    o.Dsn = builder.Configuration["Sentry:Dsn"];
+    o.Debug = builder.Environment.IsDevelopment();
+    o.TracesSampleRate = builder.Environment.IsDevelopment() ? 1.0 : 0.1;
+    o.EnableLogs = true;
+    o.SendDefaultPii = true;
+
+    o.SetBeforeSend((sentryEvent, _) =>
+    {
+        var request = sentryEvent.Request;
+
+        if (request is not null)
+        {
+            request.Cookies = null;
+
+            if (request.Headers is not null)
+            {
+                foreach (var key in request.Headers.Keys.Where(k => string.Equals(k, "Cookie", StringComparison.OrdinalIgnoreCase)).ToList())
+                {
+                    request.Headers.Remove(key);
+                }
+            }
+        }
+
+        return sentryEvent;
+    });
+});
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<ISentryUserFactory, Auth0SentryUserFactory>();
 
 if (builder.Environment.IsDevelopment())
 {
@@ -44,7 +76,7 @@ else
 }
 
 builder.Services.AddAuthorization();
-builder.Services.AddControllers()
+builder.Services.AddControllers(options => options.Filters.Add<SentryLeagueTaggingFilter>())
     .AddJsonOptions(opt =>
         opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
@@ -99,6 +131,15 @@ builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
     }
 }));
 
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = ctx =>
+    {
+        ctx.ProblemDetails.Extensions["traceId"] = Activity.Current?.Id ?? ctx.HttpContext.TraceIdentifier;
+    };
+});
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+
 builder.Services.AddHttpClient();
 
 var app = builder.Build();
@@ -114,6 +155,7 @@ var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(Path.Combine(uploadsPath, "corps-icons"));
 
 app.UseCors();
+app.UseExceptionHandler();
 
 app.UseStaticFiles(new StaticFileOptions
 {

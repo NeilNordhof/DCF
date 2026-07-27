@@ -74,6 +74,8 @@ public class SeasonStatusService(
 
         _ = Task.Run(async () =>
         {
+            using var _ = logger.BeginScope(new Dictionary<string, object> { ["SeasonId"] = season.Id });
+
             try
             {
                 if (season.Status == SeasonStatus.Upcoming)

@@ -80,6 +80,7 @@ SMTP (Mailpit dev / Resend prod) ← API sends email notifications
 - `Scraper__RetryIntervalMinutes` — delay between retries (default 5)
 - `Email__*` — SMTP `Host`/`Port`/`Username`/`Password`/`StartTls`, `FromAddress`/`FromName`, `FrontendUrl` (used to build links in emails), `UnsubscribeSecret` (HMAC key for unsubscribe tokens)
 - `AllowedOrigins` — CORS
+- `Sentry__Dsn` — Sentry ingest DSN; not a secret (same trust model as a public frontend key), so no `.env.prod` wiring needed
 
 **Frontend** (`.env` in `DCF.Web/` / Vite env vars):
 - `VITE_API_URL`, `VITE_MQTT_URL` (WebSocket, e.g. `ws://localhost:9001`)

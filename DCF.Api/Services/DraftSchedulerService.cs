@@ -46,6 +46,8 @@ public class DraftSchedulerService(
 
         _ = Task.Run(async () =>
         {
+            using var _ = logger.BeginScope(new Dictionary<string, object> { ["LeagueId"] = leagueId });
+
             try
             {
                 if (!isAlreadyOpened)
