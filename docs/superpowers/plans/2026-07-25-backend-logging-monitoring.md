@@ -41,7 +41,7 @@ Task 1 below assumes those three fixes are in place and adds the tests this clas
 - Consumes: `ApiExceptionHandler(ILogger<ApiExceptionHandler>, IProblemDetailsService)`, `TryHandleAsync(HttpContext, Exception, CancellationToken) : ValueTask<bool>` (already implemented)
 - Produces: nothing consumed by later tasks
 
-- [ ] **Step 1: Write the tests**
+- [x] **Step 1: Write the tests**
 
 ```csharp
 using DCF.Api.Services;
@@ -105,12 +105,12 @@ public class ApiExceptionHandlerTests
 }
 ```
 
-- [ ] **Step 2: Run the tests**
+- [x] **Step 2: Run the tests**
 
 Run: `dotnet test --filter "FullyQualifiedName~ApiExceptionHandlerTests"`
 Expected: PASS (the implementation already exists — this backfills coverage rather than driving new code, since the class was written before this plan existed to TDD it)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add DCF.Tests/Services/ApiExceptionHandlerTests.cs
@@ -130,7 +130,7 @@ git commit -m "test: add coverage for ApiExceptionHandler"
 - Consumes: `IHttpContextAccessor.HttpContext` (nullable)
 - Produces: `Auth0SentryUserFactory : ISentryUserFactory` with `SentryUser? Create()` — registered as the DI-resolved `ISentryUserFactory`, consumed internally by the Sentry SDK (nothing in this codebase calls it directly)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using System.Security.Claims;
@@ -199,12 +199,12 @@ public class Auth0SentryUserFactoryTests
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `dotnet test --filter "FullyQualifiedName~Auth0SentryUserFactoryTests"`
 Expected: FAIL to compile — `Auth0SentryUserFactory` doesn't exist yet
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```csharp
 using System.Security.Claims;
@@ -230,7 +230,7 @@ public class Auth0SentryUserFactory(IHttpContextAccessor httpContextAccessor) : 
 }
 ```
 
-- [ ] **Step 4: Register it in `Program.cs`**
+- [x] **Step 4: Register it in `Program.cs`**
 
 Add immediately after the `UseSentry(...)` block:
 
@@ -239,17 +239,17 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ISentryUserFactory, Auth0SentryUserFactory>();
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `dotnet test --filter "FullyQualifiedName~Auth0SentryUserFactoryTests"`
 Expected: PASS
 
-- [ ] **Step 6: Build the whole solution**
+- [x] **Step 6: Build the whole solution**
 
 Run: `dotnet build DCF.slnx`
 Expected: 0 errors (confirms the `Program.cs` registration compiles against the real DI container)
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add DCF.Api/Services/Auth0SentryUserFactory.cs DCF.Api/Program.cs DCF.Tests/Services/Auth0SentryUserFactoryTests.cs
@@ -269,7 +269,7 @@ git commit -m "feat: add custom ISentryUserFactory matching the app's NameIdenti
 - Consumes: `SentrySdk.ConfigureScope(Action<Scope>)`, `Scope.SetTag(string, string)` (both confirmed via assembly reflection)
 - Produces: `SentryLeagueTaggingFilter : IActionFilter`; `internal static Guid? ResolveLeagueId(RouteValueDictionary routeValues, PathString path)` — the testable pure function other tasks don't depend on
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 using DCF.Api.Services;
@@ -335,12 +335,12 @@ public class SentryLeagueTaggingFilterTests
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `dotnet test --filter "FullyQualifiedName~SentryLeagueTaggingFilterTests"`
 Expected: FAIL to compile — `SentryLeagueTaggingFilter` doesn't exist yet
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```csharp
 using Microsoft.AspNetCore.Http;
@@ -389,7 +389,7 @@ public class SentryLeagueTaggingFilter : IActionFilter
 }
 ```
 
-- [ ] **Step 4: Register it in `Program.cs`**
+- [x] **Step 4: Register it in `Program.cs`**
 
 Change the existing `AddControllers()` call:
 
@@ -399,12 +399,12 @@ builder.Services.AddControllers(options => options.Filters.Add<SentryLeagueTaggi
         opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `dotnet test --filter "FullyQualifiedName~SentryLeagueTaggingFilterTests"`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add DCF.Api/Services/SentryLeagueTaggingFilter.cs DCF.Api/Program.cs DCF.Tests/Services/SentryLeagueTaggingFilterTests.cs
@@ -424,7 +424,7 @@ git commit -m "feat: tag Sentry events with league_id for league-scoped requests
 - Consumes: `ILogger.BeginScope(object)` (standard `Microsoft.Extensions.Logging` API, already in use elsewhere in these files) — confirmed via Sentry's own docs that scope state attaches to breadcrumbs/events/logs, not just local console output
 - Produces: nothing new consumed elsewhere — purely additive context, no behavior change
 
-- [ ] **Step 1: `ScrapeSchedulerService.ExecuteScrapeAsync`**
+- [x] **Step 1: `ScrapeSchedulerService.ExecuteScrapeAsync`**
 
 Current (lines 131-134):
 
@@ -445,7 +445,7 @@ New:
         var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
 ```
 
-- [ ] **Step 2: `DraftSchedulerService.ScheduleNext`**
+- [x] **Step 2: `DraftSchedulerService.ScheduleNext`**
 
 Current (lines 47-50):
 
@@ -467,7 +467,7 @@ New:
             {
 ```
 
-- [ ] **Step 3: `SeasonStatusService.ScheduleSeason`**
+- [x] **Step 3: `SeasonStatusService.ScheduleSeason`**
 
 Current (lines 75-78):
 
@@ -489,12 +489,12 @@ New:
             {
 ```
 
-- [ ] **Step 4: Run the existing tests for all three services to confirm no regression**
+- [x] **Step 4: Run the existing tests for all three services to confirm no regression**
 
 Run: `dotnet test --filter "FullyQualifiedName~ScrapeSchedulerServiceTests|FullyQualifiedName~DraftSchedulerServiceTests|FullyQualifiedName~SeasonStatusServiceTests"`
 Expected: PASS — these tests already exist and cover control flow; `BeginScope` doesn't change return values or exceptions, so this is a pure regression check, not new coverage.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add DCF.Api/Services/ScrapeSchedulerService.cs DCF.Api/Services/DraftSchedulerService.cs DCF.Api/Services/SeasonStatusService.cs
@@ -508,7 +508,7 @@ git commit -m "feat: tag background scheduler work with its entity id via BeginS
 **Files:**
 - Modify: `CLAUDE.md` (Configuration section)
 
-- [ ] **Step 1: Add the new config entry**
+- [x] **Step 1: Add the new config entry**
 
 In the `**API** (\`appsettings.json\` / environment variables):` list, add:
 
@@ -516,7 +516,7 @@ In the `**API** (\`appsettings.json\` / environment variables):` list, add:
 - `Sentry__Dsn` — Sentry ingest DSN; not a secret (same trust model as a public frontend key), so no `.env.prod` wiring needed
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add CLAUDE.md
@@ -527,6 +527,6 @@ git commit -m "docs: document Sentry__Dsn in the Configuration section"
 
 ## Final Verification
 
-- [ ] `dotnet build DCF.slnx` — 0 errors
-- [ ] `dotnet test DCF.Tests/DCF.Tests.csproj` — all tests pass, including the 3 new test files and the 3 pre-existing scheduler test files
+- [x] `dotnet build DCF.slnx` — 0 errors
+- [x] `dotnet test DCF.Tests/DCF.Tests.csproj` — all tests pass, including the 3 new test files and the 3 pre-existing scheduler test files
 - [ ] Manually trigger a real exception locally (e.g. temporarily throw inside a controller action) and confirm in Sentry's dashboard: the issue has a `league_id` tag (if hit through a league route), a user id attached, and the API response is a generic ProblemDetails 500 with a `traceId` — not the raw exception
