@@ -95,8 +95,7 @@ public class SeasonStatusService(
 
                         await db.Seasons
                             .Where(s => s.Id == season.Id)
-                            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status,
-                            SeasonStatus.Active));
+                            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, SeasonStatus.Active));
 
                         logger.LogInformation("Season {Year} status set to Active", season.Year);
                     }

@@ -56,4 +56,19 @@ public class ApiExceptionHandlerTests
         Assert.DoesNotContain("sensitive internal detail", title);
         Assert.DoesNotContain("sensitive internal detail", detail);
     }
+
+    [Fact]
+    public async Task TryHandleAsync_ClientDisconnected_ReturnsTrueWithoutWritingProblemDetails()
+    {
+        var problemDetailsService = new RecordingProblemDetailsService();
+        var handler = new ApiExceptionHandler(NullLogger<ApiExceptionHandler>.Instance, problemDetailsService);
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var httpContext = new DefaultHttpContext { RequestAborted = cts.Token };
+
+        var handled = await handler.TryHandleAsync(httpContext, new OperationCanceledException(), CancellationToken.None);
+
+        Assert.True(handled);
+        Assert.Null(problemDetailsService.Written);
+    }
 }

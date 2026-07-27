@@ -9,6 +9,11 @@ public class ApiExceptionHandler(
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
+        if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
+        {
+            return true;
+        }
+
         logger.LogError(exception, "Unhandled exception on {Method} {Path}",
             httpContext.Request.Method, httpContext.Request.Path);
 

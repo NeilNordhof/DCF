@@ -8,6 +8,12 @@ namespace DCF.Tests.Services;
 public class SentryLeagueTaggingFilterTests
 {
     [Fact]
+    public void LeagueIdTagKey_IsLeagueId()
+    {
+        Assert.Equal("league_id", SentryLeagueTaggingFilter.LeagueIdTagKey);
+    }
+
+    [Fact]
     public void ResolveLeagueId_LeagueIdRouteValue_ReturnsIt()
     {
         var leagueId = Guid.NewGuid();

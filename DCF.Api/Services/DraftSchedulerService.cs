@@ -46,7 +46,7 @@ public class DraftSchedulerService(
 
         _ = Task.Run(async () =>
         {
-            logger.BeginScope(new Dictionary<string, object> { ["LeagueId"] = leagueId });
+            using var _ = logger.BeginScope(new Dictionary<string, object> { ["LeagueId"] = leagueId });
 
             try
             {

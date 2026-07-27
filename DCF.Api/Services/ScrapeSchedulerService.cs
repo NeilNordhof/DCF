@@ -130,7 +130,7 @@ public class ScrapeSchedulerService(
 
     public async Task<(ScrapeOutcome Outcome, string? Error)> ExecuteScrapeAsync(ShowEntity show)
     {
-        logger.BeginScope(new Dictionary<string, object> { ["ShowId"] = show.Id });
+        using var _ = logger.BeginScope(new Dictionary<string, object> { ["ShowId"] = show.Id });
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DcfDbContext>();
 

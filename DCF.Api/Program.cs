@@ -21,6 +21,26 @@ builder.WebHost.UseSentry(o =>
     o.TracesSampleRate = builder.Environment.IsDevelopment() ? 1.0 : 0.1;
     o.EnableLogs = true;
     o.SendDefaultPii = true;
+
+    o.SetBeforeSend((sentryEvent, _) =>
+    {
+        var request = sentryEvent.Request;
+
+        if (request is not null)
+        {
+            request.Cookies = null;
+
+            if (request.Headers is not null)
+            {
+                foreach (var key in request.Headers.Keys.Where(k => string.Equals(k, "Cookie", StringComparison.OrdinalIgnoreCase)).ToList())
+                {
+                    request.Headers.Remove(key);
+                }
+            }
+        }
+
+        return sentryEvent;
+    });
 });
 
 builder.Services.AddHttpContextAccessor();

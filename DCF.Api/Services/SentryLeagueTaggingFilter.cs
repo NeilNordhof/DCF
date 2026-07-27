@@ -4,6 +4,8 @@ namespace DCF.Api.Services;
 
 public class SentryLeagueTaggingFilter : IActionFilter
 {
+    public const string LeagueIdTagKey = "league_id";
+
     public void OnActionExecuted(ActionExecutedContext context)
     {
     }
@@ -14,7 +16,7 @@ public class SentryLeagueTaggingFilter : IActionFilter
 
         if (leagueId is not null)
         {
-            SentrySdk.ConfigureScope(scope => scope.SetTag("leauge_id", leagueId.Value.ToString()));
+            SentrySdk.ConfigureScope(scope => scope.SetTag(LeagueIdTagKey, leagueId.Value.ToString()));
         }
     }
 
@@ -33,7 +35,7 @@ public class SentryLeagueTaggingFilter : IActionFilter
 
         if (raw is string s && Guid.TryParse(s, out var id))
         {
-            return id;;
+            return id;
         }
 
         return null;
