@@ -17,7 +17,9 @@ internal sealed class NullMqttService : IMqttService
     }
 }
 
-internal sealed class FakeRecapScraperTask(int failuresBeforeSuccess = int.MaxValue) : IRecapScraperTask
+internal sealed class FakeRecapScraperTask(
+    int failuresBeforeSuccess = int.MaxValue,
+    Func<Show, List<Result>>? onSuccess = null) : IRecapScraperTask
 {
     public int CallCount { get; private set; }
 
@@ -30,7 +32,9 @@ internal sealed class FakeRecapScraperTask(int failuresBeforeSuccess = int.MaxVa
             throw new InvalidOperationException("Simulated scrape failure");
         }
 
-        return Task.FromResult(new List<Result>());
+        var results = onSuccess?.Invoke(show) ?? [];
+
+        return Task.FromResult(results);
     }
 }
 

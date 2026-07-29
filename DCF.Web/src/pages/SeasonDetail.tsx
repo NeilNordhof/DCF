@@ -957,7 +957,7 @@ export function SeasonDetail() {
                         s.scrapeStatus === 'Succeeded'
                           ? <span style={{ color: 'var(--green)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>SCRAPE COMPLETED</span>
                           : s.scrapeStatus === 'Failed'
-                          ? <span style={{ color: 'var(--red)', marginLeft: 6, fontWeight: 700, fontSize: 8 }}>SCRAPE FAILED</span>
+                          ? <span style={{ color: 'var(--red)', marginLeft: 6, fontWeight: 700, fontSize: 8 }} title={s.scrapeError ?? undefined}>SCRAPE FAILED</span>
                           : <span/>
                       )}
                     </div>
@@ -1176,6 +1176,12 @@ export function SeasonDetail() {
 
                     {!s.isExhibition && !s.noScoreReason && (started || hasScoresAnnounced(s)) && (
                       <div style={{ marginTop: 10 }}>
+                        {!scrapeMessage && s.scrapeStatus === 'Failed' && s.scrapeError && (
+                          <div style={{ marginBottom: 6, fontSize: 10, color: 'var(--text-muted)' }}>
+                            <strong style={{ color: 'var(--red)' }}>Scrape failed:</strong> {s.scrapeError}
+                          </div>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => {
@@ -1184,7 +1190,6 @@ export function SeasonDetail() {
 
                             api.adminTriggerScrape(s.id)
                               .then(async result => {
-                                setError(null);
                                 setScrapeResult({ showId: s.id, result });
 
                                 try {
@@ -1199,7 +1204,10 @@ export function SeasonDetail() {
                                   setTimeout(() => setScrapeResult(null), 3000);
                                 }
                               })
-                              .catch(() => setError('Scrape trigger failed.'))
+                              .catch(() => setScrapeResult({
+                                showId: s.id,
+                                result: { outcome: 'Failed', error: 'Scrape trigger failed — check your connection and try again.' },
+                              }))
                               .finally(() => setTriggeringScrapeId(null));
                           }}
                           disabled={triggeringScrapeId === s.id}

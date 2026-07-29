@@ -10,6 +10,6 @@ public class CorpsService(DcfDbContext db) : ICorpsService
     {
         var corps = await db.Corps.ToListAsync(ct);
 
-        return corps.ToDictionary(c => c.Name, c => new Corps(c.Id, c.Name));
+        return corps.ToDictionary(c => c.Name, c => new Corps(c.Id, c.Name), StringComparer.OrdinalIgnoreCase);
     }
 }

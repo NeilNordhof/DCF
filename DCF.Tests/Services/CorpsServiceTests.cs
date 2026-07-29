@@ -41,6 +41,22 @@ public class CorpsServiceTests
     }
 
     [Fact]
+    public async Task GetCorpsAsync_LookupIsCaseInsensitive()
+    {
+        using var db = CreateDb("corps_case_insensitive");
+        var id = Guid.NewGuid();
+        db.Corps.Add(new CorpsEntity { Id = id, Name = "Blue Devils" });
+
+        await db.SaveChangesAsync();
+
+        var service = new CorpsService(db);
+        var result = await service.GetCorpsAsync();
+
+        Assert.True(result.TryGetValue("blue devils", out var corps));
+        Assert.Equal(id, corps!.Id);
+    }
+
+    [Fact]
     public async Task GetCorpsAsync_EmptyDatabase_ReturnsEmptyDictionary()
     {
         using var db = CreateDb("corps_empty");

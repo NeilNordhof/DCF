@@ -33,6 +33,25 @@ public class ScrapeSchedulerServiceTests
         };
     }
 
+    private static Result MakeResult(Corps corps, Show show, double total = 100.0)
+    {
+        return new Result
+        {
+            Id = 1,
+            Corps = corps,
+            Show = show,
+            Total = new Score
+            {
+                Id = Guid.NewGuid(),
+                Corps = corps,
+                Show = show,
+                Caption = Caption.Total,
+                TotalScore = total,
+                TotalRank = 1
+            }
+        };
+    }
+
     [Fact]
     public void GetScrapeDelay_AddsDelayMinutesToAnnouncedTime()
     {
@@ -109,6 +128,61 @@ public class ScrapeSchedulerServiceTests
         var updated = db.Shows.Single(s => s.Id == show.Id);
         Assert.Equal(ScrapeStatus.Failed, updated.ScrapeStatus);
         Assert.Equal("Simulated scrape failure", updated.ScrapeError);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeAsync_NoScrapedResultMatchesAnExpectedCorps_ReturnsFailedAndSetsStatus()
+    {
+        using var db = CreateDb("execute_scrape_no_expected_corps_matched");
+        var show = CreateShow();
+        var expectedCorpsA = Guid.NewGuid();
+        var expectedCorpsB = Guid.NewGuid();
+        db.Shows.Add(show);
+        db.ShowCorps.AddRange(
+            new ShowCorpsEntity { ShowId = show.Id, CorpsId = expectedCorpsA },
+            new ShowCorpsEntity { ShowId = show.Id, CorpsId = expectedCorpsB });
+        await db.SaveChangesAsync();
+
+        // Scraper "succeeds" (doesn't throw) but every scraped corps is unrecognized —
+        // e.g. a soft-404/interstitial page, or every corps name failed to match.
+        var scraperTask = new FakeRecapScraperTask(failuresBeforeSuccess: 0,
+            onSuccess: s => [MakeResult(new Corps("Unrecognized Corps"), s)]);
+        var svc = CreateSvc(db, scraperTask);
+
+        var result = await svc.ExecuteScrapeAsync(show);
+
+        Assert.Equal(ScrapeOutcome.Failed, result.Outcome);
+        Assert.NotNull(result.Error);
+        var updated = db.Shows.Single(s => s.Id == show.Id);
+        Assert.Equal(ScrapeStatus.Failed, updated.ScrapeStatus);
+        Assert.Equal(result.Error, updated.ScrapeError);
+    }
+
+    [Fact]
+    public async Task ExecuteScrapeAsync_SomeButNotAllExpectedCorpsMatched_ReturnsSucceededAndSavesOnlyMatchedScores()
+    {
+        using var db = CreateDb("execute_scrape_partial_corps_match");
+        var show = CreateShow();
+        var expectedCorpsA = Guid.NewGuid();
+        var expectedCorpsB = Guid.NewGuid();
+        db.Shows.Add(show);
+        db.ShowCorps.AddRange(
+            new ShowCorpsEntity { ShowId = show.Id, CorpsId = expectedCorpsA },
+            new ShowCorpsEntity { ShowId = show.Id, CorpsId = expectedCorpsB });
+        await db.SaveChangesAsync();
+
+        // Only corpsA's name matched; corpsB is missing from the page (or scratched).
+        var scraperTask = new FakeRecapScraperTask(failuresBeforeSuccess: 0,
+            onSuccess: s => [MakeResult(new Corps(expectedCorpsA, "Corps A"), s)]);
+        var svc = CreateSvc(db, scraperTask);
+
+        var result = await svc.ExecuteScrapeAsync(show);
+
+        Assert.Equal(ScrapeOutcome.Succeeded, result.Outcome);
+        var updated = db.Shows.Single(s => s.Id == show.Id);
+        Assert.Equal(ScrapeStatus.Succeeded, updated.ScrapeStatus);
+        Assert.Single(db.Scores.Where(sc => sc.ShowId == show.Id));
+        Assert.Equal(expectedCorpsA, db.Scores.Single(sc => sc.ShowId == show.Id).CorpsId);
     }
 
     [Fact]

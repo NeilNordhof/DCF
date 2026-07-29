@@ -167,12 +167,36 @@ public class ScrapeSchedulerService(
             return (ScrapeOutcome.Failed, ex.Message);
         }
 
-        freshShow.ScrapeStatus = ScrapeStatus.Succeeded;
-        freshShow.ScrapeError = null;
-
         var scores = results
             .SelectMany(r => EnumerateScores(r))
-            .Where(s => showCorpsIds.Contains(s.CorpsId));
+            .Where(s => showCorpsIds.Contains(s.CorpsId))
+            .ToList();
+
+        if (showCorpsIds.Count > 0 && scores.Count == 0)
+        {
+            var error = $"Scraped 0 of {showCorpsIds.Count} expected corps";
+
+            logger.LogError("Scrape for show {ShowId} matched none of the {ExpectedCount} expected corps",
+                freshShow.Id, showCorpsIds.Count);
+
+            freshShow.ScrapeStatus = ScrapeStatus.Failed;
+            freshShow.ScrapeError = error;
+
+            await db.SaveChangesAsync();
+
+            return (ScrapeOutcome.Failed, error);
+        }
+
+        var matchedCorpsCount = scores.Select(s => s.CorpsId).Distinct().Count();
+
+        if (matchedCorpsCount < showCorpsIds.Count)
+        {
+            logger.LogWarning("Scrape for show {ShowId} matched {MatchedCount} of {ExpectedCount} expected corps",
+                freshShow.Id, matchedCorpsCount, showCorpsIds.Count);
+        }
+
+        freshShow.ScrapeStatus = ScrapeStatus.Succeeded;
+        freshShow.ScrapeError = null;
 
         foreach (var score in scores)
         {
