@@ -103,7 +103,9 @@ export function LeagueDetail() {
   const [editGe, setEditGe] = useState<GEOption>('combined');
   const [editVis, setEditVis] = useState<VisOption>('combined');
   const [editMusic, setEditMusic] = useState<MusicOption>('combined');
+  const [editDraftMode, setEditDraftMode] = useState<'perCaption' | 'budget'>('perCaption');
   const [editCorpsPerCaption, setEditCorpsPerCaption] = useState(1);
+  const [editDraftBudget, setEditDraftBudget] = useState(6);
   const [editMaxPlayers, setEditMaxPlayers] = useState(4);
   const [editDraftStartDate, setEditDraftStartDate] = useState('');
   const [editDraftStartTime, setEditDraftStartTime] = useState('');
@@ -154,8 +156,16 @@ export function LeagueDetail() {
   }
 
   const effectiveStatus = draftState?.status ?? league.draftStatus;
+  const editUsesBudget = editDraftMode === 'budget';
+  const editCaptionCount = expandCaptions(editGe, editVis, editMusic).length;
   const maxEditCorpsPerCaption = seasonCorpsCount != null ? Math.floor(seasonCorpsCount / 4) : null;
-  const maxEditMaxPlayers = seasonCorpsCount != null && editCorpsPerCaption > 0 ? Math.floor(seasonCorpsCount / editCorpsPerCaption) : null;
+  // Same whole-board-vs-single-caption reasoning as LeagueCreate.tsx/LeagueService: Draft
+  // Budget's binding constraint is corpsCount * caption count, not one caption's supply.
+  const editTotalBoardSlots = seasonCorpsCount != null ? seasonCorpsCount * editCaptionCount : null;
+  const maxEditDraftBudget = editTotalBoardSlots != null ? Math.floor(editTotalBoardSlots / 4) : null;
+  const editPerPlayerUnit = editUsesBudget ? editDraftBudget : editCorpsPerCaption;
+  const editAvailableSlots = editUsesBudget ? editTotalBoardSlots : seasonCorpsCount;
+  const maxEditMaxPlayers = editAvailableSlots != null && editPerPlayerUnit > 0 ? Math.floor(editAvailableSlots / editPerPlayerUnit) : null;
   const minEditMaxPlayers = Math.max(4, league.members?.length ?? 0);
 
   const getCountdown = () => {
@@ -210,7 +220,10 @@ export function LeagueDetail() {
     setEditGe(ge);
     setEditVis(vis);
     setEditMusic(music);
-    setEditCorpsPerCaption(league.corpsPerCaption!);
+    const usesBudget = (league.draftBudget ?? 0) > 0;
+    setEditDraftMode(usesBudget ? 'budget' : 'perCaption');
+    setEditCorpsPerCaption(usesBudget ? 1 : (league.corpsPerCaption ?? 1));
+    setEditDraftBudget(usesBudget ? league.draftBudget! : (league.draftableCaptions?.length ?? 3) * 3);
     setEditMaxPlayers(league.maxPlayers!);
     setEditPickTimerSeconds(league.pickTimerSeconds ?? 0);
     const combined = toDatetimeLocal(league.draftStartTime);
@@ -226,7 +239,8 @@ export function LeagueDetail() {
 
     try {
       await api.updateLeague(id!, {
-        corpsPerCaption: editCorpsPerCaption,
+        corpsPerCaption: editUsesBudget ? 0 : editCorpsPerCaption,
+        draftBudget: editUsesBudget ? editDraftBudget : 0,
         maxPlayers: editMaxPlayers,
         draftableCaptions: expandCaptions(editGe, editVis, editMusic),
         draftStartTime: (editDraftStartDate && editDraftStartTime) ? datetimeLocalToIso(`${editDraftStartDate}T${editDraftStartTime}`) : null,
@@ -378,9 +392,10 @@ export function LeagueDetail() {
           ))}
         </div>
         {league.draftableCaptions!.map(cap => {
+          const usesBudget = (league.draftBudget ?? 0) > 0;
           const capPicks = playerPicks.filter(p => p.caption === cap);
           const filled = capPicks.length;
-          const total = league.corpsPerCaption!;
+          const total = usesBudget ? filled : league.corpsPerCaption!;
 
           return (
             <div key={cap} style={{ marginBottom: 12 }}>
@@ -392,7 +407,7 @@ export function LeagueDetail() {
                   color: filled > 0 ? 'var(--accent)' : 'var(--text-faint)',
                   border: `1px solid ${filled > 0 ? 'var(--accent-border)' : 'var(--border)'}`,
                 }}>
-                  {filled} / {total}
+                  {usesBudget ? filled : `${filled} / ${total}`}
                 </div>
               </div>
               {Array.from({ length: total }).map((_, i) => {
@@ -512,7 +527,9 @@ export function LeagueDetail() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[
                 { label: 'Captions', value: league.draftableCaptions!.join(', ') },
-                { label: 'Corps per Caption', value: String(league.corpsPerCaption) },
+                (league.draftBudget ?? 0) > 0
+                  ? { label: 'Draft Budget', value: String(league.draftBudget) }
+                  : { label: 'Corps per Caption', value: String(league.corpsPerCaption) },
                 { label: 'Max Players', value: String(league.maxPlayers) },
                 { label: 'Pick Timer', value: pickTimerLabel(league.pickTimerSeconds) },
                 { label: 'Draft Start', value: league.draftStartTime ? new Date(league.draftStartTime).toLocaleString() : 'Not scheduled' },
@@ -558,6 +575,30 @@ export function LeagueDetail() {
                 </div>
               </div>
               <div>
+                <div style={labelStyle}>Draft Type</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {([
+                    { key: 'perCaption', label: 'Corps Per Caption' },
+                    { key: 'budget', label: 'Draft Budget' },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setEditDraftMode(opt.key)}
+                      style={{
+                        flex: 1, padding: '7px 0', borderRadius: 5, fontSize: 10, fontWeight: 700,
+                        border: '1px solid var(--border)', cursor: 'pointer',
+                        background: editDraftMode === opt.key ? 'var(--accent-bg)' : 'var(--surface)',
+                        color: editDraftMode === opt.key ? 'var(--text-heading)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {editDraftMode === 'perCaption' ? (
+              <div>
                 <div style={labelStyle}>Corps per Caption</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <button
@@ -593,6 +634,44 @@ export function LeagueDetail() {
                   </button>
                 </div>
               </div>
+              ) : (
+              <div>
+                <div style={labelStyle}>Draft Budget</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditDraftBudget(v => Math.max(1, v - 1))}
+                    disabled={editDraftBudget <= 1}
+                    style={{
+                      width: 32, height: 32, borderRadius: 5, fontSize: 16, fontWeight: 700,
+                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      color: editDraftBudget <= 1 ? 'var(--text-faint)' : 'var(--text-heading)',
+                      cursor: editDraftBudget <= 1 ? 'not-allowed' : 'pointer',
+                      opacity: editDraftBudget <= 1 ? 0.3 : 1,
+                    }}
+                  >
+                    −
+                  </button>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-heading)', minWidth: 24, textAlign: 'center' }}>
+                    {editDraftBudget}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditDraftBudget(v => v + 1)}
+                    disabled={maxEditDraftBudget != null && editDraftBudget >= maxEditDraftBudget}
+                    style={{
+                      width: 32, height: 32, borderRadius: 5, fontSize: 16, fontWeight: 700,
+                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      color: (maxEditDraftBudget != null && editDraftBudget >= maxEditDraftBudget) ? 'var(--text-faint)' : 'var(--text-heading)',
+                      cursor: (maxEditDraftBudget != null && editDraftBudget >= maxEditDraftBudget) ? 'not-allowed' : 'pointer',
+                      opacity: (maxEditDraftBudget != null && editDraftBudget >= maxEditDraftBudget) ? 0.3 : 1,
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              )}
               <div>
                 <div style={labelStyle}>Max Players</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

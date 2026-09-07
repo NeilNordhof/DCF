@@ -17,7 +17,7 @@ public record LeagueSummary(
 public record LeagueDetail(
     Guid Id, string Name, bool IsPublic, string? InviteCode,
     DraftStatus DraftStatus, DateTimeOffset? DraftStartTime,
-    int CorpsPerCaption, Guid CommissionerUserId,
+    int CorpsPerCaption, int DraftBudget, Guid CommissionerUserId,
     IEnumerable<string> DraftableCaptions, int SeasonYear, Guid SeasonId,
     IEnumerable<MemberSummary> Members,
     IEnumerable<PickSummary> Picks,
@@ -90,7 +90,8 @@ public class LeagueService(
         string userSub,
         DateTimeOffset? draftStartTime = null,
         string? draftTimezone = null,
-        int pickTimerSeconds = 0)
+        int pickTimerSeconds = 0,
+        int draftBudget = 0)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub)
             ?? throw new InvalidOperationException("User not found.");
@@ -103,24 +104,53 @@ public class LeagueService(
             ?? throw new InvalidOperationException("No active season found.");
 
         var corpsCount = activeSeason.SeasonCorps.Count;
-        var maxCorpsPerCaption = corpsCount / 4;
-        var maxAllowedPlayers = corpsPerCaption > 0 ? corpsCount / corpsPerCaption : 0;
+        var usesDraftBudget = draftBudget > 0;
 
         if (maxPlayers < 4)
         {
             throw new ArgumentException("maxPlayers must be at least 4.", nameof(maxPlayers));
         }
 
-        if (corpsPerCaption > maxCorpsPerCaption)
+        if (usesDraftBudget)
         {
-            throw new ArgumentException(
-                $"corpsPerCaption cannot exceed {maxCorpsPerCaption} for the active season.", nameof(corpsPerCaption));
-        }
+            // Unlike Corps Per Caption - where every member independently fills every
+            // caption, so one caption's own supply (corpsCount) is the binding constraint -
+            // budget mode lets a member freely redirect unspent budget to any caption that
+            // still has open corps. The binding constraint is the whole board's capacity,
+            // corpsCount * caption count, not one caption's worth.
+            var maxDraftBudget = corpsCount * captions.Count / 4;
+            var maxAllowedPlayers = draftBudget > 0 ? corpsCount * captions.Count / draftBudget : 0;
 
-        if (maxPlayers > maxAllowedPlayers)
+            if (draftBudget > maxDraftBudget)
+            {
+                throw new ArgumentException(
+                    $"draftBudget cannot exceed {maxDraftBudget} for the active season.", nameof(draftBudget));
+            }
+
+            if (maxPlayers > maxAllowedPlayers)
+            {
+                throw new ArgumentException(
+                    $"maxPlayers cannot exceed {maxAllowedPlayers} for the given draftBudget.", nameof(maxPlayers));
+            }
+
+            corpsPerCaption = 0;
+        }
+        else
         {
-            throw new ArgumentException(
-                $"maxPlayers cannot exceed {maxAllowedPlayers} for the given corpsPerCaption.", nameof(maxPlayers));
+            var maxCorpsPerCaption = corpsCount / 4;
+            var maxAllowedPlayers = corpsPerCaption > 0 ? corpsCount / corpsPerCaption : 0;
+
+            if (corpsPerCaption > maxCorpsPerCaption)
+            {
+                throw new ArgumentException(
+                    $"corpsPerCaption cannot exceed {maxCorpsPerCaption} for the active season.", nameof(corpsPerCaption));
+            }
+
+            if (maxPlayers > maxAllowedPlayers)
+            {
+                throw new ArgumentException(
+                    $"maxPlayers cannot exceed {maxAllowedPlayers} for the given corpsPerCaption.", nameof(maxPlayers));
+            }
         }
 
         if (pickTimerSeconds < 0)
@@ -138,6 +168,7 @@ public class LeagueService(
             InviteCode = GenerateInviteCode(),
             MaxPlayers = maxPlayers,
             CorpsPerCaption = corpsPerCaption,
+            DraftBudget = draftBudget,
             DraftableCaptions = captions.ToArray(),
             DraftStatus = draftStartTime.HasValue ? DraftStatus.Scheduled : DraftStatus.NotStarted,
             DraftStartTime = draftStartTime?.ToUniversalTime(),
@@ -265,6 +296,7 @@ public class LeagueService(
             league.Id, league.Name, league.IsPublic,
             isMember ? league.InviteCode : null,
             league.DraftStatus, league.DraftStartTime, league.CorpsPerCaption,
+            league.DraftBudget,
             league.CommissionerUserId,
             league.DraftableCaptions.Select(c => c.ToString()),
             league.Season.Year,
@@ -324,18 +356,41 @@ public class LeagueService(
         }
 
         var corpsCount = league.Season.SeasonCorps.Count;
-        var maxCorpsPerCaption = corpsCount / 4;
-        var maxAllowedPlayers = req.CorpsPerCaption > 0 ? corpsCount / req.CorpsPerCaption : 0;
+        var usesDraftBudget = req.DraftBudget > 0;
         var memberCount = await db.LeagueMembers.CountAsync(m => m.LeagueId == leagueId);
 
-        if (req.CorpsPerCaption > maxCorpsPerCaption)
+        if (usesDraftBudget)
         {
-            throw new ArgumentException($"corpsPerCaption cannot exceed {maxCorpsPerCaption} for the active season");
-        }
+            // See the matching comment in CreateAsync: budget mode's binding constraint is
+            // the whole board's capacity (corpsCount * caption count), not one caption's
+            // worth, since a member can freely redirect unspent budget across captions.
+            var maxDraftBudget = corpsCount * req.DraftableCaptions.Length / 4;
+            var maxAllowedPlayers = req.DraftBudget > 0 ? corpsCount * req.DraftableCaptions.Length / req.DraftBudget : 0;
 
-        if (req.MaxPlayers > maxAllowedPlayers)
+            if (req.DraftBudget > maxDraftBudget)
+            {
+                throw new ArgumentException($"draftBudget cannot exceed {maxDraftBudget} for the active season");
+            }
+
+            if (req.MaxPlayers > maxAllowedPlayers)
+            {
+                throw new ArgumentException($"draftBudget {req.DraftBudget} would require maxPlayers ≤ {maxAllowedPlayers}");
+            }
+        }
+        else
         {
-            throw new ArgumentException($"corpsPerCaption {req.CorpsPerCaption} would require maxPlayers ≤ {maxAllowedPlayers}");
+            var maxCorpsPerCaption = corpsCount / 4;
+            var maxAllowedPlayers = req.CorpsPerCaption > 0 ? corpsCount / req.CorpsPerCaption : 0;
+
+            if (req.CorpsPerCaption > maxCorpsPerCaption)
+            {
+                throw new ArgumentException($"corpsPerCaption cannot exceed {maxCorpsPerCaption} for the active season");
+            }
+
+            if (req.MaxPlayers > maxAllowedPlayers)
+            {
+                throw new ArgumentException($"corpsPerCaption {req.CorpsPerCaption} would require maxPlayers ≤ {maxAllowedPlayers}");
+            }
         }
 
         if (req.MaxPlayers < memberCount)
@@ -358,7 +413,8 @@ public class LeagueService(
             throw new ArgumentException("pickTimerSeconds cannot be negative");
         }
 
-        league.CorpsPerCaption = req.CorpsPerCaption;
+        league.CorpsPerCaption = usesDraftBudget ? 0 : req.CorpsPerCaption;
+        league.DraftBudget = usesDraftBudget ? req.DraftBudget : 0;
         league.MaxPlayers = req.MaxPlayers;
         league.DraftableCaptions = req.DraftableCaptions;
         league.IssueMessages = [];

@@ -3,6 +3,7 @@ using System;
 using DCF.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DCF.Data.Migrations
 {
     [DbContext(typeof(DcfDbContext))]
-    partial class DcfDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260902222515_AddLeagueDraftBudget")]
+    partial class AddLeagueDraftBudget
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -194,18 +197,6 @@ namespace DCF.Data.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<int?>("PendingPickCaption")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid?>("PendingPickCorpsId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("PickDeadline")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("PickTimerSeconds")
-                        .HasColumnType("integer");
 
                     b.Property<Guid>("SeasonId")
                         .HasColumnType("uuid");

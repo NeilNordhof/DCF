@@ -152,7 +152,7 @@ public class DraftService(
         }
 
         var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson)!;
-        int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
+        int mainTotalPicks = draftOrder.Length * league.PicksPerMember;
         var completedPickNumbers = new HashSet<int>(league.DraftPicks.Select(p => p.PickNumber));
         bool inMakeupPhase = league.CurrentPickNumber >= mainTotalPicks;
 
@@ -189,11 +189,23 @@ public class DraftService(
             throw new InvalidOperationException("That corps+caption is already drafted in this league");
         }
 
-        var picksForCaption = league.DraftPicks.Count(p => p.UserId == user.Id && p.Caption == caption);
-
-        if (picksForCaption >= league.CorpsPerCaption)
+        if (league.UsesDraftBudget)
         {
-            throw new InvalidOperationException($"You have already drafted the maximum {league.CorpsPerCaption} corps for this caption");
+            var picksForMember = league.DraftPicks.Count(p => p.UserId == user.Id);
+
+            if (picksForMember >= league.DraftBudget)
+            {
+                throw new InvalidOperationException($"You have already drafted the maximum {league.DraftBudget} corps for your draft budget");
+            }
+        }
+        else
+        {
+            var picksForCaption = league.DraftPicks.Count(p => p.UserId == user.Id && p.Caption == caption);
+
+            if (picksForCaption >= league.CorpsPerCaption)
+            {
+                throw new InvalidOperationException($"You have already drafted the maximum {league.CorpsPerCaption} corps for this caption");
+            }
         }
 
         DraftPickEntity pick;
@@ -278,7 +290,7 @@ public class DraftService(
         }
 
         var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson)!;
-        int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
+        int mainTotalPicks = draftOrder.Length * league.PicksPerMember;
 
         if (league.CurrentPickNumber >= mainTotalPicks)
         {
@@ -308,7 +320,7 @@ public class DraftService(
         }
 
         var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson) ?? [];
-        int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
+        int mainTotalPicks = draftOrder.Length * league.PicksPerMember;
 
         if (draftOrder.Length == 0 || league.CurrentPickNumber >= mainTotalPicks)
         {
@@ -360,7 +372,7 @@ public class DraftService(
         }
 
         var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson)!;
-        int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
+        int mainTotalPicks = draftOrder.Length * league.PicksPerMember;
 
         if (draftOrder.Length == 0 || league.CurrentPickNumber >= mainTotalPicks)
         {
@@ -385,7 +397,7 @@ public class DraftService(
         league.PendingPickCorpsId = null;
         league.PendingPickCaption = null;
 
-        int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
+        int mainTotalPicks = draftOrder.Length * league.PicksPerMember;
         bool activeMainPick = league.DraftStatus == DraftStatus.InProgress
             && draftOrder.Length > 0
             && league.CurrentPickNumber < mainTotalPicks;
@@ -431,7 +443,7 @@ public class DraftService(
             .Where(m => m.LeagueId == league.Id)
             .ToListAsync();
 
-        int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
+        int mainTotalPicks = draftOrder.Length * league.PicksPerMember;
         bool inMakeupPhase = draftOrder.Length > 0 && league.CurrentPickNumber >= mainTotalPicks;
 
         var completedPickNumbers = new HashSet<int>(picks.Select(p => p.PickNumber));
@@ -465,6 +477,10 @@ public class DraftService(
             league.CurrentPickNumber,
             league.PickTimerSeconds,
             PickDeadline = inMakeupPhase ? null : league.PickDeadline,
+            league.CorpsPerCaption,
+            league.DraftBudget,
+            UsesDraftBudget = league.UsesDraftBudget,
+            PicksPerMember = league.PicksPerMember,
             MainTotalPicks = mainTotalPicks,
             MakeupQueue = makeupQueue,
             CurrentDrafterId = currentDrafterId,
