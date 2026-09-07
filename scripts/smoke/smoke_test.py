@@ -141,10 +141,14 @@ def main():
 
         # Setup mqtt
         draft_queue = queue.Queue()
+        timer_draft_queue = queue.Queue()
         scores_queue = queue.Queue()
+        timer_league_id = None  # set once the pick-timer league below is created
         def on_message(client, userdata, msg):
-            if "draft" in msg.topic:
+            if msg.topic == f"dcf/leagues/{league_id}/draft":
                 draft_queue.put(msg.payload)
+            elif msg.topic == f"dcf/leagues/{timer_league_id}/draft":
+                timer_draft_queue.put(msg.payload)
             elif "scores" in msg.topic:
                 scores_queue.put(msg.payload)
 
@@ -223,6 +227,53 @@ def main():
         assert_status(resp, 200, "Get standings breakdown")
 
         assert any(member["totalScore"] > 0 for member in resp.json())
+
+        # --- Draft pick timer smoke check ---
+        # A second, isolated league with a short pick timer: verify an
+        # unsubmitted pick actually expires on its own and the draft
+        # advances into the makeup pool, end-to-end through the real
+        # background timer service and a real MQTT publish (not just the
+        # unit-tested scheduling logic in isolation).
+        resp = api("POST", "/api/leagues", "smoke-admin", json={
+            "name": "Smoke Timer League",
+            "isPublic": False,
+            "corpsPerCaption": 1,
+            "maxPlayers": 4,
+            "draftableCaptions": CAPTIONS,
+            "draftStartTime": None,
+            "pickTimerSeconds": 2
+        })
+        assert_status(resp, 201, "Create timer league")
+        timer_league_id = resp.json().get("id")
+
+        resp = api("GET", f"/api/leagues/{timer_league_id}", "smoke-admin")
+        assert_status(resp, 200, "Get timer league")
+        timer_invite_code = resp.json().get("inviteCode")
+
+        for i in range(1, 4):
+            resp = api("POST", f"/api/leagues/{timer_league_id}/join", f"smoke-user-{i}", json={"inviteCode": timer_invite_code})
+            assert_status(resp, 204, f"Join timer league for user {i}")
+
+        mqtt.subscribe(f"dcf/leagues/{timer_league_id}/draft")
+
+        resp = api("POST", f"/api/leagues/{timer_league_id}/draft/open", "smoke-admin")
+        assert_status(resp, 204, "Open timer draft")
+        wait_for_message(timer_draft_queue, timeout=5)
+
+        resp = api("POST", f"/api/leagues/{timer_league_id}/draft/start", "smoke-admin")
+        assert_status(resp, 200, "Start timer draft")
+
+        timer_state = json.loads(wait_for_message(timer_draft_queue, timeout=5))
+        assert timer_state["status"] == "InProgress"
+        assert timer_state["currentPickNumber"] == 0
+        assert timer_state["pickTimerSeconds"] == 2
+        assert timer_state["pickDeadline"], "Expected an active pick deadline once the timer draft starts"
+
+        # Deliberately submit nothing for pick 0 and let the 2-second timer expire on its own.
+        timer_state = json.loads(wait_for_message(timer_draft_queue, timeout=10))
+        assert timer_state["currentPickNumber"] == 1, "Pick timer never expired and advanced the draft"
+        assert not any(p["pickNumber"] == 0 for p in timer_state["picks"]), \
+            "Expired pick should not have been recorded as a real pick"
 
     finally:
         # Cleanup our http and mqtt

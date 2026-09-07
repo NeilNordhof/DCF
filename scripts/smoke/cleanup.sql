@@ -15,6 +15,14 @@ DELETE FROM "LeagueMembers"
 
 DELETE FROM "Leagues" WHERE "Name" = 'Smoke League';
 
+DELETE FROM "DraftPicks"
+    WHERE "LeagueId" IN (SELECT "Id" FROM "Leagues" WHERE "Name" = 'Smoke Timer League');
+
+DELETE FROM "LeagueMembers"
+    WHERE "LeagueId" IN (SELECT "Id" FROM "Leagues" WHERE "Name" = 'Smoke Timer League');
+
+DELETE FROM "Leagues" WHERE "Name" = 'Smoke Timer League';
+
 DELETE FROM "ShowCorps"
     WHERE "ShowId" IN (SELECT "Id" FROM "Shows" WHERE "Name" = 'Smoke Show');
 
