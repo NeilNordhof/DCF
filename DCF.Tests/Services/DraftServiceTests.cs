@@ -909,4 +909,126 @@ public class PickTimerTests
         Assert.Equal(2, league!.CurrentPickNumber);
         Assert.Empty(timer.ScheduledCalls);
     }
+
+    [Fact]
+    public async Task SelectPickAsync_CurrentDrafter_SetsPendingPick()
+    {
+        var (db, svc, _, _, _, leagueId) = Seed(pickTimerSeconds: 30, status: DraftStatus.InProgress);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        await svc.SelectPickAsync(leagueId, "auth|comm", corps.Id, ComputedCaption.Brass);
+
+        var league = await db.Leagues.FindAsync(leagueId);
+        Assert.Equal(corps.Id, league!.PendingPickCorpsId);
+        Assert.Equal(ComputedCaption.Brass, league.PendingPickCaption);
+    }
+
+    [Fact]
+    public async Task SelectPickAsync_NotCurrentDrafter_Throws()
+    {
+        var (db, svc, _, _, _, leagueId) = Seed(pickTimerSeconds: 30, status: DraftStatus.InProgress);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.SelectPickAsync(leagueId, "auth|mem", corps.Id, ComputedCaption.Brass));
+    }
+
+    [Fact]
+    public async Task SelectPickAsync_DraftNotInProgress_Throws()
+    {
+        var (db, svc, _, _, _, leagueId) = Seed(pickTimerSeconds: 30, status: DraftStatus.Open);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.SelectPickAsync(leagueId, "auth|comm", corps.Id, ComputedCaption.Brass));
+    }
+
+    [Fact]
+    public async Task SelectPickAsync_MakeupPhase_Throws()
+    {
+        // mainTotalPicks = 2; CurrentPickNumber = 2 means we're already in makeup phase
+        var (db, svc, _, _, _, leagueId) = Seed(pickTimerSeconds: 30, status: DraftStatus.InProgress, currentPickNumber: 2);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.SelectPickAsync(leagueId, "auth|comm", corps.Id, ComputedCaption.Brass));
+    }
+
+    [Fact]
+    public async Task SkipCurrentPick_WithPendingSelection_ClearsIt()
+    {
+        var (db, svc, _, _, _, leagueId) = Seed(pickTimerSeconds: 30, status: DraftStatus.InProgress);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        await svc.SelectPickAsync(leagueId, "auth|comm", corps.Id, ComputedCaption.Brass);
+        await svc.SkipCurrentPickAsync(leagueId, "auth|comm");
+
+        var league = await db.Leagues.FindAsync(leagueId);
+        Assert.Null(league!.PendingPickCorpsId);
+        Assert.Null(league.PendingPickCaption);
+    }
+
+    [Fact]
+    public async Task ExpireCurrentPick_WithValidPendingPick_SubmitsItInsteadOfExpiring()
+    {
+        var (db, svc, timer, _, _, leagueId) = Seed(pickTimerSeconds: 30, status: DraftStatus.InProgress);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        await svc.SelectPickAsync(leagueId, "auth|comm", corps.Id, ComputedCaption.Brass);
+        await svc.ExpireCurrentPickAsync(leagueId, expectedPickNumber: 0);
+
+        var league = await db.Leagues.FindAsync(leagueId);
+        Assert.Equal(1, league!.CurrentPickNumber);
+        Assert.Null(league.PendingPickCorpsId);
+
+        var pick = Assert.Single(await db.DraftPicks.ToListAsync());
+        Assert.Equal(0, pick.PickNumber);
+        Assert.Equal(corps.Id, pick.CorpsId);
+        Assert.Equal(ComputedCaption.Brass, pick.Caption);
+
+        // Rescheduled for the next pick rather than left stale.
+        var call = Assert.Single(timer.ScheduledCalls);
+        Assert.Equal(1, call.PickNumber);
+    }
+
+    [Fact]
+    public async Task ExpireCurrentPick_PendingPickNoLongerValid_FallsBackToMakeupPool()
+    {
+        var (db, svc, timer, commId, _, leagueId) = Seed(pickTimerSeconds: 30, status: DraftStatus.InProgress);
+        var corps = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        db.Corps.Add(corps);
+        await db.SaveChangesAsync();
+
+        await svc.SelectPickAsync(leagueId, "auth|comm", corps.Id, ComputedCaption.Brass);
+
+        // Simulate the staged pick becoming invalid before the timer fires (e.g. recorded via
+        // some other path in the gap between selecting and expiring).
+        db.DraftPicks.Add(new DraftPickEntity
+        {
+            Id = Guid.NewGuid(), LeagueId = leagueId, UserId = commId,
+            CorpsId = corps.Id, Caption = ComputedCaption.Brass, PickNumber = 99, RoundNumber = 0
+        });
+        await db.SaveChangesAsync();
+
+        await svc.ExpireCurrentPickAsync(leagueId, expectedPickNumber: 0);
+
+        var league = await db.Leagues.FindAsync(leagueId);
+        Assert.Equal(1, league!.CurrentPickNumber);
+        Assert.Single(await db.DraftPicks.ToListAsync()); // only the pre-seeded pick - expiry didn't add another
+
+        var call = Assert.Single(timer.ScheduledCalls);
+        Assert.Equal(1, call.PickNumber);
+    }
 }

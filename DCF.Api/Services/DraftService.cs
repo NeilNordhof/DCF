@@ -315,6 +315,28 @@ public class DraftService(
             return;
         }
 
+        if (league.PendingPickCorpsId is Guid pendingCorpsId && league.PendingPickCaption is ComputedCaption pendingCaption)
+        {
+            var drafterId = GetCurrentDrafter(draftOrder, league.CurrentPickNumber);
+            var drafter = await db.Users.FirstOrDefaultAsync(u => u.Id.ToString() == drafterId);
+
+            if (drafter is not null)
+            {
+                try
+                {
+                    await SubmitPickAsync(leagueId, drafter.Auth0Sub, pendingCorpsId, pendingCaption);
+
+                    return;
+                }
+                catch (InvalidOperationException)
+                {
+                    // The staged pick is no longer valid (e.g. the caption filled some other
+                    // way in the gap between selecting and expiring) - fall through and expire
+                    // this pick into the makeup pool like normal.
+                }
+            }
+        }
+
         league.CurrentPickNumber++;
 
         SchedulePickTimer(league, draftOrder);
@@ -324,8 +346,45 @@ public class DraftService(
         await PublishDraftStateAsync(league);
     }
 
+    public async Task SelectPickAsync(Guid leagueId, string userSub, Guid corpsId, ComputedCaption caption)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub)
+            ?? throw new UnauthorizedAccessException("User not found");
+
+        var league = await db.Leagues.FirstOrDefaultAsync(l => l.Id == leagueId)
+            ?? throw new ArgumentException("League not found");
+
+        if (league.DraftStatus != DraftStatus.InProgress)
+        {
+            throw new InvalidOperationException("Draft is not in progress");
+        }
+
+        var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson)!;
+        int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
+
+        if (draftOrder.Length == 0 || league.CurrentPickNumber >= mainTotalPicks)
+        {
+            throw new InvalidOperationException("Cannot select a pick during the makeup phase");
+        }
+
+        var currentDrafterId = GetCurrentDrafter(draftOrder, league.CurrentPickNumber);
+
+        if (currentDrafterId != user.Id.ToString())
+        {
+            throw new InvalidOperationException("Not your turn");
+        }
+
+        league.PendingPickCorpsId = corpsId;
+        league.PendingPickCaption = caption;
+
+        await db.SaveChangesAsync();
+    }
+
     private void SchedulePickTimer(LeagueEntity league, string[] draftOrder)
     {
+        league.PendingPickCorpsId = null;
+        league.PendingPickCaption = null;
+
         int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
         bool activeMainPick = league.DraftStatus == DraftStatus.InProgress
             && draftOrder.Length > 0

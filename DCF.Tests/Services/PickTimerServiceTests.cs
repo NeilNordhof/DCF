@@ -30,6 +30,7 @@ internal sealed class SpyDraftServiceForExpiry : IDraftService
     public Task StartDraftAsync(Guid leagueId, string userSub) => throw new NotImplementedException();
     public Task<(Guid Id, int PickNumber)> SubmitPickAsync(Guid leagueId, string userSub, Guid corpsId, ComputedCaption caption) => throw new NotImplementedException();
     public Task SkipCurrentPickAsync(Guid leagueId, string userSub) => throw new NotImplementedException();
+    public Task SelectPickAsync(Guid leagueId, string userSub, Guid corpsId, ComputedCaption caption) => throw new NotImplementedException();
 }
 
 public class PickTimerServiceTests

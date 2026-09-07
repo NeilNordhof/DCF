@@ -67,6 +67,7 @@ public class PresenceServiceTests
         public Task<(Guid Id, int PickNumber)> SubmitPickAsync(Guid leagueId, string userSub, Guid corpsId, ComputedCaption caption) => throw new NotImplementedException();
         public Task SkipCurrentPickAsync(Guid leagueId, string userSub) => throw new NotImplementedException();
         public Task ExpireCurrentPickAsync(Guid leagueId, int expectedPickNumber) => throw new NotImplementedException();
+        public Task SelectPickAsync(Guid leagueId, string userSub, Guid corpsId, ComputedCaption caption) => throw new NotImplementedException();
     }
 
     private static PresenceService Create(SpyScopeFactory? factory = null)

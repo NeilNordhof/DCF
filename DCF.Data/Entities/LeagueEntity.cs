@@ -22,6 +22,8 @@ public class LeagueEntity
     public int CurrentPickNumber { get; set; }
     public int PickTimerSeconds { get; set; }
     public DateTimeOffset? PickDeadline { get; set; }
+    public Guid? PendingPickCorpsId { get; set; }
+    public ComputedCaption? PendingPickCaption { get; set; }
     public string[] IssueMessages { get; set; } = [];
 
     public List<LeagueMemberEntity> Members { get; set; } = [];

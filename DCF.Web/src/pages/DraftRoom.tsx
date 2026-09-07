@@ -113,6 +113,13 @@ export function DraftRoom() {
     if (!isMyTurn || isTaken(corpsId, caption)) return;
     setSelectedCell({ corpsId, caption });
     publishPickPreview(corpsId, caption);
+
+    // Stage the selection server-side too (not just this broadcast preview) so the pick
+    // timer can submit it automatically if it expires before Submit Pick is clicked.
+    // Makeup-phase picks have no timer and the backend rejects selection during it.
+    if (id && !inMakeupPhase) {
+      api.selectPick(id, corpsId, caption).catch(() => {});
+    }
   };
 
   const submitPick = async () => {
@@ -121,6 +128,11 @@ export function DraftRoom() {
     try {
       await api.submitPick(id, selectedCell.corpsId, selectedCell.caption);
       setSelectedCell(null);
+    }
+    catch {
+      // Most often lost the race with the pick timer expiring and auto-submitting this
+      // same selection - draftState updating out from under isMyTurn already clears the
+      // stale Submit UI, so there's nothing further to reconcile here.
     }
     finally {
       setSubmitting(false);

@@ -15,6 +15,12 @@ MQTT_HOST = os.environ.get("SMOKE_MQTT_HOST", "localhost")
 MQTT_PORT = int(os.environ.get("SMOKE_MQTT_PORT", 1883))
 SCRIPT_DIR = Path(__file__).parent
 CAPTIONS = [0, 3, 8]
+# MQTT draft-state payloads serialize Caption via C#'s enum .ToString() (a name), while the
+# request DTOs bind the same field from its raw int value - this maps the two representations
+# for the one place the smoke test needs to compare them.
+CAPTION_NAMES = {
+    0: 'GeneralEffectCombined', 3: 'VisualCombined', 8: 'MusicCombined',
+}
 
 def headers(sub):
     return {
@@ -274,6 +280,22 @@ def main():
         assert timer_state["currentPickNumber"] == 1, "Pick timer never expired and advanced the draft"
         assert not any(p["pickNumber"] == 0 for p in timer_state["picks"]), \
             "Expired pick should not have been recorded as a real pick"
+
+        # For pick 1, stage a selection but still submit nothing - the timer should auto-submit
+        # that selection on expiry instead of dropping it into the makeup pool.
+        drafter_sub = id_to_sub[timer_state["currentDrafterId"]]
+        resp = api("POST", f"/api/leagues/{timer_league_id}/draft/select", drafter_sub, json={
+            "corpsId": corps_ids[0],
+            "caption": CAPTIONS[0]
+        })
+        assert_status(resp, 204, "Select pick 1 for timer league")
+
+        timer_state = json.loads(wait_for_message(timer_draft_queue, timeout=10))
+        assert timer_state["currentPickNumber"] == 2, "Selected pick never got auto-submitted on expiry"
+        submitted_pick = next((p for p in timer_state["picks"] if p["pickNumber"] == 1), None)
+        assert submitted_pick is not None, "Expired pick with a staged selection should have been recorded as a real pick"
+        assert submitted_pick["corpsId"] == corps_ids[0]
+        assert submitted_pick["caption"] == CAPTION_NAMES[CAPTIONS[0]]
 
     finally:
         # Cleanup our http and mqtt

@@ -82,6 +82,25 @@ public class DraftController(IDraftService draftService) : ControllerBase
         }
     }
 
+    [HttpPost("select")]
+    public async Task<IActionResult> Select(Guid leagueId, SubmitPickRequest req)
+    {
+        try
+        {
+            await draftService.SelectPickAsync(leagueId, GetSub(), req.CorpsId, req.Caption);
+
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpPost("skip")]
     public async Task<IActionResult> Skip(Guid leagueId)
     {
