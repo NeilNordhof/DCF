@@ -922,6 +922,50 @@ public class PickTimerTests
     }
 
     [Fact]
+    public async Task StartDraft_BudgetLeagueWithPickTimer_SchedulesExpiration()
+    {
+        // Regression guard: SchedulePickTimer (and ExpireCurrentPickAsync/SelectPickAsync)
+        // must size mainTotalPicks off PicksPerMember, not DraftableCaptions.Length *
+        // CorpsPerCaption - a Draft Budget league always has CorpsPerCaption == 0, so that
+        // formula would compute mainTotalPicks as 0 and the timer would never schedule at all.
+        var db = CreateDb();
+        var timer = new SpyPickTimerService();
+        var commissioner = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|comm", DisplayName = "Commissioner", Email = "c@test.com" };
+        var member = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|mem", DisplayName = "Member", Email = "m@test.com" };
+        var draftOrder = JsonSerializer.Serialize(new[] { commissioner.Id.ToString(), member.Id.ToString() });
+        var league = new LeagueEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Budget Timer League",
+            CommissionerUserId = commissioner.Id,
+            DraftStatus = DraftStatus.Open,
+            DraftOrderJson = draftOrder,
+            InviteCode = "TESTCODE",
+            DraftableCaptions = [ComputedCaption.Brass, ComputedCaption.Percussion],
+            CorpsPerCaption = 0,
+            DraftBudget = 3,
+            PickTimerSeconds = 30
+        };
+        db.Users.AddRange(commissioner, member);
+        db.Leagues.Add(league);
+        db.LeagueMembers.AddRange(
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = commissioner.Id },
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = member.Id }
+        );
+        db.SaveChanges();
+        var svc = new DraftService(db, new NullMqtt(), new NullPresenceService(), timer);
+
+        await svc.StartDraftAsync(league.Id, "auth|comm");
+
+        var call = Assert.Single(timer.ScheduledCalls);
+        Assert.Equal(league.Id, call.LeagueId);
+        Assert.Equal(0, call.PickNumber);
+
+        var updated = await db.Leagues.FindAsync(league.Id);
+        Assert.NotNull(updated!.PickDeadline);
+    }
+
+    [Fact]
     public async Task StartDraft_WithoutPickTimer_DoesNotScheduleAndClearsDeadline()
     {
         var (db, svc, timer, _, _, leagueId) = Seed(pickTimerSeconds: 0);
