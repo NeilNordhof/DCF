@@ -186,7 +186,8 @@ public class StandingsService(DcfDbContext db) : IStandingsService
         };
     }
 
-    private static double GetWeight(ComputedCaption caption, ComputedCaption[] draftableCaptions)
+    /// <summary>Per-caption scaling factor so overlapping captions do not double-count.</summary>
+    public static double GetWeight(ComputedCaption caption, ComputedCaption[] draftableCaptions)
     {
         if (caption is ComputedCaption.GeneralEffectCombined or
             ComputedCaption.GeneralEffect1 or ComputedCaption.GeneralEffect2)
