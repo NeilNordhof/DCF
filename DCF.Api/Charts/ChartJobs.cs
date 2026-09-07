@@ -16,7 +16,8 @@ public class ChartJob
 {
     public required Guid Id { get; init; }
 
-    public required Guid UserId { get; init; }
+    /// <summary>Null for a job submitted anonymously (only possible for a non-league-scoped chart).</summary>
+    public required Guid? UserId { get; init; }
 
     public required string ChartKey { get; init; }
 
@@ -38,7 +39,7 @@ public class ChartJob
 
 public interface IChartJobStore
 {
-    ChartJob Create(Guid userId, string chartKey, ChartParameters parameters);
+    ChartJob Create(Guid? userId, string chartKey, ChartParameters parameters);
 
     ChartJob? Get(Guid jobId);
 
@@ -56,7 +57,7 @@ public class InMemoryChartJobStore(TimeProvider? timeProvider = null) : IChartJo
     private readonly ConcurrentDictionary<Guid, ChartJob> jobs = new();
     private readonly TimeProvider time = timeProvider ?? TimeProvider.System;
 
-    public ChartJob Create(Guid userId, string chartKey, ChartParameters parameters)
+    public ChartJob Create(Guid? userId, string chartKey, ChartParameters parameters)
     {
         Prune();
 

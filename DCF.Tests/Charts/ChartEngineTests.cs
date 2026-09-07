@@ -158,6 +158,52 @@ public class ChartEngineTests
     }
 
     [Fact]
+    public async Task Validate_LeagueChartAnonymous_ReturnsForbidden()
+    {
+        using var db = ChartTestHelpers.CreateDb(nameof(Validate_LeagueChartAnonymous_ReturnsForbidden));
+        var season = db.AddSeason();
+        var commissioner = db.AddUser("auth0|comm", "Comm");
+        var league = db.AddLeague(season, commissioner, [ComputedCaption.Brass], isPublic: true);
+        await db.SaveChangesAsync();
+
+        // Even a public league needs a real caller to check membership/IsPublic against.
+        var validation = await CreateEngine(db).ValidateAsync(
+            FantasyLeagueCaptionBreakdownChart.ChartKey,
+            ChartTestHelpers.Params(("leagueId", league.Id.ToString())),
+            userId: null);
+
+        Assert.Equal(ChartRequestStatus.Forbidden, validation.Status);
+    }
+
+    [Fact]
+    public async Task Validate_NonLeagueChartAnonymous_IsOk()
+    {
+        using var db = ChartTestHelpers.CreateDb(nameof(Validate_NonLeagueChartAnonymous_IsOk));
+        var season = db.AddSeason();
+        var corps = db.AddCorps("Blue Devils");
+        await db.SaveChangesAsync();
+
+        var validation = await CreateEngine(db).ValidateAsync(
+            DciSeasonScoreProgressionChart.ChartKey,
+            ChartTestHelpers.Params(("seasonId", season.Id.ToString()), ("corpsIds", corps.Id.ToString())),
+            userId: null);
+
+        Assert.True(validation.IsValid);
+    }
+
+    [Fact]
+    public async Task Compute_NonLeagueChartAnonymous_Succeeds()
+    {
+        using var db = ChartTestHelpers.CreateDb(nameof(Compute_NonLeagueChartAnonymous_Succeeds));
+        var stub = new StubChart();
+        var engine = CreateEngine(db, stub);
+
+        var result = await engine.ComputeAsync("STUB", ChartTestHelpers.Params(("value", 7)), userId: null);
+
+        Assert.Equal(7, result.Series[0].Points[0].Value);
+    }
+
+    [Fact]
     public async Task Compute_UnknownChart_ThrowsChartParameterException()
     {
         using var db = ChartTestHelpers.CreateDb(nameof(Compute_UnknownChart_ThrowsChartParameterException));

@@ -1,7 +1,6 @@
 using DCF.Api.Charts;
 using DCF.Api.Models;
 using DCF.Api.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -10,20 +9,42 @@ namespace DCF.Api.Controllers;
 /// <summary>
 /// Generic asynchronous chart API: submit a chart request, poll the job until it completes,
 /// then render the standardized result. Adding a chart requires no changes here.
+///
+/// Anonymous access is allowed at the transport level - like <c>PublicDciController</c>, a
+/// non-league-scoped chart (e.g. the DCI progression chart) needs no account. A league-scoped
+/// chart still requires one: <see cref="IChartEngine.ValidateAsync"/> rejects those for a null
+/// userId regardless of this controller's own auth state.
 /// </summary>
 [ApiController]
 [Route("api/charts")]
-[Authorize]
 public class ChartsController(
     IChartEngine engine,
     IChartJobStore jobStore,
     IChartJobQueue jobQueue,
     IUserService userService) : ControllerBase
 {
-    private string GetSub()
+    private string? TryGetSub()
     {
-        return User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")
-            ?? throw new InvalidOperationException("No sub claim");
+        return User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+    }
+
+    /// <summary>
+    /// Resolves the caller, if any. A request that presents no credential at all is anonymous
+    /// (null); one that presents a credential naming no known user is still rejected outright -
+    /// only a genuinely absent credential gets the anonymous-tier treatment.
+    /// </summary>
+    private async Task<(UserProfile? User, bool PresentedInvalidCredential)> TryGetUserAsync()
+    {
+        var sub = TryGetSub();
+
+        if (sub is null)
+        {
+            return (null, false);
+        }
+
+        var user = await userService.GetAsync(sub);
+
+        return (user, user is null);
     }
 
     [HttpGet]
@@ -35,15 +56,15 @@ public class ChartsController(
     [HttpPost("requests")]
     public async Task<IActionResult> Submit([FromBody] ChartRequest request, CancellationToken cancellationToken)
     {
-        var user = await userService.GetAsync(GetSub());
+        var (user, invalidCredential) = await TryGetUserAsync();
 
-        if (user is null)
+        if (invalidCredential)
         {
             return Unauthorized();
         }
 
         var parameters = new ChartParameters(request.Parameters);
-        var validation = await engine.ValidateAsync(request.ChartKey, parameters, user.Id, cancellationToken);
+        var validation = await engine.ValidateAsync(request.ChartKey, parameters, user?.Id, cancellationToken);
 
         switch (validation.Status)
         {
@@ -55,7 +76,7 @@ public class ChartsController(
                 return Forbid();
         }
 
-        var job = jobStore.Create(user.Id, request.ChartKey, parameters);
+        var job = jobStore.Create(user?.Id, request.ChartKey, parameters);
 
         await jobQueue.EnqueueAsync(job.Id, cancellationToken);
 
@@ -65,17 +86,25 @@ public class ChartsController(
     [HttpGet("requests/{jobId}")]
     public async Task<IActionResult> GetJob(Guid jobId)
     {
-        var user = await userService.GetAsync(GetSub());
+        var (user, invalidCredential) = await TryGetUserAsync();
 
-        if (user is null)
+        if (invalidCredential)
         {
             return Unauthorized();
         }
 
         var job = jobStore.Get(jobId);
 
-        // A job belonging to someone else is indistinguishable from one that never existed.
-        if (job is null || job.UserId != user.Id)
+        if (job is null)
+        {
+            return NotFound();
+        }
+
+        // An anonymously-submitted job (UserId null - only possible for a non-league-scoped
+        // chart) has no owner to check and is exactly as public as the data it charts. A job
+        // that does have an owner is only visible to that same signed-in user; a mismatch is
+        // indistinguishable from one that never existed.
+        if (job.UserId is Guid ownerId && ownerId != user?.Id)
         {
             return NotFound();
         }

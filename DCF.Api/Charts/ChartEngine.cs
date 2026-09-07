@@ -26,7 +26,7 @@ public class ChartEngine(IEnumerable<IChartDefinition> definitions, DcfDbContext
     }
 
     public async Task<ChartValidation> ValidateAsync(
-        string chartKey, ChartParameters parameters, Guid userId, CancellationToken cancellationToken = default)
+        string chartKey, ChartParameters parameters, Guid? userId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(chartKey) || !definitions.TryGetValue(chartKey, out var definition))
         {
@@ -47,8 +47,17 @@ public class ChartEngine(IEnumerable<IChartDefinition> definitions, DcfDbContext
 
         if (leagueId is not null)
         {
+            // League-scoped charts need an account, full stop - there's no membership (or
+            // IsPublic bypass) to check without one. Only a non-league-scoped chart (e.g. the
+            // DCI progression chart) is answerable anonymously.
+            if (userId is not Guid requestingUserId)
+            {
+                return new ChartValidation(
+                    ChartRequestStatus.Forbidden, "You must be signed in to view a league's charts.");
+            }
+
             var isMember = await db.LeagueMembers
-                .AnyAsync(m => m.LeagueId == leagueId.Value && m.UserId == userId, cancellationToken);
+                .AnyAsync(m => m.LeagueId == leagueId.Value && m.UserId == requestingUserId, cancellationToken);
 
             if (!isMember)
             {
@@ -71,7 +80,7 @@ public class ChartEngine(IEnumerable<IChartDefinition> definitions, DcfDbContext
     }
 
     public async Task<ChartResult> ComputeAsync(
-        string chartKey, ChartParameters parameters, Guid userId, CancellationToken cancellationToken = default)
+        string chartKey, ChartParameters parameters, Guid? userId, CancellationToken cancellationToken = default)
     {
         var validation = await ValidateAsync(chartKey, parameters, userId, cancellationToken);
 

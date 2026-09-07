@@ -16,7 +16,7 @@ namespace DCF.Tests.Charts;
 
 public class ChartsControllerTests
 {
-    private static ChartsController CreateController(DcfDbContext db, string sub, IChartJobStore store, IChartJobQueue queue)
+    private static ChartsController CreateController(DcfDbContext db, string? sub, IChartJobStore store, IChartJobQueue queue)
     {
         IChartDefinition[] definitions =
         [
@@ -24,13 +24,21 @@ public class ChartsControllerTests
             new FantasyLeagueCaptionBreakdownChart(db, new StandingsService(db))
         ];
 
+        // An unauthenticated request carries no NameIdentifier claim at all - a bare
+        // ClaimsIdentity (not "Test"-authenticated) models that, matching what actually
+        // reaches the controller once [Authorize] is removed rather than what a signed-in
+        // request looks like with the claim stripped out.
+        var identity = sub is null
+            ? new ClaimsIdentity()
+            : new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, sub)], "Test");
+
         var controller = new ChartsController(new ChartEngine(definitions, db), store, queue, new UserService(db))
         {
             ControllerContext = new ControllerContext
             {
                 HttpContext = new DefaultHttpContext
                 {
-                    User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, sub)], "Test"))
+                    User = new ClaimsPrincipal(identity)
                 }
             }
         };
@@ -194,6 +202,48 @@ public class ChartsControllerTests
     }
 
     [Fact]
+    public async Task Submit_AnonymousNonLeagueChart_IsAccepted()
+    {
+        using var db = ChartTestHelpers.CreateDb(nameof(Submit_AnonymousNonLeagueChart_IsAccepted));
+        var season = db.AddSeason();
+        var corps = db.AddCorps("Blue Devils");
+        await db.SaveChangesAsync();
+
+        var store = new InMemoryChartJobStore();
+        var controller = CreateController(db, sub: null, store, new ChartJobQueue());
+
+        var result = await controller.Submit(
+            new ChartRequest(
+                DciSeasonScoreProgressionChart.ChartKey,
+                Parameters(("seasonId", season.Id.ToString()), ("corpsIds", new[] { corps.Id.ToString() }))),
+            CancellationToken.None);
+
+        var accepted = Assert.IsType<AcceptedAtActionResult>(result);
+        var body = Assert.IsType<ChartJobResponse>(accepted.Value);
+        Assert.Null(store.Get(body.JobId)!.UserId);
+    }
+
+    [Fact]
+    public async Task Submit_AnonymousLeagueChart_IsForbidden()
+    {
+        using var db = ChartTestHelpers.CreateDb(nameof(Submit_AnonymousLeagueChart_IsForbidden));
+        var season = db.AddSeason();
+        var commissioner = db.AddUser("auth0|comm", "Comm");
+        var league = db.AddLeague(season, commissioner, [ComputedCaption.Brass], isPublic: true);
+        await db.SaveChangesAsync();
+
+        var controller = CreateController(db, sub: null, new InMemoryChartJobStore(), new ChartJobQueue());
+
+        var result = await controller.Submit(
+            new ChartRequest(FantasyLeagueCaptionBreakdownChart.ChartKey, Parameters(("leagueId", league.Id.ToString()))),
+            CancellationToken.None);
+
+        // Even a public league needs a signed-in caller - there's no membership/IsPublic
+        // check to make without one, unlike an authenticated non-member (see rubric above).
+        Assert.IsType<ForbidResult>(result);
+    }
+
+    [Fact]
     public async Task GetJob_OwnJob_ReturnsStatusAndResult()
     {
         using var db = ChartTestHelpers.CreateDb(nameof(GetJob_OwnJob_ReturnsStatusAndResult));
@@ -233,6 +283,35 @@ public class ChartsControllerTests
         var controller = CreateController(db, "auth0|user", store, new ChartJobQueue());
 
         Assert.IsType<NotFoundResult>(await controller.GetJob(job.Id));
+    }
+
+    [Fact]
+    public async Task GetJob_AnonymousJob_IsVisibleToAnonymousCaller()
+    {
+        using var db = ChartTestHelpers.CreateDb(nameof(GetJob_AnonymousJob_IsVisibleToAnonymousCaller));
+
+        var store = new InMemoryChartJobStore();
+        var job = store.Create(userId: null, "stub", ChartTestHelpers.Params());
+        var controller = CreateController(db, sub: null, store, new ChartJobQueue());
+
+        var ok = Assert.IsType<OkObjectResult>(await controller.GetJob(job.Id));
+        Assert.Equal(job.Id, Assert.IsType<ChartJobResponse>(ok.Value).JobId);
+    }
+
+    [Fact]
+    public async Task GetJob_AnonymousJob_IsAlsoVisibleToASignedInCaller()
+    {
+        // An anonymous job has no owner to check against - it's exactly as public as the
+        // non-league-scoped data it charts, so being signed in doesn't hide or restrict it.
+        using var db = ChartTestHelpers.CreateDb(nameof(GetJob_AnonymousJob_IsAlsoVisibleToASignedInCaller));
+        db.AddUser("auth0|user", "User");
+        await db.SaveChangesAsync();
+
+        var store = new InMemoryChartJobStore();
+        var job = store.Create(userId: null, "stub", ChartTestHelpers.Params());
+        var controller = CreateController(db, "auth0|user", store, new ChartJobQueue());
+
+        Assert.IsType<OkObjectResult>(await controller.GetJob(job.Id));
     }
 
     [Fact]
