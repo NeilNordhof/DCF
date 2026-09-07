@@ -4,6 +4,7 @@ import { Link, useNavigate, useBlocker } from 'react-router-dom';
 import { api } from '../api/client';
 import type { ComputedCaption } from '../types/api';
 import { TimePicker } from '../components/TimePicker';
+import { PICK_TIMER_OPTIONS } from './League.helpers';
 
 type GEOption = 'combined' | 'split';
 type VisOption = 'combined' | 'partial' | 'full';
@@ -95,16 +96,6 @@ function Stepper({
     </div>
   );
 }
-
-const PICK_TIMER_OPTIONS: { value: number; label: string }[] = [
-  { value: 0, label: 'No limit' },
-  { value: 30, label: '30 seconds' },
-  { value: 60, label: '1 minute' },
-  { value: 90, label: '90 seconds' },
-  { value: 120, label: '2 minutes' },
-  { value: 180, label: '3 minutes' },
-  { value: 300, label: '5 minutes' },
-];
 
 function datetimeLocalToIso(value: string): string {
   const offsetMinutes = new Date().getTimezoneOffset();

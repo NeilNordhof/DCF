@@ -69,6 +69,16 @@ public class PickTimerService(
             {
                 logger.LogError(ex, "Pick timer expiration failed for league {Id}", leagueId);
             }
+            finally
+            {
+                // Only clean up our own entry - a newer SchedulePickExpiration/CancelPickTimer
+                // call for this league may have already replaced (and disposed) it while we
+                // were running, in which case this is a no-op.
+                if (_scheduled.TryRemove(new KeyValuePair<Guid, CancellationTokenSource>(leagueId, cts)))
+                {
+                    cts.Dispose();
+                }
+            }
         });
     }
 
