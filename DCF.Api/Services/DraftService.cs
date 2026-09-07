@@ -6,7 +6,8 @@ using System.Text.Json;
 
 namespace DCF.Api.Services;
 
-public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService presenceService) : IDraftService
+public class DraftService(
+    DcfDbContext db, IMqttService mqtt, IPresenceService presenceService, IPickTimerService pickTimerService) : IDraftService
 {
     public static string GetCurrentDrafter(string[] draftOrder, int currentPickNumber)
     {
@@ -124,6 +125,9 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
     {
         league.CurrentPickNumber = 0;
         league.DraftStatus = DraftStatus.InProgress;
+
+        var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson) ?? [];
+        SchedulePickTimer(league, draftOrder);
 
         await db.SaveChangesAsync();
 
@@ -244,6 +248,8 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
             }
         }
 
+        SchedulePickTimer(league, draftOrder);
+
         await db.SaveChangesAsync();
 
         await PublishDraftStateAsync(league);
@@ -281,9 +287,61 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
 
         league.CurrentPickNumber++;
 
+        SchedulePickTimer(league, draftOrder);
+
         await db.SaveChangesAsync();
 
         await PublishDraftStateAsync(league);
+    }
+
+    public async Task ExpireCurrentPickAsync(Guid leagueId, int expectedPickNumber)
+    {
+        var league = await db.Leagues
+            .Include(l => l.Members)
+            .FirstOrDefaultAsync(l => l.Id == leagueId);
+
+        if (league is null
+            || league.DraftStatus != DraftStatus.InProgress
+            || league.CurrentPickNumber != expectedPickNumber)
+        {
+            return;
+        }
+
+        var draftOrder = JsonSerializer.Deserialize<string[]>(league.DraftOrderJson) ?? [];
+        int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
+
+        if (draftOrder.Length == 0 || league.CurrentPickNumber >= mainTotalPicks)
+        {
+            return;
+        }
+
+        league.CurrentPickNumber++;
+
+        SchedulePickTimer(league, draftOrder);
+
+        await db.SaveChangesAsync();
+
+        await PublishDraftStateAsync(league);
+    }
+
+    private void SchedulePickTimer(LeagueEntity league, string[] draftOrder)
+    {
+        int mainTotalPicks = draftOrder.Length * league.DraftableCaptions.Length * league.CorpsPerCaption;
+        bool activeMainPick = league.DraftStatus == DraftStatus.InProgress
+            && draftOrder.Length > 0
+            && league.CurrentPickNumber < mainTotalPicks;
+
+        if (activeMainPick && league.PickTimerSeconds > 0)
+        {
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(league.PickTimerSeconds);
+            league.PickDeadline = deadline;
+            pickTimerService.SchedulePickExpiration(league.Id, league.CurrentPickNumber, deadline);
+        }
+        else
+        {
+            league.PickDeadline = null;
+            pickTimerService.CancelPickTimer(league.Id);
+        }
     }
 
     public async Task PublishStateAsync(Guid leagueId)
@@ -346,6 +404,8 @@ public class DraftService(DcfDbContext db, IMqttService mqtt, IPresenceService p
             Status = league.DraftStatus.ToString(),
             league.DraftStartTime,
             league.CurrentPickNumber,
+            league.PickTimerSeconds,
+            PickDeadline = inMakeupPhase ? null : league.PickDeadline,
             MainTotalPicks = mainTotalPicks,
             MakeupQueue = makeupQueue,
             CurrentDrafterId = currentDrafterId,

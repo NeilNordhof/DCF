@@ -69,6 +69,23 @@ function captionsToOptions(captions: ComputedCaption[]): { ge: GEOption; vis: Vi
   return { ge, vis, music };
 }
 
+const PICK_TIMER_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: 'No limit' },
+  { value: 30, label: '30 seconds' },
+  { value: 60, label: '1 minute' },
+  { value: 90, label: '90 seconds' },
+  { value: 120, label: '2 minutes' },
+  { value: 180, label: '3 minutes' },
+  { value: 300, label: '5 minutes' },
+];
+
+function pickTimerLabel(seconds: number | undefined): string {
+  if (!seconds) return 'No limit';
+  const match = PICK_TIMER_OPTIONS.find(o => o.value === seconds);
+  if (match) return match.label;
+  return seconds % 60 === 0 ? `${seconds / 60} minute${seconds === 60 ? '' : 's'}` : `${seconds} seconds`;
+}
+
 function toDatetimeLocal(iso: string | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -106,6 +123,7 @@ export function LeagueDetail() {
   const [editMaxPlayers, setEditMaxPlayers] = useState(4);
   const [editDraftStartDate, setEditDraftStartDate] = useState('');
   const [editDraftStartTime, setEditDraftStartTime] = useState('');
+  const [editPickTimerSeconds, setEditPickTimerSeconds] = useState(0);
   const [seasonCorpsCount, setSeasonCorpsCount] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -210,6 +228,7 @@ export function LeagueDetail() {
     setEditMusic(music);
     setEditCorpsPerCaption(league.corpsPerCaption!);
     setEditMaxPlayers(league.maxPlayers!);
+    setEditPickTimerSeconds(league.pickTimerSeconds ?? 0);
     const combined = toDatetimeLocal(league.draftStartTime);
     setEditDraftStartDate(combined.split('T')[0] ?? '');
     setEditDraftStartTime(combined.split('T')[1] ?? '');
@@ -228,6 +247,7 @@ export function LeagueDetail() {
         draftableCaptions: expandCaptions(editGe, editVis, editMusic),
         draftStartTime: (editDraftStartDate && editDraftStartTime) ? datetimeLocalToIso(`${editDraftStartDate}T${editDraftStartTime}`) : null,
         draftTimezone: (editDraftStartDate && editDraftStartTime) ? Intl.DateTimeFormat().resolvedOptions().timeZone : null,
+        pickTimerSeconds: editPickTimerSeconds,
       });
 
       const updated = await api.getLeague(id!);
@@ -510,6 +530,7 @@ export function LeagueDetail() {
                 { label: 'Captions', value: league.draftableCaptions!.join(', ') },
                 { label: 'Corps per Caption', value: String(league.corpsPerCaption) },
                 { label: 'Max Players', value: String(league.maxPlayers) },
+                { label: 'Pick Timer', value: pickTimerLabel(league.pickTimerSeconds) },
                 { label: 'Draft Start', value: league.draftStartTime ? new Date(league.draftStartTime).toLocaleString() : 'Not scheduled' },
               ].map(item => (
                 <div key={item.label} style={{
@@ -623,6 +644,18 @@ export function LeagueDetail() {
                     +
                   </button>
                 </div>
+              </div>
+              <div>
+                <div style={labelStyle}>Pick Timer</div>
+                <select
+                  style={selectStyle}
+                  value={editPickTimerSeconds}
+                  onChange={e => setEditPickTimerSeconds(Number(e.target.value))}
+                >
+                  {PICK_TIMER_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <div style={labelStyle}>
