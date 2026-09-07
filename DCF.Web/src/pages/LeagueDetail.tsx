@@ -157,10 +157,15 @@ export function LeagueDetail() {
 
   const effectiveStatus = draftState?.status ?? league.draftStatus;
   const editUsesBudget = editDraftMode === 'budget';
+  const editCaptionCount = expandCaptions(editGe, editVis, editMusic).length;
   const maxEditCorpsPerCaption = seasonCorpsCount != null ? Math.floor(seasonCorpsCount / 4) : null;
-  const maxEditDraftBudget = seasonCorpsCount != null ? Math.floor(seasonCorpsCount / 4) : null;
+  // Same whole-board-vs-single-caption reasoning as LeagueCreate.tsx/LeagueService: Draft
+  // Budget's binding constraint is corpsCount * caption count, not one caption's supply.
+  const editTotalBoardSlots = seasonCorpsCount != null ? seasonCorpsCount * editCaptionCount : null;
+  const maxEditDraftBudget = editTotalBoardSlots != null ? Math.floor(editTotalBoardSlots / 4) : null;
   const editPerPlayerUnit = editUsesBudget ? editDraftBudget : editCorpsPerCaption;
-  const maxEditMaxPlayers = seasonCorpsCount != null && editPerPlayerUnit > 0 ? Math.floor(seasonCorpsCount / editPerPlayerUnit) : null;
+  const editAvailableSlots = editUsesBudget ? editTotalBoardSlots : seasonCorpsCount;
+  const maxEditMaxPlayers = editAvailableSlots != null && editPerPlayerUnit > 0 ? Math.floor(editAvailableSlots / editPerPlayerUnit) : null;
   const minEditMaxPlayers = Math.max(4, league.members?.length ?? 0);
 
   const getCountdown = () => {
@@ -218,7 +223,7 @@ export function LeagueDetail() {
     const usesBudget = (league.draftBudget ?? 0) > 0;
     setEditDraftMode(usesBudget ? 'budget' : 'perCaption');
     setEditCorpsPerCaption(usesBudget ? 1 : (league.corpsPerCaption ?? 1));
-    setEditDraftBudget(usesBudget ? league.draftBudget! : 6);
+    setEditDraftBudget(usesBudget ? league.draftBudget! : (league.draftableCaptions?.length ?? 3) * 3);
     setEditMaxPlayers(league.maxPlayers!);
     setEditPickTimerSeconds(league.pickTimerSeconds ?? 0);
     const combined = toDatetimeLocal(league.draftStartTime);

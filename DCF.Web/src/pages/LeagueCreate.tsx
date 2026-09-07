@@ -159,7 +159,8 @@ export function LeagueCreate() {
   const [music, setMusic] = useState<MusicOption>('combined');
   const [draftMode, setDraftMode] = useState<'perCaption' | 'budget'>('perCaption');
   const [corpsPerCaption, setCorpsPerCaption] = useState(3);
-  const [draftBudget, setDraftBudget] = useState(6);
+  const captionCount = expandCaptions(ge, vis, music).length;
+  const [draftBudget, setDraftBudget] = useState(captionCount * 3);
   const [maxPlayers, setMaxPlayers] = useState(8);
   const [draftStartDate, setDraftStartDate] = useState('');
   const [draftStartTime, setDraftStartTime] = useState('');
@@ -181,10 +182,17 @@ export function LeagueCreate() {
 
   const usesBudget = draftMode === 'budget';
   const maxCorpsPerCaption = corpsCount != null ? Math.floor(corpsCount / 4) : 99;
-  const maxDraftBudget = corpsCount != null ? Math.floor(corpsCount / 4) : 99;
+  // Corps Per Caption's binding constraint is one caption's own supply (every member fills
+  // every caption independently); Draft Budget lets a member freely redirect unspent budget
+  // to any caption that still has open corps, so the binding constraint is the whole board's
+  // capacity - corpsCount * caption count - not one caption's worth. Mirrors LeagueService's
+  // backend validation, which this UI cap only pre-empts for a nicer error-free experience.
+  const totalBoardSlots = corpsCount != null ? corpsCount * captionCount : null;
+  const maxDraftBudget = totalBoardSlots != null ? Math.floor(totalBoardSlots / 4) : 99;
   const perPlayerUnit = usesBudget ? draftBudget : corpsPerCaption;
-  const maxAllowedPlayers = perPlayerUnit > 0 && corpsCount != null
-    ? Math.floor(corpsCount / perPlayerUnit)
+  const availableSlots = usesBudget ? totalBoardSlots : corpsCount;
+  const maxAllowedPlayers = perPlayerUnit > 0 && availableSlots != null
+    ? Math.floor(availableSlots / perPlayerUnit)
     : 99;
 
   function handleCorpsPerCaptionChange(v: number) {
@@ -201,8 +209,8 @@ export function LeagueCreate() {
     setDraftBudget(v);
     setIsDirty(true);
 
-    if (corpsCount != null && v > 0) {
-      const newMax = Math.floor(corpsCount / v);
+    if (totalBoardSlots != null && v > 0) {
+      const newMax = Math.floor(totalBoardSlots / v);
       setMaxPlayers(prev => Math.min(prev, newMax));
     }
   }
@@ -211,10 +219,18 @@ export function LeagueCreate() {
     setDraftMode(mode);
     setIsDirty(true);
 
+    const defaultBudget = captionCount * 3;
+
+    if (mode === 'budget') {
+      setDraftBudget(defaultBudget);
+    }
+
     if (corpsCount != null) {
-      const unit = mode === 'budget' ? draftBudget : corpsPerCaption;
+      const unit = mode === 'budget' ? defaultBudget : corpsPerCaption;
+      const slots = mode === 'budget' ? totalBoardSlots! : corpsCount;
+
       if (unit > 0) {
-        const newMax = Math.floor(corpsCount / unit);
+        const newMax = Math.floor(slots / unit);
         setMaxPlayers(prev => Math.min(prev, newMax));
       }
     }
