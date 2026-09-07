@@ -302,6 +302,30 @@ public class LeagueServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_DraftBudgetFeasibility_ScalesWithCaptionCount()
+    {
+        // 20 corps, 6 captions -> 120 corps-caption slots on the whole board. A member can
+        // freely redirect budget across captions, so the binding constraint is that whole-board
+        // total, not any single caption's supply (20) - unlike Corps Per Caption, where each
+        // caption must independently hold enough for every member. A budget of 10 would have
+        // been rejected under the old single-caption formula (floor(20/4) = 5) but is well
+        // within the correct whole-board ceiling (floor(120/4) = 30).
+        await using var db = CreateDb(nameof(CreateAsync_DraftBudgetFeasibility_ScalesWithCaptionCount));
+        await CreateSeasonAndUser(db, corpsCount: 20, userSub: "sub|me");
+        ComputedCaption[] sixCaptions =
+        [
+            ComputedCaption.GeneralEffectCombined, ComputedCaption.VisualCombined, ComputedCaption.MusicCombined,
+            ComputedCaption.Colorguard, ComputedCaption.Brass, ComputedCaption.Percussion
+        ];
+
+        var svc = CreateSvc(db);
+        var league = await svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 0,
+            maxPlayers: 4, captions: [.. sixCaptions], userSub: "sub|me", draftBudget: 10);
+
+        Assert.Equal(10, league.DraftBudget);
+    }
+
+    [Fact]
     public async Task CreateAsync_DefaultPickTimerSeconds_IsZero()
     {
         await using var db = CreateDb(nameof(CreateAsync_DefaultPickTimerSeconds_IsZero));
@@ -392,6 +416,42 @@ public class LeagueServiceTests
             DraftStartTime: null, DraftTimezone: null, PickTimerSeconds: -1);
 
         await Assert.ThrowsAsync<ArgumentException>(() => svc.UpdateAsync(league.Id, req, "sub|comm"));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DraftBudgetFeasibility_ScalesWithCaptionCount()
+    {
+        // Same whole-board-capacity reasoning as CreateAsync_DraftBudgetFeasibility_
+        // ScalesWithCaptionCount: 20 corps * 6 captions = 120 slots, so a budget of 10 is
+        // valid here too, though it would have been rejected under the old single-caption
+        // formula (floor(20/4) = 5).
+        await using var db = CreateDb(nameof(UpdateAsync_DraftBudgetFeasibility_ScalesWithCaptionCount));
+        var (season, user) = await CreateSeasonAndUser(db, corpsCount: 20, userSub: "sub|comm");
+        ComputedCaption[] sixCaptions =
+        [
+            ComputedCaption.GeneralEffectCombined, ComputedCaption.VisualCombined, ComputedCaption.MusicCombined,
+            ComputedCaption.Colorguard, ComputedCaption.Brass, ComputedCaption.Percussion
+        ];
+        var league = new LeagueEntity
+        {
+            Name = "L", MaxPlayers = 4, InviteCode = "X", SeasonId = season.Id,
+            CommissionerUserId = user.Id, DraftStatus = DraftStatus.NotStarted,
+            CorpsPerCaption = 3, DraftableCaptions = sixCaptions
+        };
+        db.Leagues.Add(league);
+        db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = user.Id });
+
+        await db.SaveChangesAsync();
+
+        var svc = CreateSvc(db);
+        var req = new UpdateLeagueRequest(
+            CorpsPerCaption: 0, MaxPlayers: 4, DraftableCaptions: sixCaptions,
+            DraftStartTime: null, DraftTimezone: null, DraftBudget: 10);
+
+        await svc.UpdateAsync(league.Id, req, "sub|comm");
+
+        var updated = await db.Leagues.FindAsync(league.Id);
+        Assert.Equal(10, updated!.DraftBudget);
     }
 
     // ── JoinAsync ────────────────────────────────────────────────────────────────

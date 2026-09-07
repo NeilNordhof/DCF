@@ -113,11 +113,13 @@ public class LeagueService(
 
         if (usesDraftBudget)
         {
-            // In budget mode the per-caption quota is ignored; a member could put
-            // their entire budget into a single caption, so every caption must have
-            // enough corps for maxPlayers * draftBudget picks in the worst case.
-            var maxDraftBudget = corpsCount / 4;
-            var maxAllowedPlayers = draftBudget > 0 ? corpsCount / draftBudget : 0;
+            // Unlike Corps Per Caption - where every member independently fills every
+            // caption, so one caption's own supply (corpsCount) is the binding constraint -
+            // budget mode lets a member freely redirect unspent budget to any caption that
+            // still has open corps. The binding constraint is the whole board's capacity,
+            // corpsCount * caption count, not one caption's worth.
+            var maxDraftBudget = corpsCount * captions.Count / 4;
+            var maxAllowedPlayers = draftBudget > 0 ? corpsCount * captions.Count / draftBudget : 0;
 
             if (draftBudget > maxDraftBudget)
             {
@@ -359,8 +361,11 @@ public class LeagueService(
 
         if (usesDraftBudget)
         {
-            var maxDraftBudget = corpsCount / 4;
-            var maxAllowedPlayers = req.DraftBudget > 0 ? corpsCount / req.DraftBudget : 0;
+            // See the matching comment in CreateAsync: budget mode's binding constraint is
+            // the whole board's capacity (corpsCount * caption count), not one caption's
+            // worth, since a member can freely redirect unspent budget across captions.
+            var maxDraftBudget = corpsCount * req.DraftableCaptions.Length / 4;
+            var maxAllowedPlayers = req.DraftBudget > 0 ? corpsCount * req.DraftableCaptions.Length / req.DraftBudget : 0;
 
             if (req.DraftBudget > maxDraftBudget)
             {

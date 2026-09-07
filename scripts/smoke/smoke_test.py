@@ -163,13 +163,17 @@ def main():
         # Setup mqtt
         draft_queue = queue.Queue()
         timer_draft_queue = queue.Queue()
+        budget_draft_queue = queue.Queue()
         scores_queue = queue.Queue()
         timer_league_id = None  # set once the pick-timer league below is created
+        budget_league_id = None  # set once the draft-budget league below is created
         def on_message(client, userdata, msg):
             if msg.topic == f"dcf/leagues/{league_id}/draft":
                 draft_queue.put(msg.payload)
             elif msg.topic == f"dcf/leagues/{timer_league_id}/draft":
                 timer_draft_queue.put(msg.payload)
+            elif msg.topic == f"dcf/leagues/{budget_league_id}/draft":
+                budget_draft_queue.put(msg.payload)
             elif "scores" in msg.topic:
                 scores_queue.put(msg.payload)
 
@@ -311,6 +315,68 @@ def main():
         assert submitted_pick is not None, "Expired pick with a staged selection should have been recorded as a real pick"
         assert submitted_pick["corpsId"] == corps_ids[0]
         assert submitted_pick["caption"] == CAPTION_NAMES[CAPTIONS[0]]
+
+        # --- Draft Budget smoke check ---
+        # A third, isolated league using the Draft Budget allocation mode instead of Corps Per
+        # Caption: a member spends a pool of picks across captions however they like, including
+        # putting more than one pick in the same caption and leaving another at zero.
+        resp = api("POST", "/api/leagues", "smoke-admin", json={
+            "name": "Smoke Budget League",
+            "isPublic": False,
+            "corpsPerCaption": 0,
+            "maxPlayers": 4,
+            "draftableCaptions": CAPTIONS,
+            "draftStartTime": None,
+            "draftBudget": 2
+        })
+        assert_status(resp, 201, "Create budget league")
+        budget_league_id = resp.json().get("id")
+
+        resp = api("GET", f"/api/leagues/{budget_league_id}", "smoke-admin")
+        assert_status(resp, 200, "Get budget league")
+        budget_invite_code = resp.json().get("inviteCode")
+
+        for i in range(1, 4):
+            resp = api("POST", f"/api/leagues/{budget_league_id}/join", f"smoke-user-{i}", json={"inviteCode": budget_invite_code})
+            assert_status(resp, 204, f"Join budget league for user {i}")
+
+        mqtt.subscribe(f"dcf/leagues/{budget_league_id}/draft")
+
+        resp = api("POST", f"/api/leagues/{budget_league_id}/draft/open", "smoke-admin")
+        assert_status(resp, 204, "Open budget draft")
+        wait_for_message(budget_draft_queue, timeout=5)
+
+        resp = api("POST", f"/api/leagues/{budget_league_id}/draft/start", "smoke-admin")
+        assert_status(resp, 200, "Start budget draft")
+
+        budget_state = json.loads(wait_for_message(budget_draft_queue, timeout=5))
+        assert budget_state["status"] == "InProgress"
+        assert budget_state["usesDraftBudget"] is True
+        assert budget_state["draftBudget"] == 2
+        assert budget_state["picksPerMember"] == 2
+        assert budget_state["mainTotalPicks"] == 4 * 2  # 4 members * a 2-pick budget each
+
+        # Snake order gives consecutive pick numbers to *different* members (same as Corps Per
+        # Caption - budget mode changes how many total picks each member gets and lifts the
+        # per-caption cap, not the turn order), so getting one member a second turn means
+        # cycling the whole board first. That deeper same-member/exhausted-budget behavior is
+        # already covered precisely by DraftServiceTests.cs's SubmitPick_BudgetAllows...
+        # /SubmitPick_ThrowsWhenBudgetExceeded; this check's job is just proving a real pick
+        # write-through works end to end for this mode, not re-deriving turn order live.
+        first_drafter_id = budget_state["currentDrafterId"]
+        first_drafter_sub = id_to_sub[first_drafter_id]
+        resp = api("POST", f"/api/leagues/{budget_league_id}/draft/pick", first_drafter_sub, json={
+            "corpsId": corps_ids[0],
+            "caption": CAPTIONS[0]
+        })
+        assert_status(resp, 200, "Budget pick 1")
+        budget_state = json.loads(wait_for_message(budget_draft_queue, timeout=5))
+
+        # Turn moved to a different member - the first drafter isn't stuck repeating captions
+        # and their remaining budget carries over to their next turn later in the snake order.
+        assert budget_state["currentPickNumber"] == 1
+        assert budget_state["currentDrafterId"] != first_drafter_id
+        assert any(p["corpsId"] == corps_ids[0] and p["caption"] == CAPTION_NAMES[CAPTIONS[0]] for p in budget_state["picks"])
 
         # The chart engine advertises its available charts
         resp = api("GET", "/api/charts", "smoke-admin")
