@@ -106,6 +106,24 @@ public class ChartEngineTests
     }
 
     [Fact]
+    public async Task Validate_LeagueChartForNonMemberOfPublicLeague_IsOk()
+    {
+        using var db = ChartTestHelpers.CreateDb(nameof(Validate_LeagueChartForNonMemberOfPublicLeague_IsOk));
+        var season = db.AddSeason();
+        var commissioner = db.AddUser("auth0|comm", "Comm");
+        var league = db.AddLeague(season, commissioner, [ComputedCaption.Brass], isPublic: true);
+        var outsider = db.AddUser("auth0|outsider", "Outsider");
+        await db.SaveChangesAsync();
+
+        var validation = await CreateEngine(db).ValidateAsync(
+            FantasyLeagueCaptionBreakdownChart.ChartKey,
+            ChartTestHelpers.Params(("leagueId", league.Id.ToString())),
+            outsider.Id);
+
+        Assert.True(validation.IsValid);
+    }
+
+    [Fact]
     public async Task Validate_LeagueChartForMember_IsOk()
     {
         using var db = ChartTestHelpers.CreateDb(nameof(Validate_LeagueChartForMember_IsOk));

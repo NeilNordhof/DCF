@@ -145,6 +145,25 @@ public class ChartsControllerTests
     }
 
     [Fact]
+    public async Task Submit_LeagueChartForNonMemberOfPublicLeague_IsAccepted()
+    {
+        using var db = ChartTestHelpers.CreateDb(nameof(Submit_LeagueChartForNonMemberOfPublicLeague_IsAccepted));
+        var season = db.AddSeason();
+        var commissioner = db.AddUser("auth0|comm", "Comm");
+        var league = db.AddLeague(season, commissioner, [ComputedCaption.Brass], isPublic: true);
+        db.AddUser("auth0|outsider", "Outsider");
+        await db.SaveChangesAsync();
+
+        var controller = CreateController(db, "auth0|outsider", new InMemoryChartJobStore(), new ChartJobQueue());
+
+        var result = await controller.Submit(
+            new ChartRequest(FantasyLeagueCaptionBreakdownChart.ChartKey, Parameters(("leagueId", league.Id.ToString()))),
+            CancellationToken.None);
+
+        Assert.IsType<AcceptedAtActionResult>(result);
+    }
+
+    [Fact]
     public async Task Submit_LeagueChartForMember_IsAccepted()
     {
         using var db = ChartTestHelpers.CreateDb(nameof(Submit_LeagueChartForMember_IsAccepted));

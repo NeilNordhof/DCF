@@ -88,7 +88,8 @@ internal static class ChartTestHelpers
     }
 
     public static LeagueEntity AddLeague(
-        this DcfDbContext db, SeasonEntity season, UserEntity commissioner, ComputedCaption[] captions, string name = "Test League")
+        this DcfDbContext db, SeasonEntity season, UserEntity commissioner, ComputedCaption[] captions,
+        string name = "Test League", bool isPublic = false)
     {
         var league = new LeagueEntity
         {
@@ -99,7 +100,8 @@ internal static class ChartTestHelpers
             InviteCode = Guid.NewGuid().ToString("N")[..6],
             DraftableCaptions = captions,
             CorpsPerCaption = 1,
-            MaxPlayers = 8
+            MaxPlayers = 8,
+            IsPublic = isPublic
         };
         db.Leagues.Add(league);
         db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = commissioner.Id });

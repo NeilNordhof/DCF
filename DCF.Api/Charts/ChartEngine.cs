@@ -52,8 +52,18 @@ public class ChartEngine(IEnumerable<IChartDefinition> definitions, DcfDbContext
 
             if (!isMember)
             {
-                return new ChartValidation(
-                    ChartRequestStatus.Forbidden, "You are not a member of that league.");
+                // Mirrors LeagueService's own !isMember && !league.IsPublic gate - a public
+                // league's charts are visible the same way its standings/roster already are.
+                var isPublic = await db.Leagues
+                    .Where(l => l.Id == leagueId.Value)
+                    .Select(l => l.IsPublic)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (!isPublic)
+                {
+                    return new ChartValidation(
+                        ChartRequestStatus.Forbidden, "You are not a member of that league.");
+                }
             }
         }
 
