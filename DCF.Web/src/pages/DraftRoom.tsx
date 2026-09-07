@@ -8,7 +8,10 @@ import { useUser } from '../context/UserContext';
 import { CorpsIcon } from '../components/CorpsIcon';
 import { Nav } from '../components/Nav';
 import type { SeasonCorps, DraftState, League, PickPreview } from '../types/api';
-import { getPickSecondsRemaining, formatPickTimer, isPickTimerLow } from './DraftRoom.helpers';
+import {
+  getPickSecondsRemaining, formatPickTimer, isPickTimerLow,
+  usesDraftBudget as usesDraftBudgetFn, getEmptyCaptions, shouldWarnEmptyCaption,
+} from './DraftRoom.helpers';
 
 const CAPTION_SHORT: Record<string, string> = {
   GeneralEffectCombined: 'GE',
@@ -100,6 +103,24 @@ export function DraftRoom() {
   const isOnline = (userId: string) => (draftState.onlineUserIds ?? []).includes(userId);
 
   const currentDrafter = draftState.members.find(m => m.userId === draftState.currentDrafterId);
+
+  const usesDraftBudget = usesDraftBudgetFn(draftState, league);
+  const draftBudget = draftState.draftBudget ?? league.draftBudget ?? 0;
+  const corpsPerCaption = draftState.corpsPerCaption ?? league.corpsPerCaption ?? 0;
+
+  // In budget-mode drafts, warn a member when they currently have a caption with
+  // no corps drafted, since empty captions are allowed but easy to overlook while
+  // allocating a budget.
+  const myPickCount = draftState.picks.filter(p => p.userId === user?.id).length;
+  const emptyCaptions = usesDraftBudget
+    ? getEmptyCaptions(league.draftableCaptions, draftState.picks, user?.id)
+    : [];
+  const showEmptyCaptionWarning = shouldWarnEmptyCaption({
+    usesDraftBudget,
+    status,
+    myPickCount,
+    emptyCaptionCount: emptyCaptions.length,
+  });
 
   // Pick preview is valid only when the cell is still available and it's the current drafter's preview
   const validPreview = (
@@ -393,14 +414,29 @@ export function DraftRoom() {
     draftState.picks
       .filter(p => p.userId === user?.id)
       .forEach(p => { myPicksByCaption[p.caption] = (myPicksByCaption[p.caption] ?? 0) + 1; });
+    const budgetSpent = usesDraftBudget && myPickCount >= draftBudget;
     const isCaptionFull = (cap: string) =>
-      (myPicksByCaption[cap] ?? 0) >= league.corpsPerCaption!;
+      usesDraftBudget
+        ? budgetSpent
+        : (myPicksByCaption[cap] ?? 0) >= corpsPerCaption;
 
     return (
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {status === 'Open' && (
           <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-heading)', marginBottom: 8, alignSelf: 'anchor-center' }}>
             Pick board locked until the draft begins
+          </div>
+        )}
+        {showEmptyCaptionWarning && (
+          <div
+            role="alert"
+            style={{
+              fontSize: 10, color: 'var(--red)', background: 'var(--red-bg, rgba(224,108,117,0.12))',
+              border: '1px solid var(--red)', borderRadius: 5, padding: '6px 10px', marginBottom: 8,
+              maxWidth: 480, textAlign: 'center',
+            }}
+          >
+            You have no corps drafted for {emptyCaptions.map(cap => CAPTION_SHORT[cap] ?? cap).join(', ')}.
           </div>
         )}
         <table style={{ borderCollapse: 'separate', borderSpacing: `${hGap}px 4px` }}>
@@ -423,8 +459,8 @@ export function DraftRoom() {
                   zIndex: 1,
                 }}>
                   {CAPTION_SHORT[cap] ?? cap}
-                  <div style={{ fontSize: 12, color: isCaptionFull(cap) ? 'var(--red)' : 'var(--text-heading)', marginTop: 1, fontWeight: 400, textTransform: 'none', letterSpacing: 'normal' }}>
-                    {myPicksByCaption[cap] ?? 0}/{league.corpsPerCaption}
+                  <div style={{ fontSize: 12, color: (!usesDraftBudget && isCaptionFull(cap)) || (usesDraftBudget && (myPicksByCaption[cap] ?? 0) === 0) ? 'var(--red)' : 'var(--text-heading)', marginTop: 1, fontWeight: 400, textTransform: 'none', letterSpacing: 'normal' }}>
+                    {usesDraftBudget ? (myPicksByCaption[cap] ?? 0) : `${myPicksByCaption[cap] ?? 0}/${corpsPerCaption}`}
                   </div>
                 </th>
               ))}
@@ -542,7 +578,7 @@ export function DraftRoom() {
     }
 
     const n = draftState.draftOrder.length;
-    const totalPicks = n * league.draftableCaptions!.length * league.corpsPerCaption!;
+    const totalPicks = mainTotalPicks;
 
     const upcomingOrder: Array<{ userId: string; displayName: string }> = [];
 
@@ -627,7 +663,10 @@ export function DraftRoom() {
         {captions.map(cap => {
           const capPicks = playerPicks.filter(p => p.caption === cap);
           const filled = capPicks.length;
-          const total = league.corpsPerCaption!;
+          const total = usesDraftBudget ? filled : corpsPerCaption;
+          // In budget mode an empty caption is allowed, so highlight it as a
+          // gentle warning rather than a missing required slot.
+          const emptyInBudget = usesDraftBudget && filled === 0;
 
           return (
             <div key={cap} style={{ marginBottom: 10 }}>
@@ -636,12 +675,17 @@ export function DraftRoom() {
                 <div style={{
                   fontSize: 8, padding: '1px 6px', borderRadius: 8, fontWeight: 700,
                   background: filled > 0 ? 'var(--accent-bg)' : 'var(--surface)',
-                  color: filled > 0 ? 'var(--accent)' : 'var(--text-faint)',
-                  border: `1px solid ${filled > 0 ? 'var(--accent-border)' : 'var(--border)'}`,
+                  color: emptyInBudget ? 'var(--red)' : (filled > 0 ? 'var(--accent)' : 'var(--text-faint)'),
+                  border: `1px solid ${emptyInBudget ? 'var(--red)' : (filled > 0 ? 'var(--accent-border)' : 'var(--border)')}`,
                 }}>
-                  {filled} / {total}
+                  {usesDraftBudget ? filled : `${filled} / ${total}`}
                 </div>
               </div>
+              {emptyInBudget && (
+                <div style={{ padding: '5px 8px', border: '1px dashed var(--red)', borderRadius: 5, marginBottom: 4 }}>
+                  <span style={{ fontSize: 10, fontStyle: 'italic', color: 'var(--red)' }}>No corps drafted</span>
+                </div>
+              )}
               {Array.from({ length: total }).map((_, i) => {
                 const pick = capPicks[i];
 

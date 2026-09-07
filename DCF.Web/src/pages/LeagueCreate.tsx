@@ -157,7 +157,9 @@ export function LeagueCreate() {
   const [ge, setGe] = useState<GEOption>('combined');
   const [vis, setVis] = useState<VisOption>('combined');
   const [music, setMusic] = useState<MusicOption>('combined');
+  const [draftMode, setDraftMode] = useState<'perCaption' | 'budget'>('perCaption');
   const [corpsPerCaption, setCorpsPerCaption] = useState(3);
+  const [draftBudget, setDraftBudget] = useState(6);
   const [maxPlayers, setMaxPlayers] = useState(8);
   const [draftStartDate, setDraftStartDate] = useState('');
   const [draftStartTime, setDraftStartTime] = useState('');
@@ -177,9 +179,12 @@ export function LeagueCreate() {
       .finally(() => setSeasonLoaded(true));
   }, []);
 
+  const usesBudget = draftMode === 'budget';
   const maxCorpsPerCaption = corpsCount != null ? Math.floor(corpsCount / 4) : 99;
-  const maxAllowedPlayers = corpsPerCaption > 0 && corpsCount != null
-    ? Math.floor(corpsCount / corpsPerCaption)
+  const maxDraftBudget = corpsCount != null ? Math.floor(corpsCount / 4) : 99;
+  const perPlayerUnit = usesBudget ? draftBudget : corpsPerCaption;
+  const maxAllowedPlayers = perPlayerUnit > 0 && corpsCount != null
+    ? Math.floor(corpsCount / perPlayerUnit)
     : 99;
 
   function handleCorpsPerCaptionChange(v: number) {
@@ -189,6 +194,29 @@ export function LeagueCreate() {
     if (corpsCount != null) {
       const newMax = Math.floor(corpsCount / v);
       setMaxPlayers(prev => Math.min(prev, newMax));
+    }
+  }
+
+  function handleDraftBudgetChange(v: number) {
+    setDraftBudget(v);
+    setIsDirty(true);
+
+    if (corpsCount != null && v > 0) {
+      const newMax = Math.floor(corpsCount / v);
+      setMaxPlayers(prev => Math.min(prev, newMax));
+    }
+  }
+
+  function handleDraftModeChange(mode: 'perCaption' | 'budget') {
+    setDraftMode(mode);
+    setIsDirty(true);
+
+    if (corpsCount != null) {
+      const unit = mode === 'budget' ? draftBudget : corpsPerCaption;
+      if (unit > 0) {
+        const newMax = Math.floor(corpsCount / unit);
+        setMaxPlayers(prev => Math.min(prev, newMax));
+      }
     }
   }
 
@@ -204,7 +232,8 @@ export function LeagueCreate() {
       const league = await api.createLeague({
         name,
         isPublic,
-        corpsPerCaption,
+        corpsPerCaption: usesBudget ? 0 : corpsPerCaption,
+        draftBudget: usesBudget ? draftBudget : 0,
         maxPlayers,
         draftableCaptions: expandCaptions(ge, vis, music),
         draftStartTime: (draftStartDate && draftStartTime) ? datetimeLocalToIso(`${draftStartDate}T${draftStartTime}`) : null,
@@ -348,14 +377,49 @@ export function LeagueCreate() {
           </div>
         </div>
 
-        <Stepper
-          label="Corps per Caption"
-          value={corpsPerCaption}
-          min={1}
-          max={maxCorpsPerCaption}
-          onChange={handleCorpsPerCaptionChange}
-          tooltip={`How many corps each player drafts per caption. Maximum is ${maxCorpsPerCaption} (1/4 of active season corps).`}
-        />
+        <div>
+          <div style={labelStyle}>Draft Type</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {([
+              { key: 'perCaption', label: 'Corps Per Caption' },
+              { key: 'budget', label: 'Draft Budget' },
+            ] as const).map(opt => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => handleDraftModeChange(opt.key)}
+                style={{
+                  flex: 1, padding: '7px 0', borderRadius: 5, fontSize: 10, fontWeight: 700,
+                  border: '1px solid var(--border)', cursor: 'pointer',
+                  background: draftMode === opt.key ? 'var(--accent-bg)' : 'var(--surface)',
+                  color: draftMode === opt.key ? 'var(--text-heading)' : 'var(--text-muted)',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {draftMode === 'perCaption' ? (
+          <Stepper
+            label="Corps per Caption"
+            value={corpsPerCaption}
+            min={1}
+            max={maxCorpsPerCaption}
+            onChange={handleCorpsPerCaptionChange}
+            tooltip={`How many corps each player drafts per caption. Maximum is ${maxCorpsPerCaption} (1/4 of active season corps).`}
+          />
+        ) : (
+          <Stepper
+            label="Draft Budget"
+            value={draftBudget}
+            min={1}
+            max={maxDraftBudget}
+            onChange={handleDraftBudgetChange}
+            tooltip={`Total corps-captions each player may draft, allocated across captions however they like. Maximum is ${maxDraftBudget} (1/4 of active season corps).`}
+          />
+        )}
 
         <Stepper
           label="Max Players"

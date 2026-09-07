@@ -521,6 +521,132 @@ public class SubmitPickTests
     }
 }
 
+public class SubmitPickDraftBudgetTests
+{
+    private sealed class CapturingMqtt : IMqttService
+    {
+        public string? LastPayloadJson { get; private set; }
+
+        public Task PublishAsync(string topic, object payload, bool retain = false, CancellationToken ct = default)
+        {
+            LastPayloadJson = JsonSerializer.Serialize(
+                payload,
+                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+
+            return Task.CompletedTask;
+        }
+    }
+
+    private static DcfDbContext CreateDb() =>
+        new(new DbContextOptionsBuilder<DcfDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options);
+
+    // Single-player budget league: DraftBudget = 2, two captions available.
+    // The member may allocate their 2 picks across captions however they like,
+    // including putting both into a single caption (0 in the other).
+    private static (DcfDbContext Db, DraftService Service, Guid PlayerId, Guid LeagueId, Guid Corps1Id, Guid Corps2Id) Seed()
+    {
+        var db = CreateDb();
+        var player = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|player", DisplayName = "Player", Email = "p@test.com" };
+        var corps1 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Blue Devils" };
+        var corps2 = new CorpsEntity { Id = Guid.NewGuid(), Name = "Bluecoats" };
+        var draftOrder = JsonSerializer.Serialize(new[] { player.Id.ToString() });
+        var league = new LeagueEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = "Budget League",
+            CommissionerUserId = player.Id,
+            DraftStatus = DraftStatus.InProgress,
+            DraftOrderJson = draftOrder,
+            CurrentPickNumber = 0,
+            InviteCode = "TESTCODE",
+            DraftableCaptions = [ComputedCaption.Brass, ComputedCaption.Percussion],
+            CorpsPerCaption = 0,
+            DraftBudget = 2
+        };
+        db.Users.Add(player);
+        db.Corps.AddRange(corps1, corps2);
+        db.Leagues.Add(league);
+        db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = player.Id });
+        db.SaveChanges();
+        return (db, new DraftService(db, new NullMqtt(), new NullPresenceService(), new NullPickTimerService()), player.Id, league.Id, corps1.Id, corps2.Id);
+    }
+
+    [Fact]
+    public async Task SubmitPick_BudgetAllowsMultiplePicksInSameCaption()
+    {
+        var (db, svc, _, leagueId, corps1Id, corps2Id) = Seed();
+
+        // Both picks go into Brass, leaving Percussion empty — allowed in budget mode.
+        await svc.SubmitPickAsync(leagueId, "auth|player", corps1Id, ComputedCaption.Brass);
+        await svc.SubmitPickAsync(leagueId, "auth|player", corps2Id, ComputedCaption.Brass);
+
+        var brassPicks = await db.DraftPicks.CountAsync(p => p.LeagueId == leagueId && p.Caption == ComputedCaption.Brass);
+        Assert.Equal(2, brassPicks);
+    }
+
+    [Fact]
+    public async Task SubmitPick_ThrowsWhenBudgetExceeded()
+    {
+        var (db, svc, playerId, leagueId, corps1Id, corps2Id) = Seed();
+
+        // Fill the budget of 2 with two picks
+        db.DraftPicks.AddRange(
+            new DraftPickEntity
+            {
+                Id = Guid.NewGuid(), LeagueId = leagueId, UserId = playerId,
+                CorpsId = corps1Id, Caption = ComputedCaption.Brass, PickNumber = 0, RoundNumber = 0
+            },
+            new DraftPickEntity
+            {
+                Id = Guid.NewGuid(), LeagueId = leagueId, UserId = playerId,
+                CorpsId = corps1Id, Caption = ComputedCaption.Percussion, PickNumber = 1, RoundNumber = 1
+            });
+        await db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => svc.SubmitPickAsync(leagueId, "auth|player", corps2Id, ComputedCaption.Percussion));
+
+        Assert.Contains("budget", ex.Message);
+    }
+
+    [Fact]
+    public async Task PublishStateAsync_BudgetLeague_MainTotalPicksIsBudgetTimesPlayers()
+    {
+        var db = CreateDb();
+        var mqtt = new CapturingMqtt();
+        var svc = new DraftService(db, mqtt, new NullPresenceService(), new NullPickTimerService());
+
+        var p1 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|p1", DisplayName = "P1", Email = "p1@test.com" };
+        var p2 = new UserEntity { Id = Guid.NewGuid(), Auth0Sub = "auth|p2", DisplayName = "P2", Email = "p2@test.com" };
+        var draftOrder = JsonSerializer.Serialize(new[] { p1.Id.ToString(), p2.Id.ToString() });
+        var league = new LeagueEntity
+        {
+            Id = Guid.NewGuid(), Name = "Budget", CommissionerUserId = p1.Id,
+            DraftStatus = DraftStatus.InProgress, DraftOrderJson = draftOrder,
+            CurrentPickNumber = 0, InviteCode = "CODE",
+            DraftableCaptions = [ComputedCaption.Brass, ComputedCaption.Percussion],
+            CorpsPerCaption = 0, DraftBudget = 3
+        };
+        db.Users.AddRange(p1, p2);
+        db.Leagues.Add(league);
+        db.LeagueMembers.AddRange(
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = p1.Id },
+            new LeagueMemberEntity { LeagueId = league.Id, UserId = p2.Id });
+        await db.SaveChangesAsync();
+
+        await svc.PublishStateAsync(league.Id);
+
+        var doc = JsonDocument.Parse(mqtt.LastPayloadJson!);
+        // 2 players × budget of 3 = 6, independent of caption count
+        Assert.Equal(6, doc.RootElement.GetProperty("mainTotalPicks").GetInt32());
+        Assert.True(doc.RootElement.GetProperty("usesDraftBudget").GetBoolean());
+        Assert.Equal(3, doc.RootElement.GetProperty("draftBudget").GetInt32());
+        Assert.Equal(3, doc.RootElement.GetProperty("picksPerMember").GetInt32());
+    }
+}
+
 public class SkipCurrentPickTests
 {
     private static DcfDbContext CreateDb() =>

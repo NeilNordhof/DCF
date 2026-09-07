@@ -252,6 +252,55 @@ public class LeagueServiceTests
                 maxPlayers: 5, captions: [ComputedCaption.MusicCombined], userSub: "sub|me"));
     }
 
+    // ── CreateAsync (Draft Budget) ───────────────────────────────────────────
+
+    [Fact]
+    public async Task CreateAsync_WithDraftBudget_SetsBudgetAndClearsCorpsPerCaption()
+    {
+        await using var db = CreateDb(nameof(CreateAsync_WithDraftBudget_SetsBudgetAndClearsCorpsPerCaption));
+        await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
+
+        var svc = CreateSvc(db);
+        // corpsPerCaption should be ignored / cleared when a budget is supplied
+        var league = await svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
+            maxPlayers: 4, captions: [ComputedCaption.MusicCombined], userSub: "sub|me",
+            draftBudget: 5);
+
+        Assert.Equal(5, league.DraftBudget);
+        Assert.Equal(0, league.CorpsPerCaption);
+        Assert.True(league.UsesDraftBudget);
+        Assert.Equal(5, league.PicksPerMember);
+    }
+
+    [Fact]
+    public async Task CreateAsync_DraftBudgetTooHigh_Throws()
+    {
+        await using var db = CreateDb(nameof(CreateAsync_DraftBudgetTooHigh_Throws));
+        await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
+
+        var svc = CreateSvc(db);
+        // floor(24/4) = 6, so a budget of 7 is invalid
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 0,
+                maxPlayers: 4, captions: [ComputedCaption.MusicCombined], userSub: "sub|me",
+                draftBudget: 7));
+    }
+
+    [Fact]
+    public async Task CreateAsync_DraftBudgetMaxPlayersExceedsAvailability_Throws()
+    {
+        await using var db = CreateDb(nameof(CreateAsync_DraftBudgetMaxPlayersExceedsAvailability_Throws));
+        await CreateSeasonAndUser(db, corpsCount: 12, userSub: "sub|me");
+
+        var svc = CreateSvc(db);
+        // 12 corps, budget=3 → floor(12/3) = 4 max players; 5 must be rejected so
+        // members can never draft more corps-captions than are available.
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 0,
+                maxPlayers: 5, captions: [ComputedCaption.MusicCombined], userSub: "sub|me",
+                draftBudget: 3));
+    }
+
     [Fact]
     public async Task CreateAsync_DefaultPickTimerSeconds_IsZero()
     {
