@@ -1,4 +1,6 @@
 using DCF.Api;
+using DCF.Api.Charts;
+using DCF.Api.Charts.Definitions;
 using DCF.Api.Scraping;
 using DCF.Api.Services;
 using DCF.Data;
@@ -120,6 +122,13 @@ builder.Services.AddScoped<IStandingsService, StandingsService>();
 builder.Services.AddScoped<IDraftService, DraftService>();
 builder.Services.AddScoped<IRememberMeTokenService, RememberMeTokenService>();
 builder.Services.AddScoped<IDciPublicService, DciPublicService>();
+
+builder.Services.AddSingleton<IChartJobStore, InMemoryChartJobStore>();
+builder.Services.AddSingleton<IChartJobQueue, ChartJobQueue>();
+builder.Services.AddHostedService<ChartJobWorker>();
+builder.Services.AddScoped<IChartEngine, ChartEngine>();
+builder.Services.AddScoped<IChartDefinition, DciSeasonScoreProgressionChart>();
+builder.Services.AddScoped<IChartDefinition, FantasyLeagueCaptionBreakdownChart>();
 
 builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
 {

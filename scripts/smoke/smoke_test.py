@@ -40,6 +40,21 @@ def api(method, path, sub, **kwargs):
 def assert_status(resp, expected, label):
     assert resp.status_code == expected, f"{label}: Expected {expected}, got {resp.status_code}: {resp.text}"
 
+def wait_for_chart(job_id, sub, timeout=15):
+    deadline = time.time() + timeout
+
+    while time.time() < deadline:
+        resp = api("GET", f"/api/charts/requests/{job_id}", sub)
+        assert_status(resp, 200, "Poll chart job")
+        job = resp.json()
+
+        if job["status"] in ("Succeeded", "Failed"):
+            return job
+
+        time.sleep(0.25)
+
+    raise AssertionError(f"Chart job {job_id} did not complete within {timeout} seconds")
+
 def wait_for_message(q, timeout=3):
     try:
         return q.get(timeout=timeout)
@@ -296,6 +311,43 @@ def main():
         assert submitted_pick is not None, "Expired pick with a staged selection should have been recorded as a real pick"
         assert submitted_pick["corpsId"] == corps_ids[0]
         assert submitted_pick["caption"] == CAPTION_NAMES[CAPTIONS[0]]
+
+        # The chart engine advertises its available charts
+        resp = api("GET", "/api/charts", "smoke-admin")
+        assert_status(resp, 200, "List chart definitions")
+        chart_keys = [definition["key"] for definition in resp.json()]
+        assert "dci-season-score-progression" in chart_keys, chart_keys
+        assert "fantasy-league-caption-breakdown" in chart_keys, chart_keys
+
+        # DCI season score progression chart (async submit + poll)
+        resp = api("POST", "/api/charts/requests", "smoke-admin", json={
+            "chartKey": "dci-season-score-progression",
+            "parameters": {"seasonId": season_id, "corpsIds": corps_ids}
+        })
+        assert_status(resp, 202, "Submit season score progression chart")
+        job = wait_for_chart(resp.json()["jobId"], "smoke-admin")
+        assert job["status"] == "Succeeded", job
+        assert job["result"]["series"], job
+        assert any(point["value"] is not None for series in job["result"]["series"] for point in series["points"]), job
+
+        # Fantasy caption breakdown chart, scoped to the league
+        resp = api("POST", "/api/charts/requests", "smoke-admin", json={
+            "chartKey": "fantasy-league-caption-breakdown",
+            "parameters": {"leagueId": league_id}
+        })
+        assert_status(resp, 202, "Submit fantasy caption breakdown chart")
+        job = wait_for_chart(resp.json()["jobId"], "smoke-admin")
+        assert job["status"] == "Succeeded", job
+        assert len(job["result"]["series"]) == 4, job
+
+        # A user who is not a member of the league cannot chart it
+        resp = api("POST", "/api/auth/me", "smoke-outsider", json={"email": "smoke-outsider@example.com", "displayName": "Smoke Outsider"})
+        assert_status(resp, 200, "Register outsider")
+        resp = api("POST", "/api/charts/requests", "smoke-outsider", json={
+            "chartKey": "fantasy-league-caption-breakdown",
+            "parameters": {"leagueId": league_id}
+        })
+        assert_status(resp, 403, "Outsider blocked from league chart")
 
     finally:
         # Cleanup our http and mqtt
