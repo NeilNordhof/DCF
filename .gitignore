@@ -374,3 +374,6 @@ appsettings.Development.json
 
 corpslogos/
 DCF.Api/uploads/corps-icons/*
+
+# Local-only scratch space - anything that shouldn't be tracked can live here
+local/*
