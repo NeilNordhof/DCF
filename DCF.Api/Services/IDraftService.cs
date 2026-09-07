@@ -11,4 +11,6 @@ public interface IDraftService
     Task StartDraftAsync(Guid leagueId, string userSub);
     Task<(Guid Id, int PickNumber)> SubmitPickAsync(Guid leagueId, string userSub, Guid corpsId, ComputedCaption caption);
     Task SkipCurrentPickAsync(Guid leagueId, string userSub);
+    Task ExpireCurrentPickAsync(Guid leagueId, int expectedPickNumber);
+    Task SelectPickAsync(Guid leagueId, string userSub, Guid corpsId, ComputedCaption caption);
 }

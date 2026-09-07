@@ -4,6 +4,7 @@ import { Link, useNavigate, useBlocker } from 'react-router-dom';
 import { api } from '../api/client';
 import type { ComputedCaption } from '../types/api';
 import { TimePicker } from '../components/TimePicker';
+import { PICK_TIMER_OPTIONS } from './League.helpers';
 
 type GEOption = 'combined' | 'split';
 type VisOption = 'combined' | 'partial' | 'full';
@@ -160,6 +161,7 @@ export function LeagueCreate() {
   const [maxPlayers, setMaxPlayers] = useState(8);
   const [draftStartDate, setDraftStartDate] = useState('');
   const [draftStartTime, setDraftStartTime] = useState('');
+  const [pickTimerSeconds, setPickTimerSeconds] = useState(0);
   const [corpsCount, setCorpsCount] = useState<number | null>(null);
   const [seasonLoaded, setSeasonLoaded] = useState(false);
   const [hasActiveSeason, setHasActiveSeason] = useState(false);
@@ -207,6 +209,7 @@ export function LeagueCreate() {
         draftableCaptions: expandCaptions(ge, vis, music),
         draftStartTime: (draftStartDate && draftStartTime) ? datetimeLocalToIso(`${draftStartDate}T${draftStartTime}`) : null,
         draftTimezone: (draftStartDate && draftStartTime) ? Intl.DateTimeFormat().resolvedOptions().timeZone : null,
+        pickTimerSeconds,
       });
 
       navigate(`/leagues/${league.id}`);
@@ -362,6 +365,23 @@ export function LeagueCreate() {
           onChange={v => { setMaxPlayers(v); setIsDirty(true); }}
           tooltip={`Maximum league members. Capped at ${maxAllowedPlayers} so every player can draft a unique set of corps.`}
         />
+
+        <div>
+          <div style={labelStyle}>
+            Pick Timer
+            {' '}
+            <span title="How long each player has to make a pick before it's added to the makeup pick pool." style={{ cursor: 'help', color: 'var(--text-muted)', fontSize: 9 }}>ⓘ</span>
+          </div>
+          <select
+            style={selectStyle}
+            value={pickTimerSeconds}
+            onChange={e => { setPickTimerSeconds(Number(e.target.value)); setIsDirty(true); }}
+          >
+            {PICK_TIMER_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
 
         <div>
           <div style={labelStyle}>

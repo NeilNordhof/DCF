@@ -9,7 +9,8 @@ public record CreateLeagueRequest(
     int MaxPlayers,
     ComputedCaption[] DraftableCaptions,
     DateTimeOffset? DraftStartTime,
-    string? DraftTimezone);
+    string? DraftTimezone,
+    int PickTimerSeconds = 0);
 
 public record JoinLeagueRequest(string? InviteCode);
 
@@ -18,6 +19,7 @@ public record UpdateLeagueRequest(
     int MaxPlayers,
     ComputedCaption[] DraftableCaptions,
     DateTimeOffset? DraftStartTime,
-    string? DraftTimezone);
+    string? DraftTimezone,
+    int PickTimerSeconds = 0);
 
 public record SubmitPickRequest(Guid CorpsId, ComputedCaption Caption);

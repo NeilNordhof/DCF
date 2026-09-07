@@ -80,6 +80,10 @@ export const api = {
     request<{ id: string; pickNumber: number }>(`/api/leagues/${leagueId}/draft/pick`, {
       method: 'POST', body: JSON.stringify({ corpsId, caption }),
     }),
+  selectPick: (leagueId: string, corpsId: string, caption: string) =>
+    request<void>(`/api/leagues/${leagueId}/draft/select`, {
+      method: 'POST', body: JSON.stringify({ corpsId, caption }),
+    }),
   skipPick: (leagueId: string) =>
     request<void>(`/api/leagues/${leagueId}/draft/skip`, { method: 'POST' }),
   adminGetCorps: () => request<Corps[]>('/api/admin/corps'),

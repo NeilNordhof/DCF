@@ -23,6 +23,7 @@ export interface League {
   draftStatus: DraftStatus;
   draftStartTime?: string;
   corpsPerCaption?: number;
+  pickTimerSeconds?: number;
   draftableCaptions?: ComputedCaption[];
   seasonYear?: number;
   seasonId?: string;
@@ -97,6 +98,8 @@ export interface DraftState {
   picks: DraftPick[];
   makeupQueue: string[];
   mainTotalPicks: number;
+  pickTimerSeconds?: number;
+  pickDeadline?: string | null;
 }
 
 export interface PickPreview {
@@ -121,6 +124,7 @@ export interface CreateLeagueRequest {
   draftableCaptions: ComputedCaption[];
   draftStartTime?: string | null;
   draftTimezone?: string | null;
+  pickTimerSeconds?: number;
 }
 
 export interface UpdateLeagueRequest {
@@ -129,6 +133,7 @@ export interface UpdateLeagueRequest {
   draftableCaptions: ComputedCaption[];
   draftStartTime: string | null;
   draftTimezone: string | null;
+  pickTimerSeconds: number;
 }
 
 export type SeasonStatus = 'Upcoming' | 'Active' | 'Completed';

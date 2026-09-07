@@ -1,3 +1,4 @@
+using DCF.Api.Models;
 using DCF.Api.Services;
 using DCF.Data;
 using DCF.Data.Entities;
@@ -249,6 +250,99 @@ public class LeagueServiceTests
         await Assert.ThrowsAsync<ArgumentException>(() =>
             svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
                 maxPlayers: 5, captions: [ComputedCaption.MusicCombined], userSub: "sub|me"));
+    }
+
+    [Fact]
+    public async Task CreateAsync_DefaultPickTimerSeconds_IsZero()
+    {
+        await using var db = CreateDb(nameof(CreateAsync_DefaultPickTimerSeconds_IsZero));
+        var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
+
+        var svc = CreateSvc(db);
+        var league = await svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
+            maxPlayers: 8, captions: [ComputedCaption.MusicCombined], userSub: "sub|me");
+
+        Assert.Equal(0, league.PickTimerSeconds);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithPickTimerSeconds_SetsValue()
+    {
+        await using var db = CreateDb(nameof(CreateAsync_WithPickTimerSeconds_SetsValue));
+        var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
+
+        var svc = CreateSvc(db);
+        var league = await svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
+            maxPlayers: 8, captions: [ComputedCaption.MusicCombined], userSub: "sub|me", pickTimerSeconds: 60);
+
+        Assert.Equal(60, league.PickTimerSeconds);
+    }
+
+    [Fact]
+    public async Task CreateAsync_NegativePickTimerSeconds_Throws()
+    {
+        await using var db = CreateDb(nameof(CreateAsync_NegativePickTimerSeconds_Throws));
+        var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|me");
+
+        var svc = CreateSvc(db);
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            svc.CreateAsync("Test", isPublic: false, corpsPerCaption: 3,
+                maxPlayers: 8, captions: [ComputedCaption.MusicCombined], userSub: "sub|me", pickTimerSeconds: -5));
+    }
+
+    // ── UpdateAsync ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateAsync_SetsPickTimerSeconds()
+    {
+        await using var db = CreateDb(nameof(UpdateAsync_SetsPickTimerSeconds));
+        var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|comm");
+        var league = new LeagueEntity
+        {
+            Name = "L", MaxPlayers = 8, InviteCode = "X", SeasonId = season.Id,
+            CommissionerUserId = user.Id, DraftStatus = DraftStatus.NotStarted,
+            CorpsPerCaption = 3, DraftableCaptions = [ComputedCaption.Brass, ComputedCaption.Percussion, ComputedCaption.MusicAnalysis]
+        };
+        db.Leagues.Add(league);
+        db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = user.Id });
+
+        await db.SaveChangesAsync();
+
+        var svc = CreateSvc(db);
+        var req = new UpdateLeagueRequest(
+            CorpsPerCaption: 3, MaxPlayers: 8,
+            DraftableCaptions: [ComputedCaption.Brass, ComputedCaption.Percussion, ComputedCaption.MusicAnalysis],
+            DraftStartTime: null, DraftTimezone: null, PickTimerSeconds: 45);
+
+        await svc.UpdateAsync(league.Id, req, "sub|comm");
+
+        var updated = await db.Leagues.FindAsync(league.Id);
+        Assert.Equal(45, updated!.PickTimerSeconds);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_NegativePickTimerSeconds_Throws()
+    {
+        await using var db = CreateDb(nameof(UpdateAsync_NegativePickTimerSeconds_Throws));
+        var (season, user) = await CreateSeasonAndUser(db, corpsCount: 24, userSub: "sub|comm");
+        var league = new LeagueEntity
+        {
+            Name = "L", MaxPlayers = 8, InviteCode = "X", SeasonId = season.Id,
+            CommissionerUserId = user.Id, DraftStatus = DraftStatus.NotStarted,
+            CorpsPerCaption = 3, DraftableCaptions = [ComputedCaption.Brass, ComputedCaption.Percussion, ComputedCaption.MusicAnalysis]
+        };
+        db.Leagues.Add(league);
+        db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = user.Id });
+
+        await db.SaveChangesAsync();
+
+        var svc = CreateSvc(db);
+        var req = new UpdateLeagueRequest(
+            CorpsPerCaption: 3, MaxPlayers: 8,
+            DraftableCaptions: [ComputedCaption.Brass, ComputedCaption.Percussion, ComputedCaption.MusicAnalysis],
+            DraftStartTime: null, DraftTimezone: null, PickTimerSeconds: -1);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => svc.UpdateAsync(league.Id, req, "sub|comm"));
     }
 
     // ── JoinAsync ────────────────────────────────────────────────────────────────

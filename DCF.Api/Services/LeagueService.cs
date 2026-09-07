@@ -22,7 +22,7 @@ public record LeagueDetail(
     IEnumerable<MemberSummary> Members,
     IEnumerable<PickSummary> Picks,
     bool IsMember, bool IsCommissioner, int MaxPlayers,
-    string[] IssueMessages);
+    string[] IssueMessages, int PickTimerSeconds);
 
 public record MemberSummary(Guid UserId, string DisplayName);
 
@@ -89,7 +89,8 @@ public class LeagueService(
         List<ComputedCaption> captions,
         string userSub,
         DateTimeOffset? draftStartTime = null,
-        string? draftTimezone = null)
+        string? draftTimezone = null,
+        int pickTimerSeconds = 0)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Auth0Sub == userSub)
             ?? throw new InvalidOperationException("User not found.");
@@ -122,6 +123,11 @@ public class LeagueService(
                 $"maxPlayers cannot exceed {maxAllowedPlayers} for the given corpsPerCaption.", nameof(maxPlayers));
         }
 
+        if (pickTimerSeconds < 0)
+        {
+            throw new ArgumentException("pickTimerSeconds cannot be negative.", nameof(pickTimerSeconds));
+        }
+
         var league = new LeagueEntity
         {
             Id = Guid.NewGuid(),
@@ -135,7 +141,8 @@ public class LeagueService(
             DraftableCaptions = captions.ToArray(),
             DraftStatus = draftStartTime.HasValue ? DraftStatus.Scheduled : DraftStatus.NotStarted,
             DraftStartTime = draftStartTime?.ToUniversalTime(),
-            DraftTimezone = draftTimezone
+            DraftTimezone = draftTimezone,
+            PickTimerSeconds = pickTimerSeconds
         };
         db.Leagues.Add(league);
         db.LeagueMembers.Add(new LeagueMemberEntity { LeagueId = league.Id, UserId = user.Id });
@@ -269,7 +276,8 @@ public class LeagueService(
             isMember,
             isCommissioner,
             league.MaxPlayers,
-            league.IssueMessages);
+            league.IssueMessages,
+            league.PickTimerSeconds);
     }
 
     public async Task<IReadOnlyList<PublicLeagueSummary>> GetPublicLeaguesAsync()
@@ -345,11 +353,17 @@ public class LeagueService(
             throw new ArgumentException("At least three captions are required");
         }
 
+        if (req.PickTimerSeconds < 0)
+        {
+            throw new ArgumentException("pickTimerSeconds cannot be negative");
+        }
+
         league.CorpsPerCaption = req.CorpsPerCaption;
         league.MaxPlayers = req.MaxPlayers;
         league.DraftableCaptions = req.DraftableCaptions;
         league.IssueMessages = [];
         league.DraftTimezone = req.DraftTimezone;
+        league.PickTimerSeconds = req.PickTimerSeconds;
 
         var originalDraftStartTime = league.DraftStartTime;
         var wasScheduled = originalDraftStartTime.HasValue;

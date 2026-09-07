@@ -8,6 +8,7 @@ import { useUser } from '../context/UserContext';
 import { CorpsIcon } from '../components/CorpsIcon';
 import { Nav } from '../components/Nav';
 import type { SeasonCorps, DraftState, League, PickPreview } from '../types/api';
+import { getPickSecondsRemaining, formatPickTimer, isPickTimerLow } from './DraftRoom.helpers';
 
 const CAPTION_SHORT: Record<string, string> = {
   GeneralEffectCombined: 'GE',
@@ -67,12 +68,14 @@ export function DraftRoom() {
     }
   }, [league, id, navigate]);
 
-  // Countdown timer — only ticks during Open lobby
+  // Countdown timer — ticks during Open lobby, Scheduled lobby, or while a pick timer is running
   useEffect(() => {
-    if (draftState?.status !== 'Open' && league?.draftStatus !== 'Scheduled') return;
+    const needsTicking = draftState?.status === 'Open' || league?.draftStatus === 'Scheduled' ||
+      (draftState?.status === 'InProgress' && !!draftState?.pickDeadline);
+    if (!needsTicking) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [draftState?.status, league?.draftStatus]);
+  }, [draftState?.status, league?.draftStatus, draftState?.pickDeadline]);
 
   // Scroll current drafter into view in the Draft Order panel on each pick
   useEffect(() => {
@@ -110,6 +113,13 @@ export function DraftRoom() {
     if (!isMyTurn || isTaken(corpsId, caption)) return;
     setSelectedCell({ corpsId, caption });
     publishPickPreview(corpsId, caption);
+
+    // Stage the selection server-side too (not just this broadcast preview) so the pick
+    // timer can submit it automatically if it expires before Submit Pick is clicked.
+    // Makeup-phase picks have no timer and the backend rejects selection during it.
+    if (id && !inMakeupPhase) {
+      api.selectPick(id, corpsId, caption).catch(() => {});
+    }
   };
 
   const submitPick = async () => {
@@ -118,6 +128,11 @@ export function DraftRoom() {
     try {
       await api.submitPick(id, selectedCell.corpsId, selectedCell.caption);
       setSelectedCell(null);
+    }
+    catch {
+      // Most often lost the race with the pick timer expiring and auto-submitting this
+      // same selection - draftState updating out from under isMyTurn already clears the
+      // stale Submit UI, so there's nothing further to reconcile here.
     }
     finally {
       setSubmitting(false);
@@ -267,6 +282,9 @@ export function DraftRoom() {
           );
         }
 
+        const pickSecondsRemaining = getPickSecondsRemaining(draftState.pickDeadline, now);
+        const pickTimerLow = isPickTimerLow(pickSecondsRemaining);
+
         return (
           <>
             <div style={{ flex: 1 }}>
@@ -278,6 +296,20 @@ export function DraftRoom() {
                 <span style={{ fontSize: 9, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>· Round {round} · Pick {pick}</span>
               </div>
             </div>
+            {pickSecondsRemaining !== null && (
+              <div style={{ flexShrink: 0, textAlign: 'center' }}>
+                <div style={{ fontSize: 7, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-faint)' }}>Pick Timer</div>
+                <div
+                  data-testid="pick-timer"
+                  style={{
+                    fontSize: 16, fontWeight: 900, fontVariantNumeric: 'tabular-nums',
+                    color: pickTimerLow ? 'var(--red)' : 'var(--text-heading)',
+                  }}
+                >
+                  {formatPickTimer(pickSecondsRemaining)}
+                </div>
+              </div>
+            )}
             {isMyTurn && (
               <div className="draft-bar-submit-row">
                 <div style={{ flexShrink: 0 }}>

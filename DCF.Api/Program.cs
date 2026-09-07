@@ -101,6 +101,10 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ScrapeSchedulerSer
 builder.Services.AddSingleton<DraftSchedulerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DraftSchedulerService>());
 
+builder.Services.AddSingleton<PickTimerService>();
+builder.Services.AddSingleton<IPickTimerService>(sp => sp.GetRequiredService<PickTimerService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<PickTimerService>());
+
 builder.Services.AddSingleton<SeasonStatusService>();
 builder.Services.AddSingleton<ISeasonStatusService>(sp => sp.GetRequiredService<SeasonStatusService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<SeasonStatusService>());
